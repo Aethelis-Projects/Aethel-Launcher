@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aethel-core",
+    "crates/aethel-storage",
+    "crates/aethel-auth",
+    "crates/aethel-manifest",
+    "crates/aethel-download",
+    "crates/aethel-java",
+    "crates/aethel-modding",
+    "crates/aethel-launch",
+    "crates/aethel-tauri",
+    "src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Aethelis Projects <contact@aethelis.org>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Aethelis-Projects/aethel-launcher"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tokio = { version = "1.43", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+sha1 = "0.10"
+sha2 = "0.10"
+md-5 = "0.10"
+uuid = { version = "1.13", features = ["v4", "v3", "serde"] }
+rusqlite = { version = "0.33", features = ["bundled"] }
+specta = { version = "=2.0.0-rc.22", features = ["derive", "serde"] }
+tauri-specta = { version = "=2.0.0-rc.21", default-features = false, features = ["derive", "typescript"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+tempfile = "3.17"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6.0"
+walkdir = "2.5"
+tauri = { version = "2.3.0", features = [] }
+tauri-build = { version = "2.0.5" }
+tauri-plugin-single-instance = { version = "2.2.0" }
+tauri-plugin-opener = { version = "2.2.5" }

@@ -1,0 +1,45 @@
+{
+  "provenance": {
+    "command": "javac tools/Gen.java && java -cp tools Gen",
+    "jdk": ["Temurin 17.0.20.1", "Oracle JRE 1.8.0_503"],
+    "date": "2026-09-04",
+    "notes": "Verified identical output across OpenJDK 17 and JRE 8. Includes Cyrillic character test vector 'Иван' to verify UTF-8 integrity, and case sensitivity vectors."
+  },
+  "vectors": [
+    {
+      "name": "Steve",
+      "input": "OfflinePlayer:Steve",
+      "uuid": "5627dd98-e6be-3c21-b8a8-e92344183641"
+    },
+    {
+      "name": "steve",
+      "input": "OfflinePlayer:steve",
+      "uuid": "53909932-f794-33c0-9329-948045a4c1ce"
+    },
+    {
+      "name": "Alex",
+      "input": "OfflinePlayer:Alex",
+      "uuid": "36532b5e-c442-3dbb-a24c-c7e55d0f979a"
+    },
+    {
+      "name": "alex",
+      "input": "OfflinePlayer:alex",
+      "uuid": "bf20048c-a55a-322c-a100-5493e7b87286"
+    },
+    {
+      "name": "Notch",
+      "input": "OfflinePlayer:Notch",
+      "uuid": "b50ad385-829d-3141-a216-7e7d7539ba7f"
+    },
+    {
+      "name": "Player",
+      "input": "OfflinePlayer:Player",
+      "uuid": "a01e3843-e521-3998-958a-f459800e4d11"
+    },
+    {
+      "name": "Иван",
+      "input": "OfflinePlayer:Иван",
+      "uuid": "52aec35b-0ddc-32b2-a3e0-81e05335e4df"
+    }
+  ]
+}

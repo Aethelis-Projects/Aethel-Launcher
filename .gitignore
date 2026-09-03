@@ -1,0 +1,33 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Rust & Cargo
+target/
+src-tauri/target/
+
+# Tools & downloaded runtimes
+tools/jdk*
+tools/*.class
+tools/*.zip
+tools/out.txt
+
+# Security & Secrets (NEVER commit private keys!)
+*.key
+*.pem
+*.secret
+*.pfx
+*.p12
+.env
+.env.*
+!.env.example

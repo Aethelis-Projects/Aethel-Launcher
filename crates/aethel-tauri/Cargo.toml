@@ -1,0 +1,18 @@
+[package]
+name = "aethel-tauri"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aethel-core = { path = "../aethel-core" }
+aethel-storage = { path = "../aethel-storage" }
+aethel-auth = { path = "../aethel-auth" }
+specta = { workspace = true }
+specta-typescript = "0.0.9"
+tauri-specta = { workspace = true }
+tauri = { workspace = true }
+serde = { workspace = true }
+

@@ -1,0 +1,22 @@
+[package]
+name = "aethel-launcher-bin"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aethel-core = { path = "../crates/aethel-core" }
+aethel-storage = { path = "../crates/aethel-storage" }
+aethel-auth = { path = "../crates/aethel-auth" }
+aethel-tauri = { path = "../crates/aethel-tauri" }
+tauri = { workspace = true }
+tauri-plugin-single-instance = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+specta-typescript = "0.0.9"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[build-dependencies]
+tauri-build = { workspace = true }
