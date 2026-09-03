@@ -1,4 +1,4 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 
 const banned = ['GPL', 'AGPL', 'SSPL'];
@@ -22,7 +22,7 @@ function checkDir(dir) {
                 process.exit(1);
               }
             }
-          } catch (e) {}
+          } catch {}
         }
       }
     }

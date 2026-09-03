@@ -10,6 +10,8 @@ repository.workspace = true
 aethel-core = { path = "../aethel-core" }
 aethel-storage = { path = "../aethel-storage" }
 aethel-auth = { path = "../aethel-auth" }
+aethel-manifest = { path = "../aethel-manifest" }
+aethel-launch = { path = "../aethel-launch" }
 specta = { workspace = true }
 specta-typescript = "0.0.9"
 tauri-specta = { workspace = true }

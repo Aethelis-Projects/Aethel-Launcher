@@ -1,5 +1,6 @@
 [package]
 name = "aethel-launcher-bin"
+default-run = "aethel-launcher-bin"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -10,6 +11,8 @@ repository.workspace = true
 aethel-core = { path = "../crates/aethel-core" }
 aethel-storage = { path = "../crates/aethel-storage" }
 aethel-auth = { path = "../crates/aethel-auth" }
+aethel-manifest = { path = "../crates/aethel-manifest" }
+aethel-launch = { path = "../crates/aethel-launch" }
 aethel-tauri = { path = "../crates/aethel-tauri" }
 tauri = { workspace = true }
 tauri-plugin-single-instance = { workspace = true }

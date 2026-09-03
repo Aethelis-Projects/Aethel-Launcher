@@ -12,15 +12,18 @@ import {
   Box,
   Layers,
   CheckCircle2,
+  Play,
+  Copy,
 } from 'lucide-react'
-import { commands } from './bindings'
+import { commands, type LaunchReceipt } from './bindings'
 
 export function App() {
   const [version, setVersion] = useState<string>('...')
   const [inputName, setInputName] = useState<string>('Steve')
   const [computedUuid, setComputedUuid] = useState<string>('')
   const [isComputing, setIsComputing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'instances' | 'test-uuid' | 'architecture' | 'settings'>('instances')
+  const [receipt, setReceipt] = useState<LaunchReceipt | null>(null)
+  const [activeTab, setActiveTab] = useState<'instances' | 'dry-run' | 'test-uuid' | 'architecture' | 'settings'>('instances')
 
   const handleComputeUuid = async (name: string) => {
     setIsComputing(true)
@@ -34,9 +37,21 @@ export function App() {
     }
   }
 
+  const handleDryRun = async (gameVer: string, name: string) => {
+    try {
+      const res = await commands.getLaunchReceipt(gameVer, name)
+      if (res.status === 'ok') {
+        setReceipt(res.data)
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   useEffect(() => {
     commands.getLauncherVersion().then(setVersion).catch(() => setVersion('0.1.0'))
     handleComputeUuid('Steve')
+    handleDryRun('1.20.4', 'Steve')
   }, [])
 
   return (
@@ -81,6 +96,18 @@ export function App() {
             >
               <Gamepad2 className="h-4 w-4" />
               <span>Instances</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('dry-run')}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
+                activeTab === 'dry-run'
+                  ? 'bg-violet-600 text-white shadow-sm shadow-violet-900/40'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200'
+              }`}
+            >
+              <Terminal className="h-4 w-4" />
+              <span>Launch Synthesizer</span>
             </button>
 
             <button
@@ -161,6 +188,76 @@ export function App() {
                   Phase M0 workspace scaffolding is complete. Next milestone (M1/M2) implements Mojang Version Manifest parsing, assets download, and launch command synthesis.
                 </p>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'dry-run' && (
+            <div className="flex flex-col gap-6 max-w-3xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-lg font-semibold text-zinc-100">Launch Command Synthesizer (Dry Run)</h1>
+                  <p className="text-xs text-zinc-400">
+                    Generates complete command line, arguments, and environment with the 4-tier classpath ladder.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDryRun('1.20.4', inputName)}
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 transition-colors"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    <span>Synthesize 1.20.4</span>
+                  </button>
+                </div>
+              </div>
+
+              {receipt && (
+                <div className="flex flex-col gap-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5">
+                      <span className="text-[11px] text-zinc-500 font-medium">Classpath Strategy:</span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-emerald-400 border border-emerald-500/20">
+                          {receipt.classpath_tier}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5">
+                      <span className="text-[11px] text-zinc-500 font-medium">JVM Executable:</span>
+                      <div className="mt-1 font-mono text-xs text-zinc-300 truncate">
+                        {receipt.command}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-zinc-300">
+                        Synthesized Arguments ({receipt.arguments.length} tokens):
+                      </span>
+                      <button
+                        onClick={() => navigator.clipboard?.writeText(receipt.arguments.join(' '))}
+                        className="flex items-center gap-1 rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-700 transition-colors"
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span>Copy All</span>
+                      </button>
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto rounded-lg bg-zinc-950 p-3 border border-zinc-800/80 font-mono text-[11px] text-zinc-300 space-y-1 select-text">
+                      {receipt.arguments.map((arg, idx) => (
+                        <div key={idx} className="hover:bg-zinc-900/60 px-1 py-0.5 rounded">
+                          <span className="text-zinc-600 mr-2 select-none">{idx + 1}</span>
+                          <span className={arg.startsWith('-') ? 'text-violet-400' : arg.startsWith('net.minecraft') ? 'text-emerald-400 font-semibold' : 'text-zinc-300'}>
+                            {arg}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
