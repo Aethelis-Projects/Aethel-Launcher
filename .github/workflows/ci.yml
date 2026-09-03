@@ -7,6 +7,19 @@ on:
     branches: [ "master", "main" ]
 
 jobs:
+  gitleaks:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   uuid-vectors:
     name: Verify Offline UUID Vectors (${{ matrix.java }})
     runs-on: ubuntu-latest
@@ -34,6 +47,16 @@ jobs:
           python tools/vectors_to_txt.py > tools/expected.txt
           diff -u tools/out.txt tools/expected.txt
 
+  cargo-deny:
+    name: Cargo Deny (Licenses & Advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features licenses advisories bans
+
   rust-checks:
     name: Rust Checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -58,6 +81,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
+      - name: Check Formatting
+        run: cargo fmt --check
+
+      - name: Clippy Linter
+        run: cargo clippy --workspace -- -D warnings
+
       - name: Cargo Check
         run: cargo check --workspace
 
@@ -65,7 +94,7 @@ jobs:
         run: cargo test --workspace
 
   frontend-checks:
-    name: Frontend Build & Lint
+    name: Frontend Build, Lint & Security Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,6 +106,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Frontend License Audit
+        run: npm run audit:licenses
+
+      - name: Frontend Security Audit
+        run: npm run audit:security
 
       - name: Build frontend
         run: npm run build

@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "audit:licenses": "node tools/check_licenses.mjs",
+    "audit:security": "npm audit --audit-level=high",
     "preview": "vite preview"
   },
   "dependencies": {

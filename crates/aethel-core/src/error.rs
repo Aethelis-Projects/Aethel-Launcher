@@ -29,10 +29,7 @@ pub enum AppError {
     Database(String),
 
     #[error("Application error [{code:?}]: {message}")]
-    App {
-        code: AppErrorCode,
-        message: String,
-    },
+    App { code: AppErrorCode, message: String },
 }
 
 impl AppError {

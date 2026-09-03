@@ -14,7 +14,10 @@ impl Database {
     /// enabling WAL journal mode and running all pending schema migrations.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let conn = Connection::open(path).map_err(|e| {
-            AppError::new(AppErrorCode::InternalError, format!("Failed to open database: {}", e))
+            AppError::new(
+                AppErrorCode::InternalError,
+                format!("Failed to open database: {}", e),
+            )
         })?;
 
         // Mandatory WAL mode for crash resilience and concurrent reads
@@ -24,7 +27,10 @@ impl Database {
              PRAGMA foreign_keys = ON;",
         )
         .map_err(|e| {
-            AppError::new(AppErrorCode::InternalError, format!("Failed to set PRAGMA: {}", e))
+            AppError::new(
+                AppErrorCode::InternalError,
+                format!("Failed to set PRAGMA: {}", e),
+            )
         })?;
 
         let mut db = Self { conn };
@@ -35,7 +41,10 @@ impl Database {
     /// In-memory database for testing
     pub fn in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory().map_err(|e| {
-            AppError::new(AppErrorCode::InternalError, format!("Failed to open in-memory db: {}", e))
+            AppError::new(
+                AppErrorCode::InternalError,
+                format!("Failed to open in-memory db: {}", e),
+            )
         })?;
 
         conn.execute_batch(
@@ -44,7 +53,10 @@ impl Database {
              PRAGMA foreign_keys = ON;",
         )
         .map_err(|e| {
-            AppError::new(AppErrorCode::InternalError, format!("Failed to set PRAGMA: {}", e))
+            AppError::new(
+                AppErrorCode::InternalError,
+                format!("Failed to set PRAGMA: {}", e),
+            )
         })?;
 
         let mut db = Self { conn };
@@ -57,7 +69,10 @@ impl Database {
             .conn
             .query_row("PRAGMA user_version;", [], |r| r.get(0))
             .map_err(|e| {
-                AppError::new(AppErrorCode::InternalError, format!("Failed to read user_version: {}", e))
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to read user_version: {}", e),
+                )
             })?;
         Ok(version)
     }
@@ -140,7 +155,10 @@ impl Database {
                 ],
             )
             .map_err(|e| {
-                AppError::new(AppErrorCode::InternalError, format!("Failed to insert instance: {}", e))
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to insert instance: {}", e),
+                )
             })?;
         Ok(())
     }
@@ -160,22 +178,53 @@ impl Database {
             .query(params![id])
             .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
 
-        if let Some(row) = rows.next().map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))? {
+        if let Some(row) = rows
+            .next()
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?
+        {
             Ok(Some(Instance {
-                id: row.get(0).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                name: row.get(1).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                game_version: row.get(2).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                loader: row.get(3).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                loader_version: row.get(4).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                java_path: row.get(5).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                memory_min_mb: row.get(6).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                memory_max_mb: row.get(7).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                jvm_args: row.get(8).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                last_played_at: row.get(9).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                total_playtime_seconds: row.get(10).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                icon_path: row.get(11).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                banner_path: row.get(12).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
-                created_at: row.get(13).map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                id: row
+                    .get(0)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                name: row
+                    .get(1)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                game_version: row
+                    .get(2)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                loader: row
+                    .get(3)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                loader_version: row
+                    .get(4)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                java_path: row
+                    .get(5)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                memory_min_mb: row
+                    .get(6)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                memory_max_mb: row
+                    .get(7)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                jvm_args: row
+                    .get(8)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                last_played_at: row
+                    .get(9)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                total_playtime_seconds: row
+                    .get(10)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                icon_path: row
+                    .get(11)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                banner_path: row
+                    .get(12)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                created_at: row
+                    .get(13)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
             }))
         } else {
             Ok(None)
