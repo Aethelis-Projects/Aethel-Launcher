@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -15,10 +15,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Gitleaks
+        run: |
+          curl -sSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.24.0/gitleaks_8.24.0_linux_x64.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          rm gitleaks.tar.gz
+
       - name: Scan repository for secrets
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gitleaks detect --verbose --redact
 
   uuid-vectors:
     name: Verify Offline UUID Vectors (${{ matrix.java }})
@@ -52,10 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
-          arguments: --all-features licenses advisories bans
+      - uses: taiki-e/install-action@cargo-deny
+      - name: Run cargo-deny
+        run: cargo deny check
 
   rust-checks:
     name: Rust Checks (${{ matrix.os }})

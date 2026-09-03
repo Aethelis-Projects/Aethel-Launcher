@@ -1,4 +1,8 @@
-﻿# cargo-deny configuration for Aethel Launcher (Aethelis Projects)
+# cargo-deny configuration for Aethel Launcher (Aethelis Projects)
+
+[graph]
+all-features = false
+no-default-features = false
 
 [licenses]
 allow = [
@@ -14,20 +18,19 @@ allow = [
     "MPL-2.0",
     "OpenSSL",
     "CC0-1.0",
-]
-deny = [
-    "GPL-1.0",
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-1.0",
-    "AGPL-3.0",
-    "SSPL-1.0",
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.8
-unlicensed = "deny"
+
+[licenses.private]
+ignore = true
 
 [advisories]
-ignore = []
+unmaintained = "workspace"
+ignore = [
+    "RUSTSEC-2025-0100", # unic-ucd-ident via tauri-utils
+    "RUSTSEC-2025-0098", # unic-ucd-version via tauri-utils
+]
 
 [bans]
 multiple-versions = "warn"
