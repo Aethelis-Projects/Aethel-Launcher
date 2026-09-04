@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package } from 'lucide-react';
 import { useInstanceStore } from '../store/instanceStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
-import { commands } from '../bindings';
+import { commands, type Instance } from '../bindings';
 import { localizeError } from '../utils/errors';
+import { ModManagerModal } from './ModManagerModal';
 
 export const InstanceGrid: React.FC = () => {
   const { t } = useTranslation();
+  const [activeModManagerInstance, setActiveModManagerInstance] = useState<Instance | null>(null);
   const {
     instances,
     selectedInstanceId,
@@ -141,15 +143,28 @@ export const InstanceGrid: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Button */}
-              <div className="p-3 bg-zinc-950/60 border-t border-zinc-800/60 flex items-center justify-end">
+              {/* Action Buttons */}
+              <div className="p-3 bg-zinc-950/60 border-t border-zinc-800/60 flex items-center gap-2">
+                <button
+                  data-testid={`manage-mods-${instance.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveModManagerInstance(instance);
+                  }}
+                  className="py-2 px-3 rounded-lg font-medium text-xs flex items-center justify-center gap-1.5 bg-zinc-800/90 hover:bg-zinc-700/90 text-zinc-300 border border-zinc-700/50 hover:border-zinc-600 transition-colors shadow-sm"
+                  title={t('mods.title')}
+                >
+                  <Package className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{t('mods.title')}</span>
+                </button>
+
                 <button
                   disabled={isLaunching}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleLaunch(instance.id, instance.game_version);
                   }}
-                  className={`w-full py-2 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all ${
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-all ${
                     isRunning
                       ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950'
                       : isLaunching
@@ -179,6 +194,18 @@ export const InstanceGrid: React.FC = () => {
           );
         })}
       </div>
+
+      {activeModManagerInstance && (
+        <ModManagerModal
+          isOpen={activeModManagerInstance !== null}
+          onClose={() => setActiveModManagerInstance(null)}
+          instanceId={activeModManagerInstance.id}
+          instanceName={activeModManagerInstance.name}
+          gameVersion={activeModManagerInstance.game_version}
+          loader={activeModManagerInstance.loader}
+          loaderVersion={activeModManagerInstance.loader_version}
+        />
+      )}
     </div>
   );
 };

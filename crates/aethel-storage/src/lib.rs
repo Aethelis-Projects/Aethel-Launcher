@@ -232,6 +232,26 @@ impl Database {
         }
     }
 
+    pub fn update_instance_loader(
+        &self,
+        id: &str,
+        loader: Option<&str>,
+        loader_version: Option<&str>,
+    ) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE instances SET loader = ?1, loader_version = ?2 WHERE id = ?3;",
+                params![loader, loader_version, id],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to update instance loader: {e}"),
+                )
+            })?;
+        Ok(())
+    }
+
     pub fn list_instances(&self) -> Result<Vec<Instance>> {
         let mut stmt = self
             .conn
@@ -559,6 +579,12 @@ mod tests {
         let fetched = db.get_instance("inst-1").expect("get").expect("found");
         assert_eq!(fetched.name, "Vanilla 1.20.4");
         assert_eq!(fetched.game_version, "1.20.4");
+
+        db.update_instance_loader("inst-1", Some("fabric"), Some("0.15.7"))
+            .expect("update loader");
+        let updated = db.get_instance("inst-1").unwrap().unwrap();
+        assert_eq!(updated.loader.as_deref(), Some("fabric"));
+        assert_eq!(updated.loader_version.as_deref(), Some("0.15.7"));
 
         let all = db.list_instances().expect("list");
         assert_eq!(all.len(), 1);

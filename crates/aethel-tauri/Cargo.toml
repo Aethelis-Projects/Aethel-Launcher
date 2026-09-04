@@ -13,6 +13,7 @@ aethel-auth = { path = "../aethel-auth" }
 aethel-manifest = { path = "../aethel-manifest" }
 aethel-launch = { path = "../aethel-launch" }
 aethel-java = { path = "../aethel-java" }
+aethel-modding = { path = "../aethel-modding" }
 specta = { workspace = true }
 specta-typescript = "0.0.9"
 tauri-specta = { workspace = true }
@@ -21,3 +22,6 @@ serde = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
 
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }

@@ -80,6 +80,28 @@ export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknow
     case 'set_active_account':
     case 'logout':
       return null;
+    case 'search_mods':
+      return [];
+    case 'get_mod_versions':
+      return [];
+    case 'install_mod':
+      return { to_install: [], optional_suggestions: [], conflicts: [] };
+    case 'install_modloader':
+      return 'fabric-loader-0.16.10-1.20.4';
+    case 'uninstall_modloader':
+      return null;
+    case 'get_modloader_versions':
+      return [
+        { loader: 'Fabric', version: '0.16.10', game_version: '1.20.4', stable: true },
+        { loader: 'Fabric', version: '0.15.11', game_version: '1.20.4', stable: true },
+      ];
+    case 'list_installed_mods':
+      return [];
+    case 'toggle_mod':
+    case 'delete_mod':
+      return null;
+    case 'check_mod_updates':
+      return [];
     default:
       throw new Error(`Unmocked command: ${cmd} with args: ${JSON.stringify(args)}`);
   }

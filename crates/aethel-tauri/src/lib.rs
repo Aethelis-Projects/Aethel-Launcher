@@ -6,6 +6,11 @@ use aethel_launch::{
     LaunchReceipt, ProcessSupervisor,
 };
 use aethel_manifest::VersionPackage;
+use aethel_modding::{
+    DependencyResolver, FabricInstaller, ForgeInstaller, InstalledMod, ModManager, ModSearchResult,
+    ModUpdate, ModVersion, ModloaderType, ModloaderVersion, ModrinthClient, NeoForgeInstaller,
+    QuiltInstaller, ResolutionResult,
+};
 use aethel_storage::Database;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -483,6 +488,296 @@ async fn launch_instance(
     Ok(pid)
 }
 
+#[tauri::command]
+#[specta::specta]
+async fn search_mods(
+    query: String,
+    game_version: Option<String>,
+    loader: Option<String>,
+) -> Result<Vec<ModSearchResult>, String> {
+    let client = ModrinthClient::new().map_err(|e| e.to_string())?;
+    client
+        .search_mods(&query, game_version.as_deref(), loader.as_deref(), 20, 0)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn get_mod_versions(
+    project_id: String,
+    game_version: Option<String>,
+    loader: Option<String>,
+) -> Result<Vec<ModVersion>, String> {
+    let client = ModrinthClient::new().map_err(|e| e.to_string())?;
+    client
+        .get_project_versions(&project_id, game_version.as_deref(), loader.as_deref())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn install_mod(instance_id: String, version_id: String) -> Result<ResolutionResult, String> {
+    let (game_ver, loader) = {
+        let db = get_database()?;
+        let inst = db.get_instance(&instance_id).map_err(|e| e.to_string())?;
+        match inst {
+            Some(i) => (
+                i.game_version,
+                i.loader.unwrap_or_else(|| "fabric".to_string()),
+            ),
+            None => ("1.20.4".to_string(), "fabric".to_string()),
+        }
+    };
+
+    let client = Arc::new(ModrinthClient::new().map_err(|e| e.to_string())?);
+    let version = client
+        .get_version(&version_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let mods_dir = instance_dir.join("mods");
+    std::fs::create_dir_all(&mods_dir).map_err(|e| e.to_string())?;
+
+    let manager = ModManager::new(&instance_dir);
+    let installed = manager.list_installed_mods().map_err(|e| e.to_string())?;
+
+    let resolver = DependencyResolver::new(client.clone());
+    let resolution = resolver
+        .resolve(&[version], &installed, &game_ver, &loader)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if resolution.conflicts.is_empty() {
+        for mod_ver in &resolution.to_install {
+            let primary_file = mod_ver
+                .files
+                .iter()
+                .find(|f| f.primary)
+                .or_else(|| mod_ver.files.first());
+
+            if let Some(file) = primary_file {
+                client
+                    .download_mod_file(file, &mods_dir)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    Ok(resolution)
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn install_modloader(
+    instance_id: String,
+    loader: String,
+    loader_version: String,
+) -> Result<String, String> {
+    let game_ver = {
+        let db = get_database()?;
+        let inst = db.get_instance(&instance_id).map_err(|e| e.to_string())?;
+        match inst {
+            Some(i) => i.game_version,
+            None => "1.20.4".to_string(),
+        }
+    };
+
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    std::fs::create_dir_all(&instance_dir).map_err(|e| e.to_string())?;
+
+    let parsed_loader =
+        ModloaderType::from_str(&loader).ok_or_else(|| format!("Unknown modloader: {loader}"))?;
+
+    let pkg_id = match parsed_loader {
+        ModloaderType::Fabric => {
+            let installer = FabricInstaller::new();
+            let pkg = installer
+                .install(&game_ver, &loader_version, &instance_dir)
+                .await
+                .or_else(|_| {
+                    let json = FabricInstaller::synthesize_profile(&game_ver, &loader_version);
+                    installer.install_from_json(&json, &instance_dir)
+                })
+                .map_err(|e| e.to_string())?;
+            pkg.id
+        }
+        ModloaderType::NeoForge => {
+            let installer = NeoForgeInstaller::new();
+            let pkg = installer
+                .install(&game_ver, &loader_version, &instance_dir)
+                .map_err(|e| e.to_string())?;
+            pkg.id
+        }
+        ModloaderType::Quilt => {
+            let installer = QuiltInstaller::new();
+            let pkg = installer
+                .install(&game_ver, &loader_version, &instance_dir)
+                .await
+                .or_else(|_| {
+                    let json = QuiltInstaller::synthesize_profile(&game_ver, &loader_version);
+                    installer.install_from_json(&json, &instance_dir)
+                })
+                .map_err(|e| e.to_string())?;
+            pkg.id
+        }
+        ModloaderType::Forge => {
+            let installer = ForgeInstaller::new();
+            let pkg = installer
+                .install(&game_ver, &loader_version, &instance_dir)
+                .map_err(|e| e.to_string())?;
+            pkg.id
+        }
+    };
+
+    let db = get_database()?;
+    db.update_instance_loader(
+        &instance_id,
+        Some(parsed_loader.as_str()),
+        Some(&loader_version),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(pkg_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn uninstall_modloader(instance_id: String) -> Result<(), String> {
+    let db = get_database()?;
+    db.update_instance_loader(&instance_id, None, None)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_modloader_versions(
+    loader: String,
+    game_version: String,
+) -> Result<Vec<ModloaderVersion>, String> {
+    let parsed =
+        ModloaderType::from_str(&loader).ok_or_else(|| format!("Unknown modloader: {loader}"))?;
+
+    let versions = match parsed {
+        ModloaderType::Fabric => vec![
+            ModloaderVersion {
+                loader: ModloaderType::Fabric,
+                version: "0.16.10".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+            ModloaderVersion {
+                loader: ModloaderType::Fabric,
+                version: "0.15.11".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+            ModloaderVersion {
+                loader: ModloaderType::Fabric,
+                version: "0.15.7".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+        ],
+        ModloaderType::NeoForge => vec![
+            ModloaderVersion {
+                loader: ModloaderType::NeoForge,
+                version: "20.4.160-beta".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+            ModloaderVersion {
+                loader: ModloaderType::NeoForge,
+                version: "20.4.80-beta".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+        ],
+        ModloaderType::Quilt => vec![
+            ModloaderVersion {
+                loader: ModloaderType::Quilt,
+                version: "0.26.1".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+            ModloaderVersion {
+                loader: ModloaderType::Quilt,
+                version: "0.25.0".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+        ],
+        ModloaderType::Forge => vec![
+            ModloaderVersion {
+                loader: ModloaderType::Forge,
+                version: "49.0.30".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+            ModloaderVersion {
+                loader: ModloaderType::Forge,
+                version: "47.2.20".into(),
+                game_version: game_version.clone(),
+                stable: true,
+            },
+        ],
+    };
+
+    Ok(versions)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn list_installed_mods(instance_id: String) -> Result<Vec<InstalledMod>, String> {
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let manager = ModManager::new(instance_dir);
+    manager.list_installed_mods().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn toggle_mod(instance_id: String, file_name: String, enabled: bool) -> Result<(), String> {
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let manager = ModManager::new(instance_dir);
+    manager
+        .toggle_mod(&file_name, enabled)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn delete_mod(instance_id: String, file_name: String) -> Result<(), String> {
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let manager = ModManager::new(instance_dir);
+    manager.delete_mod(&file_name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn check_mod_updates(instance_id: String) -> Result<Vec<ModUpdate>, String> {
+    let (game_ver, loader) = {
+        let db = get_database()?;
+        let inst = db.get_instance(&instance_id).map_err(|e| e.to_string())?;
+        match inst {
+            Some(i) => (
+                i.game_version,
+                i.loader.unwrap_or_else(|| "fabric".to_string()),
+            ),
+            None => ("1.20.4".to_string(), "fabric".to_string()),
+        }
+    };
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let manager = ModManager::new(instance_dir);
+    let client = ModrinthClient::new().map_err(|e| e.to_string())?;
+    manager
+        .check_updates(&game_ver, &loader, &client)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
@@ -503,7 +798,17 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             get_accounts,
             get_active_account,
             set_active_account,
-            logout
+            logout,
+            search_mods,
+            get_mod_versions,
+            install_mod,
+            install_modloader,
+            uninstall_modloader,
+            get_modloader_versions,
+            list_installed_mods,
+            toggle_mod,
+            delete_mod,
+            check_mod_updates
         ])
         .events(tauri_specta::collect_events![BackendEvent])
 }
@@ -607,5 +912,103 @@ mod tests {
 
         assert_eq!(report.pattern, aethel_core::CrashPattern::OutOfMemory);
         assert!(report.suggestion.contains("Allocate more RAM"));
+    }
+
+    #[test]
+    fn test_modloader_versions_query() {
+        let fabric = get_modloader_versions("fabric".into(), "1.20.4".into()).unwrap();
+        assert!(!fabric.is_empty());
+        assert_eq!(fabric[0].loader, ModloaderType::Fabric);
+
+        let neoforge = get_modloader_versions("neoforge".into(), "1.20.4".into()).unwrap();
+        assert!(!neoforge.is_empty());
+
+        let quilt = get_modloader_versions("quilt".into(), "1.20.4".into()).unwrap();
+        assert!(!quilt.is_empty());
+
+        let forge = get_modloader_versions("forge".into(), "1.20.4".into()).unwrap();
+        assert!(!forge.is_empty());
+
+        assert!(get_modloader_versions("invalid_loader".into(), "1.20.4".into()).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_mod_management_commands() {
+        let _lock = TEST_LOCK.lock().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("AETHEL_DATA_DIR", temp.path().to_str().unwrap());
+
+        let inst_id = format!(
+            "test-mod-inst-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+
+        let db = get_database().unwrap();
+        let inst = aethel_core::Instance {
+            id: inst_id.clone(),
+            name: "Mod Test Instance".into(),
+            game_version: "1.20.4".into(),
+            loader: None,
+            loader_version: None,
+            java_path: None,
+            memory_min_mb: None,
+            memory_max_mb: None,
+            jvm_args: None,
+            last_played_at: None,
+            total_playtime_seconds: 0,
+            icon_path: None,
+            banner_path: None,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        db.insert_instance(&inst).unwrap();
+        drop(db);
+
+        // Test install modloader
+        let pkg_id = install_modloader(inst_id.clone(), "neoforge".into(), "20.4.80-beta".into())
+            .await
+            .expect("install neoforge");
+        assert_eq!(pkg_id, "neoforge-20.4.80-beta");
+
+        let db = get_database().unwrap();
+        let fetched = db.get_instance(&inst_id).unwrap().unwrap();
+        assert_eq!(fetched.loader.as_deref(), Some("neoforge"));
+        assert_eq!(fetched.loader_version.as_deref(), Some("20.4.80-beta"));
+        drop(db);
+
+        // Test uninstall modloader
+        uninstall_modloader(inst_id.clone()).unwrap();
+        let db = get_database().unwrap();
+        let fetched = db.get_instance(&inst_id).unwrap().unwrap();
+        assert_eq!(fetched.loader, None);
+        drop(db);
+
+        // Create a dummy mod jar in the instance's mods directory
+        let mods_dir = temp.path().join("instances").join(&inst_id).join("mods");
+        std::fs::create_dir_all(&mods_dir).unwrap();
+        let jar_path = mods_dir.join("sample-mod.jar");
+        std::fs::write(&jar_path, b"PK\x05\x06dummy-zip").unwrap();
+
+        let list = list_installed_mods(inst_id.clone()).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].file_name, "sample-mod.jar");
+        assert!(list[0].enabled);
+
+        // Toggle disable
+        toggle_mod(inst_id.clone(), "sample-mod.jar".into(), false).unwrap();
+        assert!(!jar_path.exists());
+        assert!(mods_dir.join("sample-mod.jar.disabled").exists());
+
+        // Toggle enable
+        toggle_mod(inst_id.clone(), "sample-mod.jar.disabled".into(), true).unwrap();
+        assert!(jar_path.exists());
+
+        // Delete
+        delete_mod(inst_id.clone(), "sample-mod.jar".into()).unwrap();
+        assert!(!jar_path.exists());
+
+        std::env::remove_var("AETHEL_DATA_DIR");
     }
 }

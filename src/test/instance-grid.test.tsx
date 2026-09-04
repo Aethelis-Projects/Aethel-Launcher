@@ -19,10 +19,12 @@ describe('InstanceGrid Smoke Component Suite', () => {
     expect(screen.getAllByText(/1.20.4/i).length).toBeGreaterThan(0);
 
     // Find and click Play button
-    const playButtons = screen.getAllByRole('button');
-    expect(playButtons.length).toBeGreaterThan(0);
+    const playButton =
+      screen.getAllByRole('button').find((b) =>
+        b.textContent?.includes('Play') || b.textContent?.includes('Играть')
+      ) || screen.getAllByRole('button')[0];
 
-    fireEvent.click(playButtons[0]);
+    fireEvent.click(playButton);
 
     await waitFor(() => {
       expect(launchSpy).toHaveBeenCalled();

@@ -138,6 +138,86 @@ async logout(uuid: string) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async searchMods(query: string, gameVersion: string | null, loader: string | null) : Promise<Result<ModSearchResult[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("search_mods", { query, gameVersion, loader }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getModVersions(projectId: string, gameVersion: string | null, loader: string | null) : Promise<Result<ModVersion[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_mod_versions", { projectId, gameVersion, loader }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async installMod(instanceId: string, versionId: string) : Promise<Result<ResolutionResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_mod", { instanceId, versionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async installModloader(instanceId: string, loader: string, loaderVersion: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_modloader", { instanceId, loader, loaderVersion }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async uninstallModloader(instanceId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("uninstall_modloader", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getModloaderVersions(loader: string, gameVersion: string) : Promise<Result<ModloaderVersion[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_modloader_versions", { loader, gameVersion }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listInstalledMods(instanceId: string) : Promise<Result<InstalledMod[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_installed_mods", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async toggleMod(instanceId: string, fileName: string, enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("toggle_mod", { instanceId, fileName, enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteMod(instanceId: string, fileName: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_mod", { instanceId, fileName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async checkModUpdates(instanceId: string) : Promise<Result<ModUpdate[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("check_mod_updates", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -161,13 +241,25 @@ export type AppErrorCode = "NO_DISK_SPACE" | "NETWORK_ERROR" | "HASH_MISMATCH" |
 export type BackendEvent = { type: "DownloadProgress"; data: { task_id: string; current: number; total: number; speed_bps: number; file_name: string } } | { type: "DownloadBatchProgress"; data: { items: DownloadProgressItem[] } } | { type: "DownloadCompleted"; data: { task_id: string } } | { type: "DownloadFailed"; data: { task_id: string; error_code: AppErrorCode; message: string } } | { type: "ProcessStarting"; data: { instance_id: string } } | { type: "ProcessStarted"; data: { instance_id: string; pid: number } } | { type: "ProcessLog"; data: { instance_id: string; line: string; is_stderr: boolean } } | { type: "ProcessLogBatch"; data: { instance_id: string; lines: string[] } } | { type: "ProcessExited"; data: { instance_id: string; exit_code: number | null } } | { type: "ProcessCrashed"; data: { instance_id: string; report: CrashReport } } | { type: "InstanceUpdated"; data: { instance_id: string } }
 export type CrashPattern = "OutOfMemory" | { ClassNotFound: string } | { NoClassDefFound: string } | { UnsatisfiedLink: string } | { WrongJavaVersion: { expected: number; actual: number | null } } | "GpuDriverIssue" | { ModConflict: string } | "Unknown"
 export type CrashReport = { pattern: CrashPattern; diagnosis: string; suggestion: string; full_log: string; exit_code: number | null; upload_url: string | null }
+export type DependencyConflict = { mod_a: string; mod_b: string; reason: string }
+export type DependencyType = "Required" | "Optional" | "Incompatible" | "Embedded"
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
+export type InstalledMod = { id: string; name: string; version: string; file_name: string; enabled: boolean; description: string | null; authors: string[]; project_id: string | null }
 export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string }
 export type JavaInfo = { path: string; version: string; major: number; arch: string; vendor: string | null; is_system: boolean }
 /**
  * Structured receipt representing synthesized launch parameters.
  */
 export type LaunchReceipt = { java_path: string; working_dir: string; command: string; arguments: string[]; environment: Partial<{ [key in string]: string }>; classpath_tier: string }
+export type ModDependency = { project_id: string | null; version_id: string | null; file_name: string | null; dependency_type: DependencyType }
+export type ModFile = { url: string; filename: string; primary: boolean; size: number; hashes: ModFileHashes }
+export type ModFileHashes = { sha1: string | null; sha512: string | null }
+export type ModSearchResult = { project_id: string; slug: string; title: string; description: string; author: string; downloads: number; follows: number; icon_url: string | null; categories: string[]; versions: string[] }
+export type ModUpdate = { project_id: string; current_version: string; latest_version: string; download_url: string }
+export type ModVersion = { version_id: string; project_id: string; version_number: string; name: string; game_versions: string[]; loaders: string[]; files: ModFile[]; dependencies: ModDependency[]; date_published: string }
+export type ModloaderType = "Fabric" | "NeoForge" | "Quilt" | "Forge"
+export type ModloaderVersion = { loader: ModloaderType; version: string; game_version: string; stable: boolean }
+export type ResolutionResult = { to_install: ModVersion[]; optional_suggestions: ModVersion[]; conflicts: DependencyConflict[] }
 
 /** tauri-specta globals **/
 

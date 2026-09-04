@@ -176,9 +176,22 @@ name = "aethel-modding"
 version = "0.1.0"
 dependencies = [
  "aethel-core",
+ "aethel-download",
+ "aethel-manifest",
+ "chrono",
  "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "specta",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
+ "tracing",
+ "urlencoding",
+ "walkdir",
+ "zip",
 ]
 
 [[package]]
@@ -202,6 +215,7 @@ dependencies = [
  "aethel-java",
  "aethel-launch",
  "aethel-manifest",
+ "aethel-modding",
  "aethel-storage",
  "chrono",
  "dirs",
@@ -210,6 +224,8 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-specta",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

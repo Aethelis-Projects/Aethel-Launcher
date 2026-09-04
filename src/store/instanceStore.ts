@@ -15,6 +15,7 @@ interface InstanceState {
   setLaunchStatus: (id: string, status: InstanceLaunchStatus) => void;
   setLastReceipt: (receipt: LaunchReceipt | null) => void;
   setLastError: (error: string | null) => void;
+  updateInstanceLoader: (id: string, loader: string | null, loaderVersion: string | null) => void;
 }
 
 const defaultInstances: Instance[] = [
@@ -88,4 +89,10 @@ export const useInstanceStore = create<InstanceState>((set) => ({
     })),
   setLastReceipt: (receipt) => set({ lastReceipt: receipt, lastError: null }),
   setLastError: (error) => set({ lastError: error }),
+  updateInstanceLoader: (id, loader, loaderVersion) =>
+    set((state) => ({
+      instances: state.instances.map((inst) =>
+        inst.id === id ? { ...inst, loader, loader_version: loaderVersion } : inst
+      ),
+    })),
 }));
