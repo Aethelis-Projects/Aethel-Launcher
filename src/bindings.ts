@@ -75,6 +75,41 @@ async downloadJre(major: number) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getInstalledRuntimes() : Promise<Result<InstalledRuntime[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_installed_runtimes") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async downloadRuntime(major: number, provider: string | null) : Promise<Result<InstalledRuntime, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_runtime", { major, provider }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteRuntime(major: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_runtime", { major }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getRecommendedJava(gameVersion: string) : Promise<number> {
+    return await TAURI_INVOKE("get_recommended_java", { gameVersion });
+},
+async resolveJavaForInstance(gameVersion: string, manualPath: string | null, provider: string | null) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("resolve_java_for_instance", { gameVersion, manualPath, provider }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async uploadCrashToMclogs(logContent: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("upload_crash_to_mclogs", { logContent }) };
@@ -235,9 +270,9 @@ async checkForUpdates(channel: string | null) : Promise<Result<UpdateInfo | null
     else return { status: "error", error: e  as any };
 }
 },
-async downloadAndInstallUpdate(channel: string | null) : Promise<Result<null, string>> {
+async downloadAndInstallUpdate(channel: string | null, downloadUrl: string | null) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("download_and_install_update", { channel }) };
+    return { status: "ok", data: await TAURI_INVOKE("download_and_install_update", { channel, downloadUrl }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -301,6 +336,7 @@ export type DependencyConflict = { mod_a: string; mod_b: string; reason: string 
 export type DependencyType = "Required" | "Optional" | "Incompatible" | "Embedded"
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
 export type InstalledMod = { id: string; name: string; version: string; file_name: string; enabled: boolean; description: string | null; authors: string[]; project_id: string | null }
+export type InstalledRuntime = { major: number; path: string; provider: string; version_str: string }
 export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string }
 export type JavaInfo = { path: string; version: string; major: number; arch: string; vendor: string | null; is_system: boolean }
 /**
@@ -316,7 +352,7 @@ export type ModVersion = { version_id: string; project_id: string; version_numbe
 export type ModloaderType = "Fabric" | "NeoForge" | "Quilt" | "Forge"
 export type ModloaderVersion = { loader: ModloaderType; version: string; game_version: string; stable: boolean }
 export type ResolutionResult = { to_install: ModVersion[]; optional_suggestions: ModVersion[]; conflicts: DependencyConflict[] }
-export type UpdateInfo = { version: string; date: string; body: string; download_size: number }
+export type UpdateInfo = { version: string; date: string; body: string; download_size: number; download_url: string | null }
 
 /** tauri-specta globals **/
 

@@ -13,6 +13,25 @@ pub struct UpdateInfo {
     pub date: String,
     pub body: String,
     pub download_size: u64,
+    pub download_url: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitHubAsset {
+    pub name: String,
+    pub browser_download_url: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitHubRelease {
+    pub tag_name: String,
+    pub name: Option<String>,
+    pub body: Option<String>,
+    pub published_at: Option<String>,
+    pub prerelease: bool,
+    pub draft: bool,
+    pub assets: Vec<GitHubAsset>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,11 +140,92 @@ pub fn evaluate_manifest(
             .clone()
             .unwrap_or_else(|| "Bug fixes and improvements.".to_string()),
         download_size: platform.download_size.unwrap_or(0),
+        download_url: Some(platform.url.clone()),
     })
 }
 
-/// Checks for updates against the configured endpoint.
-/// Includes graceful offline mode fallback (returns Ok(None) when network or endpoint is unreachable).
+/// Parses a GitHubRelease and evaluates if an update is available for current version and target platform.
+pub fn evaluate_github_release(
+    release: &GitHubRelease,
+    current_version_str: &str,
+    platform_target: &str,
+) -> Option<UpdateInfo> {
+    let current_ver = Version::parse(current_version_str.trim_start_matches('v')).ok()?;
+    let target_ver = Version::parse(release.tag_name.trim_start_matches('v')).ok()?;
+
+    if target_ver <= current_ver {
+        return None;
+    }
+
+    let (matched_asset, dl_size) = match platform_target {
+        "windows-x86_64" => {
+            let asset = release
+                .assets
+                .iter()
+                .find(|a| a.name.ends_with(".exe") && a.name.contains("setup"))
+                .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".msi")))
+                .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".exe")));
+            (
+                asset.map(|a| a.browser_download_url.clone()),
+                asset.map(|a| a.size).unwrap_or(0),
+            )
+        }
+        "linux-x86_64" => {
+            let asset = release
+                .assets
+                .iter()
+                .find(|a| a.name.ends_with(".AppImage"))
+                .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".deb")));
+            (
+                asset.map(|a| a.browser_download_url.clone()),
+                asset.map(|a| a.size).unwrap_or(0),
+            )
+        }
+        "darwin-aarch64" => {
+            let asset = release
+                .assets
+                .iter()
+                .find(|a| a.name.ends_with(".dmg") && a.name.contains("aarch64"))
+                .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".dmg")));
+            (
+                asset.map(|a| a.browser_download_url.clone()),
+                asset.map(|a| a.size).unwrap_or(0),
+            )
+        }
+        "darwin-x86_64" => {
+            let asset = release
+                .assets
+                .iter()
+                .find(|a| a.name.ends_with(".dmg") && a.name.contains("x64"))
+                .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".dmg")));
+            (
+                asset.map(|a| a.browser_download_url.clone()),
+                asset.map(|a| a.size).unwrap_or(0),
+            )
+        }
+        _ => (None, 0),
+    };
+
+    Some(UpdateInfo {
+        version: release.tag_name.clone(),
+        date: release
+            .published_at
+            .clone()
+            .unwrap_or_else(|| "Unknown".to_string()),
+        body: release
+            .body
+            .clone()
+            .unwrap_or_else(|| "Bug fixes and improvements.".to_string()),
+        download_size: dl_size,
+        download_url: matched_asset,
+    })
+}
+
+static RELEASE_CACHE: std::sync::Mutex<Option<(std::time::Instant, String, Option<UpdateInfo>)>> =
+    std::sync::Mutex::new(None);
+
+/// Checks for updates against GitHub Releases API or configured manifest.
+/// Includes in-memory cache (TTL 15 minutes) and graceful offline mode fallback.
 pub async fn check_for_updates_internal(
     channel: Option<String>,
     endpoint_override: Option<String>,
@@ -133,17 +233,18 @@ pub async fn check_for_updates_internal(
 ) -> Result<Option<UpdateInfo>, String> {
     let chan = channel.unwrap_or_else(|| "stable".to_string());
 
-    let url = if let Some(custom) = endpoint_override {
-        custom
-    } else if let Ok(custom_env) = std::env::var("AETHEL_UPDATE_URL") {
-        custom_env
-    } else if chan == "beta" {
-        "https://github.com/Aethelis-Projects/aethel-launcher/releases/download/beta/latest.json"
-            .to_string()
-    } else {
-        "https://github.com/Aethelis-Projects/aethel-launcher/releases/latest/download/latest.json"
-            .to_string()
-    };
+    // 1. Check in-memory cache (TTL 15 min) unless custom endpoint is provided
+    if endpoint_override.is_none() {
+        if let Ok(guard) = RELEASE_CACHE.lock() {
+            if let Some((ts, ref cached_chan, ref info)) = *guard {
+                if cached_chan == &chan && ts.elapsed() < std::time::Duration::from_secs(15 * 60) {
+                    return Ok(info.clone());
+                }
+            }
+        }
+    }
+
+    let target = current_platform_target();
 
     let client = match reqwest::Client::builder()
         .user_agent("aethel-launcher/0.1.0 (Aethelis Projects)")
@@ -151,25 +252,70 @@ pub async fn check_for_updates_internal(
         .build()
     {
         Ok(c) => c,
-        Err(_) => return Ok(None), // Offline mode fallback
+        Err(_) => return Ok(None), // Offline fallback
     };
 
-    let resp = match client.get(&url).send().await {
-        Ok(r) => r,
-        Err(_) => return Ok(None), // Offline mode fallback
-    };
-
-    if !resp.status().is_success() {
+    // If custom endpoint or AETHEL_UPDATE_URL is provided, query manifest directly
+    if let Some(custom) = endpoint_override.or_else(|| std::env::var("AETHEL_UPDATE_URL").ok()) {
+        if let Ok(resp) = client.get(&custom).send().await {
+            if resp.status().is_success() {
+                if let Ok(manifest) = resp.json::<UpdateManifest>().await {
+                    let res = evaluate_manifest(&manifest, current_version, target);
+                    return Ok(res);
+                }
+            }
+        }
         return Ok(None);
     }
 
-    let manifest: UpdateManifest = match resp.json().await {
-        Ok(m) => m,
-        Err(_) => return Ok(None),
+    // 2. Query GitHub Releases API for real-time release notes & assets
+    let gh_api_url =
+        "https://api.github.com/repos/Aethelis-Projects/Aethel-Launcher/releases?per_page=5";
+    if let Ok(resp) = client.get(gh_api_url).send().await {
+        if resp.status().is_success() {
+            if let Ok(releases) = resp.json::<Vec<GitHubRelease>>().await {
+                let candidate = releases.into_iter().find(|r| {
+                    if r.draft {
+                        return false;
+                    }
+                    if chan == "stable" {
+                        !r.prerelease
+                    } else {
+                        true
+                    }
+                });
+
+                if let Some(rel) = candidate {
+                    let info = evaluate_github_release(&rel, current_version, target);
+                    if let Ok(mut guard) = RELEASE_CACHE.lock() {
+                        *guard = Some((std::time::Instant::now(), chan.clone(), info.clone()));
+                    }
+                    return Ok(info);
+                }
+            }
+        }
+    }
+
+    // 3. Fallback to static manifest
+    let fallback_url = if chan == "beta" {
+        "https://github.com/Aethelis-Projects/aethel-launcher/releases/download/beta/latest.json"
+    } else {
+        "https://github.com/Aethelis-Projects/aethel-launcher/releases/latest/download/latest.json"
     };
 
-    let target = current_platform_target();
-    Ok(evaluate_manifest(&manifest, current_version, target))
+    if let Ok(resp) = client.get(fallback_url).send().await {
+        if resp.status().is_success() {
+            if let Ok(manifest) = resp.json::<UpdateManifest>().await {
+                let info = evaluate_manifest(&manifest, current_version, target);
+                if let Ok(mut guard) = RELEASE_CACHE.lock() {
+                    *guard = Some((std::time::Instant::now(), chan, info.clone()));
+                }
+                return Ok(info);
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 #[cfg(test)]

@@ -104,6 +104,30 @@ export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknow
       return null;
     case 'check_mod_updates':
       return [];
+    case 'get_installed_runtimes':
+      return [
+        { major: 21, path: 'runtimes/java-21/bin/javaw.exe', provider: 'Adoptium', version_str: 'Java 21' }
+      ];
+    case 'download_runtime':
+      return {
+        major: (args?.major as number) || 21,
+        path: `runtimes/java-${args?.major || 21}/bin/javaw.exe`,
+        provider: (args?.provider as string) || 'Adoptium',
+        version_str: `Java ${args?.major || 21}`
+      };
+    case 'delete_runtime':
+      return null;
+    case 'get_recommended_java':
+      return 21;
+    case 'resolve_java_for_instance':
+      return 'runtimes/java-21/bin/javaw.exe';
+    case 'check_for_updates':
+      return null;
+    case 'download_and_install_update':
+      return null;
+    case 'export_instance_backup':
+    case 'export_modpack':
+      return null;
     default:
       throw new Error(`Unmocked command: ${cmd} with args: ${JSON.stringify(args)}`);
   }

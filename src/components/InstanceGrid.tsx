@@ -28,17 +28,31 @@ export const InstanceGrid: React.FC = () => {
     lastError,
   } = useInstanceStore();
 
-  const { maxRamMb, javaPath, gcPreset } = useSettingsStore();
+  const { maxRamMb, javaPath, javaMode, preferredProvider, gcPreset } = useSettingsStore();
   const { addLog } = useLogStore();
 
   const handleLaunch = async (instanceId: string, version: string) => {
     setLaunchStatus(instanceId, 'launching');
     setLastError(null);
 
-    addLog(`[Aethel] Synthesizing launch configuration for ${version}...`, false);
-
     try {
-      const res = await commands.launchWithStubIdentity(version, maxRamMb, javaPath, gcPreset);
+      let effectiveJavaPath: string | null = null;
+      if (javaMode === 'manual') {
+        effectiveJavaPath = javaPath && javaPath.trim() ? javaPath : null;
+      } else {
+        addLog(`[Aethel] Resolving Java runtime for Minecraft ${version}...`, false);
+        const resolved = await commands.resolveJavaForInstance(version, null, preferredProvider);
+        if (resolved.status === 'ok') {
+          effectiveJavaPath = resolved.data;
+          addLog(`[Aethel] Selected runtime: ${effectiveJavaPath}`, false);
+        } else {
+          addLog(`[Aethel Warning] Java resolution fallback: ${resolved.error}`, true);
+        }
+      }
+
+      addLog(`[Aethel] Synthesizing launch configuration for ${version}...`, false);
+
+      const res = await commands.launchWithStubIdentity(version, maxRamMb, effectiveJavaPath, gcPreset);
       if (res.status === 'ok') {
         setLastReceipt(res.data);
         setLaunchStatus(instanceId, 'running');

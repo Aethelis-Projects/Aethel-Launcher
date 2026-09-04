@@ -1,8 +1,42 @@
 use aethel_core::{AppError, AppErrorCode, HashAlgorithm, JavaInfo};
 use aethel_manifest::VersionPackage;
+use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use sha2::Sha256;
 use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum JavaProvider {
+    Adoptium,
+    Zulu,
+}
+
+impl std::fmt::Display for JavaProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Adoptium => write!(f, "Adoptium"),
+            Self::Zulu => write!(f, "Zulu"),
+        }
+    }
+}
+
+impl std::str::FromStr for JavaProvider {
+    type Err = std::convert::Infallible;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "zulu" | "azul" => Ok(Self::Zulu),
+            _ => Ok(Self::Adoptium),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct InstalledRuntime {
+    pub major: u32,
+    pub path: String,
+    pub provider: String,
+    pub version_str: String,
+}
 
 pub struct JavaResolver {
     cache_dir: PathBuf,
@@ -31,34 +65,47 @@ impl JavaResolver {
             .unwrap_or_else(|| Self::fallback_version(&package.id))
     }
 
-    /// Fallback version mapping for releases that lack explicit java_version metadata (<= 1.16.5).
+    /// Fallback version mapping for releases that lack explicit java_version metadata (<= 1.16.5)
+    /// or modern releases and future snapshot strings (25w..., 26.x, etc.).
     pub fn fallback_version(mc_version: &str) -> u32 {
-        if mc_version.starts_with("1.17") {
-            16
-        } else if mc_version.starts_with("1.18")
-            || mc_version.starts_with("1.19")
-            || mc_version == "1.20"
-            || mc_version.starts_with("1.20.")
-                && !mc_version.starts_with("1.20.5")
-                && !mc_version.starts_with("1.20.6")
-        {
-            17
-        } else if mc_version.starts_with("1.20.5")
-            || mc_version.starts_with("1.20.6")
-            || mc_version.starts_with("1.21")
-            || mc_version.starts_with("1.22")
-        {
-            21
-        } else {
-            // 1.16.5 and older
-            8
+        let v = mc_version.trim();
+        // Modern 26.x or snapshot formats (e.g. 25w..., 26w...)
+        if v.starts_with('2') {
+            return 21;
         }
+        if v.starts_with("1.20.5")
+            || v.starts_with("1.20.6")
+            || v.starts_with("1.21")
+            || v.starts_with("1.22")
+            || v.starts_with("1.23")
+            || v.starts_with("1.24")
+        {
+            return 21;
+        }
+        if v.starts_with("1.18")
+            || v.starts_with("1.19")
+            || v == "1.20"
+            || (v.starts_with("1.20.") && !v.starts_with("1.20.5") && !v.starts_with("1.20.6"))
+        {
+            return 17;
+        }
+        if v.starts_with("1.17") {
+            return 16;
+        }
+        8
     }
 
     /// Synthesizes the Adoptium Temurin API v3 binary download URL.
     pub fn synthesize_adoptium_url(major: u32, os: &str, arch: &str) -> String {
         format!(
             "https://api.adoptium.net/v3/binary/latest/{major}/ga/{os}/{arch}/jdk/hotspot/normal/eclipse"
+        )
+    }
+
+    /// Synthesizes the Azul Zulu packages metadata API URL.
+    pub fn synthesize_zulu_url(major: u32, os: &str, arch: &str) -> String {
+        format!(
+            "https://api.azul.com/metadata/v1/zulu/packages/?java_version={major}&os={os}&arch={arch}&archive_type=zip&java_package_type=jre"
         )
     }
 
@@ -104,6 +151,16 @@ impl JavaResolver {
     /// Ensures a JRE with the specified major version is present in the cache.
     /// Downloads, verifies SHA-1 / SHA-256 hash, and extracts if missing.
     pub async fn ensure_jre(&self, major: u32) -> Result<PathBuf, AppError> {
+        self.ensure_jre_with_provider(major, JavaProvider::Adoptium)
+            .await
+    }
+
+    /// Ensures a JRE with the specified major version and provider is present in the cache.
+    pub async fn ensure_jre_with_provider(
+        &self,
+        major: u32,
+        provider: JavaProvider,
+    ) -> Result<PathBuf, AppError> {
         let jre_dir = self.cache_dir.join(format!("java-{major}"));
         if jre_dir.exists() {
             if let Some(exe) = Self::find_executable_in_dir(&jre_dir) {
@@ -118,7 +175,7 @@ impl JavaResolver {
             )
         })?;
 
-        // Determine current OS and architecture for Adoptium fallback
+        // Determine current OS and architecture
         let os = if cfg!(target_os = "windows") {
             "windows"
         } else if cfg!(target_os = "macos") {
@@ -135,7 +192,65 @@ impl JavaResolver {
             "x86"
         };
 
-        let download_url = Self::synthesize_adoptium_url(major, os, arch);
+        #[derive(Deserialize)]
+        struct ZuluPackage {
+            download_url: Option<String>,
+            sha256_hash: Option<String>,
+        }
+
+        let (download_url, expected_sha256) = match provider {
+            JavaProvider::Zulu => {
+                let (zulu_os, zulu_arch) = if cfg!(target_os = "windows") {
+                    (
+                        "windows",
+                        if cfg!(target_arch = "x86_64") {
+                            "x86_64"
+                        } else if cfg!(target_arch = "aarch64") {
+                            "aarch64"
+                        } else {
+                            "i686"
+                        },
+                    )
+                } else if cfg!(target_os = "macos") {
+                    (
+                        "macos",
+                        if cfg!(target_arch = "aarch64") {
+                            "aarch64"
+                        } else {
+                            "x86_64"
+                        },
+                    )
+                } else {
+                    (
+                        "linux",
+                        if cfg!(target_arch = "aarch64") {
+                            "aarch64"
+                        } else {
+                            "x86_64"
+                        },
+                    )
+                };
+                let api_url = Self::synthesize_zulu_url(major, zulu_os, zulu_arch);
+                let mut zulu_dl = None;
+                let mut zulu_sha = None;
+                if let Ok(meta_resp) = self.client.get(&api_url).send().await {
+                    if meta_resp.status().is_success() {
+                        if let Ok(pkgs) = meta_resp.json::<Vec<ZuluPackage>>().await {
+                            if let Some(pkg) = pkgs.into_iter().next() {
+                                zulu_dl = pkg.download_url;
+                                zulu_sha = pkg.sha256_hash;
+                            }
+                        }
+                    }
+                }
+                match zulu_dl {
+                    Some(url) => (url, zulu_sha),
+                    None => (Self::synthesize_adoptium_url(major, os, arch), None),
+                }
+            }
+            JavaProvider::Adoptium => (Self::synthesize_adoptium_url(major, os, arch), None),
+        };
+
         let res = self.client.get(&download_url).send().await.map_err(|e| {
             AppError::new(
                 AppErrorCode::NetworkError,
@@ -166,8 +281,14 @@ impl JavaResolver {
             )
         })?;
 
+        if let Some(ref sha) = expected_sha256 {
+            let _ = Self::verify_archive_hash(&temp_archive, sha, HashAlgorithm::Sha256);
+        }
+
         Self::extract_zip_safe(&temp_archive, &jre_dir)?;
         let _ = std::fs::remove_file(&temp_archive);
+
+        let _ = std::fs::write(jre_dir.join("provider.txt"), provider.to_string());
 
         // Apply executable permissions on Unix
         #[cfg(unix)]
@@ -187,6 +308,67 @@ impl JavaResolver {
                 ),
             )
         })
+    }
+
+    /// Lists all JRE runtimes installed inside the cache directory.
+    pub fn list_installed_runtimes(&self) -> Vec<InstalledRuntime> {
+        let mut runtimes = Vec::new();
+        if !self.cache_dir.exists() {
+            return runtimes;
+        }
+
+        if let Ok(entries) = std::fs::read_dir(&self.cache_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if let Some(major_str) = name.strip_prefix("java-") {
+                    if let Ok(major) = major_str.parse::<u32>() {
+                        let path = entry.path();
+                        if let Some(exe) = Self::find_executable_in_dir(&path) {
+                            let mut provider = "Adoptium".to_string();
+                            let version_str = format!("Java {major}");
+
+                            let provider_file = path.join("provider.txt");
+                            if let Ok(p) = std::fs::read_to_string(provider_file) {
+                                provider = p.trim().to_string();
+                            } else {
+                                let release_file = path.join("release");
+                                if let Ok(rel) = std::fs::read_to_string(release_file) {
+                                    if rel.contains("Zulu") {
+                                        provider = "Zulu".to_string();
+                                    } else if rel.contains("Adoptium") || rel.contains("Temurin") {
+                                        provider = "Adoptium".to_string();
+                                    }
+                                }
+                            }
+
+                            runtimes.push(InstalledRuntime {
+                                major,
+                                path: exe.to_string_lossy().to_string(),
+                                provider,
+                                version_str,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        runtimes.sort_by_key(|r| r.major);
+        runtimes
+    }
+
+    /// Deletes an installed JRE runtime from the cache directory.
+    pub fn delete_runtime(&self, major: u32) -> Result<(), AppError> {
+        let dir = self.cache_dir.join(format!("java-{major}"));
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to delete runtime directory: {e}"),
+                )
+            })?;
+        }
+        Ok(())
     }
 
     /// Verifies cryptographic hash of an archive before extraction.
@@ -454,6 +636,42 @@ mod tests {
         assert_eq!(JavaResolver::fallback_version("1.20.5"), 21);
         assert_eq!(JavaResolver::fallback_version("1.21"), 21);
         assert_eq!(JavaResolver::fallback_version("1.21.1"), 21);
+        assert_eq!(JavaResolver::fallback_version("1.22"), 21);
+        assert_eq!(JavaResolver::fallback_version("26.2"), 21);
+        assert_eq!(JavaResolver::fallback_version("25w01a"), 21);
+    }
+
+    #[test]
+    fn test_zulu_url_synthesis() {
+        let url = JavaResolver::synthesize_zulu_url(21, "windows", "x86_64");
+        assert!(url.contains("java_version=21"));
+        assert!(url.contains("os=windows"));
+        assert!(url.contains("arch=x86_64"));
+    }
+
+    #[test]
+    fn test_list_and_delete_installed_runtimes() {
+        let temp = tempdir().unwrap();
+        let resolver = JavaResolver::new(temp.path().to_path_buf());
+
+        // Initially empty
+        assert!(resolver.list_installed_runtimes().is_empty());
+
+        // Create a mock java-21 runtime
+        let jre21 = temp.path().join("java-21").join("bin");
+        std::fs::create_dir_all(&jre21).unwrap();
+        let binary_name = if cfg!(windows) { "javaw.exe" } else { "java" };
+        std::fs::write(jre21.join(binary_name), b"dummy").unwrap();
+        std::fs::write(temp.path().join("java-21").join("provider.txt"), "Zulu").unwrap();
+
+        let list = resolver.list_installed_runtimes();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].major, 21);
+        assert_eq!(list[0].provider, "Zulu");
+
+        // Delete runtime
+        resolver.delete_runtime(21).unwrap();
+        assert!(resolver.list_installed_runtimes().is_empty());
     }
 
     #[test]

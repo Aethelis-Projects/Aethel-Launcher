@@ -6,6 +6,7 @@ import { ModpackExportModal } from '../components/ModpackExportModal';
 import { UpdateChecker } from '../components/UpdateChecker';
 import { SettingsModal } from '../components/SettingsModal';
 import { commands, type Instance } from '../bindings';
+import { useUpdateStore } from '../store/updateStore';
 
 vi.mock('../bindings', () => ({
   commands: {
@@ -17,6 +18,9 @@ vi.mock('../bindings', () => ({
     downloadAndInstallUpdate: vi.fn(),
     getInstances: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
     detectSystemJava: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
+    getInstalledRuntimes: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
+    downloadRuntime: vi.fn().mockResolvedValue({ status: 'ok', data: {} }),
+    deleteRuntime: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
   },
   events: {
     backendEvent: {
@@ -45,6 +49,7 @@ describe('Phase M6 UI Components', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    useUpdateStore.getState().reset();
   });
 
   describe('ModpackImportModal', () => {
@@ -178,6 +183,7 @@ describe('Phase M6 UI Components', () => {
           date: '2026-09-04',
           body: 'Exciting new features in Phase M6!',
           download_size: 15728640,
+          download_url: 'https://github.com/downloads/v0.2.0.exe',
         },
       });
 
@@ -201,9 +207,93 @@ describe('Phase M6 UI Components', () => {
         expect(screen.queryByTestId('update-checker-modal')).not.toBeInTheDocument();
       });
     });
+
+    it('triggers download and install from recommendation modal', async () => {
+      vi.mocked(commands.checkForUpdates).mockResolvedValueOnce({
+        status: 'ok',
+        data: {
+          version: 'v0.3.0',
+          date: '2026-09-04',
+          body: 'Fixed launcher bugs and added Adoptium support',
+          download_size: 20971520,
+          download_url: 'https://github.com/downloads/setup.exe',
+        },
+      });
+      vi.mocked(commands.downloadAndInstallUpdate).mockResolvedValueOnce({
+        status: 'ok',
+        data: null,
+      });
+
+      render(<UpdateChecker channel="stable" autoCheck={true} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('update-checker-modal')).toBeInTheDocument();
+      });
+
+      const installBtn = screen.getByRole('button', { name: /Установить сейчас|Install Now/i });
+      fireEvent.click(installBtn);
+
+      await waitFor(() => {
+        expect(commands.downloadAndInstallUpdate).toHaveBeenCalledWith(
+          'stable',
+          'https://github.com/downloads/setup.exe'
+        );
+      });
+    });
+
+    it('renders in-app toast on background update and opens details modal', async () => {
+      // Simulate an update discovered while player is already in-app
+      useUpdateStore.setState({
+        updateInfo: {
+          version: 'v0.4.0',
+          date: '2026-09-04',
+          body: 'Background release notes',
+          download_size: 10485760,
+          download_url: 'https://github.com/downloads/update.exe',
+        },
+        isToastOpen: true,
+        isModalOpen: false,
+      });
+
+      render(<UpdateChecker channel="stable" autoCheck={false} />);
+
+      expect(screen.getByTestId('update-notification-toast')).toBeInTheDocument();
+      expect(screen.getByText('v0.4.0')).toBeInTheDocument();
+
+      const detailsBtn = screen.getByRole('button', { name: /Подробнее|Details/i });
+      fireEvent.click(detailsBtn);
+
+      expect(useUpdateStore.getState().isModalOpen).toBe(true);
+      expect(useUpdateStore.getState().isToastOpen).toBe(false);
+    });
+
+    it('stores skipped update version when user clicks remind later', async () => {
+      vi.mocked(commands.checkForUpdates).mockResolvedValueOnce({
+        status: 'ok',
+        data: {
+          version: 'v0.5.0',
+          date: '2026-09-04',
+          body: 'Skippable release',
+          download_size: 10485760,
+          download_url: null,
+        },
+      });
+
+      render(<UpdateChecker channel="stable" autoCheck={true} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('update-checker-modal')).toBeInTheDocument();
+      });
+
+      const laterBtn = screen.getByRole('button', { name: /Напомнить позже|Remind Later/i });
+      fireEvent.click(laterBtn);
+
+      expect(useUpdateStore.getState().isModalOpen).toBe(false);
+      expect(localStorage.getItem('aethel_skipped_update')).toBe('v0.5.0');
+    });
   });
 
-  describe('SettingsModal Update Section', () => {
+  describe('SettingsModal Update and Java Sections', () => {
     it('triggers manual update check and shows status', async () => {
       vi.mocked(commands.checkForUpdates).mockResolvedValueOnce({
         status: 'ok',
@@ -220,6 +310,79 @@ describe('Phase M6 UI Components', () => {
       await waitFor(() => {
         expect(commands.checkForUpdates).toHaveBeenCalled();
         expect(screen.getByTestId('update-status-msg')).toBeInTheDocument();
+      });
+    });
+
+    it('renders Java runtime manager cards and allows downloading runtime', async () => {
+      vi.mocked(commands.getInstalledRuntimes).mockResolvedValueOnce({
+        status: 'ok',
+        data: [
+          {
+            major: 21,
+            path: 'C:/runtimes/java-21/bin/javaw.exe',
+            provider: 'Adoptium',
+            version_str: 'Java 21',
+          },
+        ],
+      });
+      vi.mocked(commands.downloadRuntime).mockResolvedValueOnce({
+        status: 'ok',
+        data: {
+          major: 17,
+          path: 'C:/runtimes/java-17/bin/javaw.exe',
+          provider: 'Adoptium',
+          version_str: 'Java 17',
+        },
+      });
+
+      render(<SettingsModal isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => {
+        expect(commands.getInstalledRuntimes).toHaveBeenCalled();
+        expect(screen.getByText('Java 21 (LTS)')).toBeInTheDocument();
+        expect(screen.getByText('Java 17 (LTS)')).toBeInTheDocument();
+        expect(screen.getByText('Java 8 (Legacy)')).toBeInTheDocument();
+      });
+
+      // Find download buttons
+      const downloadButtons = screen.getAllByRole('button', { name: /Скачать|Download/i });
+      expect(downloadButtons.length).toBeGreaterThan(0);
+
+      fireEvent.click(downloadButtons[0]);
+
+      await waitFor(() => {
+        expect(commands.downloadRuntime).toHaveBeenCalledWith(17, 'Adoptium');
+      });
+    });
+
+    it('allows deleting an installed runtime', async () => {
+      vi.mocked(commands.getInstalledRuntimes).mockResolvedValue({
+        status: 'ok',
+        data: [
+          {
+            major: 21,
+            path: 'C:/runtimes/java-21/bin/javaw.exe',
+            provider: 'Adoptium',
+            version_str: 'Java 21',
+          },
+        ],
+      });
+      vi.mocked(commands.deleteRuntime).mockResolvedValueOnce({
+        status: 'ok',
+        data: null,
+      });
+
+      render(<SettingsModal isOpen={true} onClose={() => {}} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Java 21 (LTS)')).toBeInTheDocument();
+      });
+
+      const deleteBtn = screen.getByRole('button', { name: /Удалить|Delete/i });
+      fireEvent.click(deleteBtn);
+
+      await waitFor(() => {
+        expect(commands.deleteRuntime).toHaveBeenCalledWith(21);
       });
     });
   });

@@ -1,6 +1,8 @@
 use aethel_auth::{generate_offline_uuid, storage::SecureStorage};
 use aethel_core::{AccountMetadata, BackendEvent, CrashReport, Instance, JavaInfo};
-use aethel_java::{detect_system_java as scan_system_java, GCPreset, JavaResolver};
+use aethel_java::{
+    detect_system_java as scan_system_java, GCPreset, InstalledRuntime, JavaProvider, JavaResolver,
+};
 use aethel_launch::{
     build_launch_receipt, upload_to_mclogs, CrashAnalyzer, JavaVersion, LaunchConfiguration,
     LaunchReceipt, ProcessSupervisor,
@@ -178,6 +180,37 @@ fn get_launch_receipt(game_version: String, username: String) -> Result<LaunchRe
     build_launch_receipt(&config, None).map_err(|e| e.to_string())
 }
 
+pub fn resolve_best_existing_java(game_version: &str, manual_path: Option<&str>) -> PathBuf {
+    if let Some(p) = manual_path {
+        let trimmed = p.trim();
+        if !trimmed.is_empty() && trimmed != "auto" {
+            return PathBuf::from(trimmed);
+        }
+    }
+    let req_major = JavaResolver::fallback_version(game_version);
+    let runtimes_dir = get_app_data_dir().join("runtimes");
+    let resolver = JavaResolver::new(runtimes_dir);
+    let installed = resolver.list_installed_runtimes();
+    if let Some(matching) = installed.iter().find(|r| r.major == req_major) {
+        return PathBuf::from(&matching.path);
+    }
+    let sys = scan_system_java();
+    if let Some(matching) = sys.iter().find(|j| j.major == req_major) {
+        return matching.path.clone();
+    }
+    PathBuf::from("javaw.exe")
+}
+
+pub fn major_to_launch_version(major: u32) -> JavaVersion {
+    match major {
+        8 => JavaVersion::V8,
+        16 => JavaVersion::V16,
+        17 => JavaVersion::V17,
+        21 => JavaVersion::V21,
+        other => JavaVersion::Custom(other),
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 fn launch_with_stub_identity(
@@ -190,22 +223,20 @@ fn launch_with_stub_identity(
     let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
     let pkg = VersionPackage::parse(fixture).map_err(|e| e.to_string())?;
 
+    let req_major = JavaResolver::fallback_version(&version);
     let preset = match gc_preset.as_deref() {
         Some("ZGC") => GCPreset::ZGC,
         Some("GenerationalZGC") => GCPreset::GenerationalZGC,
         Some("Parallel") => GCPreset::Parallel,
         _ => GCPreset::G1GC,
     };
-    let jvm_args = preset.to_jvm_args(21);
+    let jvm_args = preset.to_jvm_args(req_major);
 
-    let resolved_java = match java_path {
-        Some(p) if !p.trim().is_empty() => PathBuf::from(p),
-        _ => PathBuf::from("javaw.exe"),
-    };
+    let resolved_java = resolve_best_existing_java(&version, java_path.as_deref());
 
     let config = LaunchConfiguration {
         java_path: resolved_java,
-        java_version: JavaVersion::V21,
+        java_version: major_to_launch_version(req_major),
         game_dir: PathBuf::from(format!("instances/{version}")),
         assets_dir: PathBuf::from("assets"),
         natives_dir: PathBuf::from(format!("instances/{version}/natives")),
@@ -371,13 +402,14 @@ fn launch_with_active_identity(
     let db = get_database()?;
     let active = db.get_active_account().map_err(|e| e.to_string())?;
 
+    let req_major = JavaResolver::fallback_version(&version);
     let preset = match gc_preset.as_deref() {
         Some("ZGC") => GCPreset::ZGC,
         Some("GenerationalZGC") => GCPreset::GenerationalZGC,
         Some("Parallel") => GCPreset::Parallel,
         _ => GCPreset::G1GC,
     };
-    let mut base_jvm_args = preset.to_jvm_args(21);
+    let mut base_jvm_args = preset.to_jvm_args(req_major);
 
     let (player_name, player_uuid, auth_access_token, user_type, custom_jvm_args) = match active {
         Some(acc) if acc.account_type == "microsoft" => {
@@ -429,14 +461,11 @@ fn launch_with_active_identity(
         ),
     };
 
-    let resolved_java = match java_path {
-        Some(p) if !p.trim().is_empty() => PathBuf::from(p),
-        _ => PathBuf::from("javaw.exe"),
-    };
+    let resolved_java = resolve_best_existing_java(&version, java_path.as_deref());
 
     let config = LaunchConfiguration {
         java_path: resolved_java,
-        java_version: JavaVersion::V21,
+        java_version: major_to_launch_version(req_major),
         game_dir: PathBuf::from(format!("instances/{version}")),
         assets_dir: PathBuf::from("assets"),
         natives_dir: PathBuf::from(format!("instances/{version}/natives")),
@@ -470,6 +499,89 @@ async fn download_jre(major: u32) -> Result<String, String> {
     let resolver = JavaResolver::new(runtimes_dir);
     let path = resolver
         .ensure_jre(major)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_installed_runtimes() -> Result<Vec<InstalledRuntime>, String> {
+    let runtimes_dir = get_app_data_dir().join("runtimes");
+    let resolver = JavaResolver::new(runtimes_dir);
+    Ok(resolver.list_installed_runtimes())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn download_runtime(
+    major: u32,
+    provider: Option<String>,
+) -> Result<InstalledRuntime, String> {
+    let runtimes_dir = get_app_data_dir().join("runtimes");
+    let resolver = JavaResolver::new(runtimes_dir);
+    let prov = match provider.as_deref() {
+        Some("Zulu") | Some("zulu") => JavaProvider::Zulu,
+        _ => JavaProvider::Adoptium,
+    };
+    let path = resolver
+        .ensure_jre_with_provider(major, prov)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(InstalledRuntime {
+        major,
+        path: path.to_string_lossy().to_string(),
+        provider: prov.to_string(),
+        version_str: format!("Java {major}"),
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+fn delete_runtime(major: u32) -> Result<(), String> {
+    let runtimes_dir = get_app_data_dir().join("runtimes");
+    let resolver = JavaResolver::new(runtimes_dir);
+    resolver.delete_runtime(major).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_recommended_java(game_version: String) -> u32 {
+    JavaResolver::fallback_version(&game_version)
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn resolve_java_for_instance(
+    game_version: String,
+    manual_path: Option<String>,
+    provider: Option<String>,
+) -> Result<String, String> {
+    if let Some(ref p) = manual_path {
+        let trimmed = p.trim();
+        if !trimmed.is_empty() && trimmed != "auto" {
+            return Ok(trimmed.to_string());
+        }
+    }
+    let req_major = JavaResolver::fallback_version(&game_version);
+    let runtimes_dir = get_app_data_dir().join("runtimes");
+    let resolver = JavaResolver::new(runtimes_dir);
+    let installed = resolver.list_installed_runtimes();
+    if let Some(matching) = installed.iter().find(|r| r.major == req_major) {
+        return Ok(matching.path.clone());
+    }
+    let sys = scan_system_java();
+    if let Some(matching) = sys.iter().find(|j| j.major == req_major) {
+        return Ok(matching.path.to_string_lossy().to_string());
+    }
+
+    let prov = match provider.as_deref() {
+        Some("Zulu") | Some("zulu") => JavaProvider::Zulu,
+        _ => JavaProvider::Adoptium,
+    };
+
+    let path = resolver
+        .ensure_jre_with_provider(req_major, prov)
         .await
         .map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
@@ -869,7 +981,72 @@ async fn check_for_updates(channel: Option<String>) -> Result<Option<UpdateInfo>
 
 #[tauri::command]
 #[specta::specta]
-async fn download_and_install_update(_channel: Option<String>) -> Result<(), String> {
+async fn download_and_install_update(
+    channel: Option<String>,
+    download_url: Option<String>,
+) -> Result<(), String> {
+    let url = match download_url {
+        Some(u) if !u.trim().is_empty() => u,
+        _ => {
+            let info = check_for_updates_internal(channel, None, env!("CARGO_PKG_VERSION"))
+                .await?
+                .ok_or_else(|| "No update available to download".to_string())?;
+            info.download_url.ok_or_else(|| {
+                "No compatible installer asset found for this platform".to_string()
+            })?
+        }
+    };
+
+    let updates_dir = get_app_data_dir().join("updates");
+    std::fs::create_dir_all(&updates_dir).map_err(|e| e.to_string())?;
+
+    let filename = url
+        .split('/')
+        .next_back()
+        .unwrap_or("aethel-update-installer")
+        .to_string();
+    let dest_path = updates_dir.join(&filename);
+
+    let client = reqwest::Client::builder()
+        .user_agent("aethel-launcher/0.1.0 (Aethelis Projects)")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("Download failed with status: {}", resp.status()));
+    }
+
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    std::fs::write(&dest_path, bytes).map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new(&dest_path)
+            .spawn()
+            .map_err(|e| format!("Failed to spawn installer: {e}"))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(&dest_path) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o755);
+            let _ = std::fs::set_permissions(&dest_path, perms);
+        }
+
+        std::process::Command::new(&dest_path)
+            .spawn()
+            .map_err(|e| format!("Failed to spawn installer: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&dest_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open installer: {e}"))?;
+    }
+
     Ok(())
 }
 
@@ -1035,6 +1212,11 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             launch_instance,
             detect_system_java,
             download_jre,
+            get_installed_runtimes,
+            download_runtime,
+            delete_runtime,
+            get_recommended_java,
+            resolve_java_for_instance,
             upload_crash_to_mclogs,
             analyze_crash_log,
             login_microsoft,
@@ -1067,13 +1249,13 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex as StdMutex;
+    use tokio::sync::Mutex as TokioMutex;
 
-    static TEST_LOCK: StdMutex<()> = StdMutex::new(());
+    static TEST_LOCK: TokioMutex<()> = TokioMutex::const_new(());
 
     #[test]
     fn test_launch_with_stub_identity_dry_run() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.blocking_lock();
         let receipt = launch_with_stub_identity(Some("1.20.4".to_string()), Some(2048), None, None)
             .expect("should produce valid launch receipt");
 
@@ -1088,7 +1270,7 @@ mod tests {
 
     #[test]
     fn test_offline_account_flow() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.blocking_lock();
         let acc = login_offline("TestCrafter".to_string()).expect("login offline");
         assert_eq!(acc.username, "TestCrafter");
         assert_eq!(acc.account_type, "offline");
@@ -1109,7 +1291,7 @@ mod tests {
 
     #[test]
     fn test_authlib_account_launch() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.blocking_lock();
         let acc = login_authlib(
             "https://authlib-injector.yggdrasil.ely.by".to_string(),
             "ElyPlayer".to_string(),
@@ -1132,7 +1314,7 @@ mod tests {
 
     #[test]
     fn test_system_java_and_gc_flags() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.blocking_lock();
         let detected = detect_system_java().expect("detect java");
         let _ = detected.len();
 
@@ -1185,7 +1367,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mod_management_commands() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().await;
         let temp = tempfile::tempdir().unwrap();
         std::env::set_var("AETHEL_DATA_DIR", temp.path().to_str().unwrap());
 
@@ -1288,6 +1470,64 @@ mod tests {
         let db = get_database().unwrap();
         assert!(db.get_instance(&inst_id).unwrap().is_none());
         drop(db);
+
+        std::env::remove_var("AETHEL_DATA_DIR");
+    }
+
+    #[tokio::test]
+    async fn test_java_runtime_management_and_recommendations() {
+        let _lock = TEST_LOCK.lock().await;
+        assert_eq!(get_recommended_java("1.16.5".to_string()), 8);
+        assert_eq!(get_recommended_java("1.20.4".to_string()), 17);
+        assert_eq!(get_recommended_java("1.21.1".to_string()), 21);
+        assert_eq!(get_recommended_java("26.2".to_string()), 21);
+        assert_eq!(get_recommended_java("25w02a".to_string()), 21);
+
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("AETHEL_DATA_DIR", temp.path().to_str().unwrap());
+
+        let initial_list = get_installed_runtimes().expect("list runtimes");
+        assert!(initial_list.is_empty());
+
+        // Create a dummy java-17 runtime
+        let jre17_bin = temp.path().join("runtimes").join("java-17").join("bin");
+        std::fs::create_dir_all(&jre17_bin).unwrap();
+        let exe_name = if cfg!(windows) { "javaw.exe" } else { "java" };
+        std::fs::write(jre17_bin.join(exe_name), b"mock-jre").unwrap();
+        std::fs::write(
+            temp.path()
+                .join("runtimes")
+                .join("java-17")
+                .join("provider.txt"),
+            "Adoptium",
+        )
+        .unwrap();
+
+        let list = get_installed_runtimes().expect("list runtimes after creation");
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].major, 17);
+        assert_eq!(list[0].provider, "Adoptium");
+
+        // Test resolve_java_for_instance finds this runtime for 1.20.4
+        let resolved = resolve_java_for_instance("1.20.4".to_string(), None, None)
+            .await
+            .expect("resolve java");
+        assert!(resolved.contains("java-17"));
+
+        // Test manual override
+        let manual = resolve_java_for_instance(
+            "1.20.4".to_string(),
+            Some("C:/custom/bin/java.exe".to_string()),
+            None,
+        )
+        .await
+        .expect("resolve manual java");
+        assert_eq!(manual, "C:/custom/bin/java.exe");
+
+        // Test delete_runtime
+        delete_runtime(17).expect("delete runtime");
+        let list_after_del = get_installed_runtimes().expect("list runtimes after delete");
+        assert!(list_after_del.is_empty());
 
         std::env::remove_var("AETHEL_DATA_DIR");
     }
