@@ -1,0 +1,54 @@
+name: ✨ Feature Request
+description: Suggest an idea or feature for Aethel Launcher
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new idea! Please provide as much detail as possible so the team and community can evaluate and discuss it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem or limitation is.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the Solution You'd Like
+      description: A clear and concise description of what you want to happen and how you envision the UX.
+      placeholder: "Add an option in instance settings to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe Alternatives You've Considered
+      description: Any alternative solutions or features you've considered.
+      placeholder: "Using a third-party script or manual file edits..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context or Mockups
+      description: Add any other context, screenshots, or mockup sketches about the feature request here.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: "I have searched existing feature requests to ensure this is not a duplicate."
+          required: true
+        - label: "This feature aligns with Aethel Launcher's core goals (performance, modern design, modularity)."
+          required: false

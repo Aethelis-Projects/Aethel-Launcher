@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Community Discussions
+    url: https://github.com/Aethelis-Projects/Aethel-Launcher/discussions
+    about: Ask questions, share ideas, and discuss Minecraft mods with the community.
+  - name: 🛡️ Report a Security Vulnerability
+    url: https://github.com/Aethelis-Projects/Aethel-Launcher/security/advisories/new
+    about: Please report security-sensitive issues privately via GitHub Security Advisories or email contact@aethelis.dev.
+  - name: 🎮 Discord Community
+    url: https://discord.gg/aethelis
+    about: Join our official Discord server for real-time chat, support, and community events.

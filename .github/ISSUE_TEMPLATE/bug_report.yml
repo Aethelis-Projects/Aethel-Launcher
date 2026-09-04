@@ -1,0 +1,112 @@
+name: 🐛 Bug Report
+description: File a bug report to help us improve Aethel Launcher
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Before submitting, please check the [existing issues](https://github.com/Aethelis-Projects/Aethel-Launcher/issues) to ensure this hasn't already been reported.
+
+  - type: input
+    id: version
+    attributes:
+      label: Aethel Launcher Version
+      description: What version of Aethel Launcher are you running? (Found in Settings -> About or bottom-left corner)
+      placeholder: "e.g., v1.0.0-rc.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - "Windows 11 (64-bit)"
+        - "Windows 10 (64-bit)"
+        - "macOS Sonoma / Sequoia (Apple Silicon - M1/M2/M3/M4)"
+        - "macOS Sonoma / Sequoia (Intel x86_64)"
+        - "Linux - Ubuntu / Debian (x86_64)"
+        - "Linux - Arch / Fedora / Other (x86_64)"
+        - "Other (specify below)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package_type
+    attributes:
+      label: Installation Method / Package
+      description: How did you install or run Aethel Launcher?
+      options:
+        - "Aethel Custom Installer (AethelInstaller-Windows-x86_64.exe)"
+        - "Windows Direct Setup (Aethel.Launcher_*_x64-setup.exe)"
+        - "macOS Disk Image (.dmg)"
+        - "Linux AppImage (.AppImage)"
+        - "Linux Debian Package (.deb)"
+        - "Built from source (cargo / npm)"
+    validations:
+      required: true
+
+  - type: input
+    id: mc_env
+    attributes:
+      label: Minecraft & Mod Loader Version
+      description: If this issue is related to launching or playing a game instance, specify the versions.
+      placeholder: "e.g., Minecraft 1.21.1, Fabric loader 0.16.5, Java 21 (Adoptium)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what the bug is.
+      placeholder: "When I click 'Launch' on a freshly imported CurseForge pack..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the problem.
+      placeholder: |
+        1. Go to 'Instances'
+        2. Click 'Add Instance' -> 'Import CurseForge ZIP'
+        3. Select 'Better MC v28.zip'
+        4. See error message
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: "The pack should resolve all dependencies and launch successfully."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Crash Reports / Relevant Logs
+      description: |
+        Please upload game/launcher logs to [mclo.gs](https://mclo.gs) and paste the link here, or paste relevant error snippets below.
+        *Never share logs containing private passwords, email addresses, or API keys.*
+      placeholder: "Paste mclo.gs link or log excerpt here..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Validation Checklist
+      options:
+        - label: "I have searched open and closed issues and this is not a duplicate."
+          required: true
+        - label: "I am using the latest available release or pre-release."
+          required: false
+        - label: "I have not included any sensitive personal credentials in the logs above."
+          required: true

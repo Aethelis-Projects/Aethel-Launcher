@@ -1,0 +1,28 @@
+name: ❓ Question & Support
+description: Ask a question about setting up, using, or building Aethel Launcher
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question or need general help? You might get a faster answer in our [Discussions](https://github.com/Aethelis-Projects/Aethel-Launcher/discussions) or on our [Discord server](https://discord.gg/aethelis)!
+        
+        If you prefer to ask here, feel free to fill out this form.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know or clarify?
+      placeholder: "How can I configure custom JVM flags for an instance?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context & Environment
+      description: Include your OS, launcher version, or anything relevant.
+    validations:
+      required: false
