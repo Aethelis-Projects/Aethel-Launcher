@@ -52,9 +52,17 @@ pub struct ImportResult {
 /// Validates that a relative path does not escape the destination directory (Zip-Slip protection).
 pub fn is_safe_relative_path(path_str: &str) -> bool {
     let clean_str = path_str.replace('\\', "/");
-    let path = Path::new(&clean_str);
 
-    if path.is_absolute() || clean_str.starts_with('/') || clean_str.starts_with('\\') {
+    if clean_str.is_empty()
+        || clean_str.starts_with('/')
+        || clean_str.starts_with('\\')
+        || clean_str.contains(':')
+    {
+        return false;
+    }
+
+    let path = Path::new(&clean_str);
+    if path.is_absolute() {
         return false;
     }
 
@@ -523,6 +531,8 @@ mod tests {
         assert!(!is_safe_relative_path("mods/../../escape.jar"));
         assert!(!is_safe_relative_path("/etc/passwd"));
         assert!(!is_safe_relative_path("C:\\Windows\\System32\\calc.exe"));
+        assert!(!is_safe_relative_path("C:/Windows/System32/calc.exe"));
+        assert!(!is_safe_relative_path(""));
     }
 
     #[test]
