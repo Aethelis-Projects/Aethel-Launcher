@@ -31,3 +31,4 @@ tools/out.txt
 .env
 .env.*
 !.env.example
+release-artifacts/
