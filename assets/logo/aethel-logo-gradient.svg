@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="cyberGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FFE0" />
+      <stop offset="35%" stop-color="#00B4D8" />
+      <stop offset="70%" stop-color="#7209B7" />
+      <stop offset="100%" stop-color="#F72585" />
+    </linearGradient>
+  </defs>
+
+  <!-- Multi-chromatic Cyber Gradient Edition -->
+  <g>
+    <!-- Primary Arch -->
+    <path
+      d="M 130 395 
+         L 238 135 
+         C 246 116 266 116 274 135 
+         L 332 260 
+         C 342 282 330 314 306 320 
+         C 260 332 205 338 168 395 
+         Z"
+      stroke="url(#cyberGradient)"
+      stroke-width="26"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Inner Loop Counter -->
+    <path
+      d="M 256 195 
+         L 225 275 
+         C 221 285 228 295 238 295 
+         L 278 290 
+         C 288 288 294 278 289 268 
+         Z"
+      stroke="url(#cyberGradient)"
+      stroke-width="20"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Detached Right Leg -->
+    <path
+      d="M 346 288 
+         L 395 395"
+      stroke="url(#cyberGradient)"
+      stroke-width="26"
+      stroke-linecap="round"
+    />
+  </g>
+</svg>

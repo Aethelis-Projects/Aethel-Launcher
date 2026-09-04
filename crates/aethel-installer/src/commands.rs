@@ -91,19 +91,45 @@ pub fn cancel_installation() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn launch_application(target_path: String) -> Result<(), String> {
-    let p = PathBuf::from(target_path);
-    #[cfg(windows)]
-    let exe_path = p.join("Aethel Launcher.exe");
-    #[cfg(not(windows))]
-    let exe_path = p.join("aethel-launcher");
+pub fn exit_installer(app: AppHandle) {
+    app.exit(0);
+}
 
-    if exe_path.exists() {
-        open::that_detached(&exe_path).map_err(|e| format!("Failed to launch application: {e}"))?;
-    } else if p.exists() {
-        open::that_detached(&p).map_err(|e| format!("Failed to open install folder: {e}"))?;
+#[tauri::command]
+pub fn launch_application(target_path: String) -> Result<(), String> {
+    let p = PathBuf::from(&target_path);
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    #[cfg(windows)]
+    {
+        candidates.push(p.join("Aethel Launcher.exe"));
+        candidates.push(p.join("aethel-launcher-bin.exe"));
+        candidates.push(p.join("aethel-launcher.exe"));
+        if let Some(local) = dirs::data_local_dir() {
+            candidates.push(local.join("Aethel Launcher").join("Aethel Launcher.exe"));
+            candidates.push(local.join("Aethel Launcher").join("aethel-launcher-bin.exe"));
+            candidates.push(local.join("Programs").join("Aethel Launcher").join("Aethel Launcher.exe"));
+            candidates.push(local.join("Programs").join("Aethel Launcher").join("aethel-launcher-bin.exe"));
+        }
     }
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        candidates.push(p.join("aethel-launcher"));
+        candidates.push(p.join("aethel-launcher-bin"));
+        candidates.push(p.join("Aethel Launcher"));
+    }
+
+    for exe in candidates {
+        if exe.exists() && exe.is_file() {
+            return open::that_detached(&exe)
+                .map_err(|e| format!("Failed to launch application at {}: {e}", exe.display()));
+        }
+    }
+
+    Err(format!(
+        "Executable not found in '{}'. Please check installation.",
+        p.display()
+    ))
 }
 
 #[tauri::command]
@@ -112,7 +138,6 @@ pub fn get_default_install_path() -> String {
     {
         if let Some(local_appdata) = dirs::data_local_dir() {
             local_appdata
-                .join("Programs")
                 .join("Aethel Launcher")
                 .to_string_lossy()
                 .to_string()
@@ -360,9 +385,40 @@ pub async fn start_installation(config: InstallConfig, app: AppHandle) -> Result
                     "1s",
                     "[INFO] Executing silent installation into destination...",
                 );
-                let _ = std::process::Command::new(setup_exe)
-                    .args(["/S", &format!("/D={}", install_path.display())])
-                    .status();
+                use std::os::windows::process::CommandExt;
+                let mut cmd = std::process::Command::new(setup_exe);
+                cmd.raw_arg("/S");
+                cmd.raw_arg(format!(" /D={}", install_path.display()));
+                let _ = cmd.status();
+
+                // 1. Check if files were installed to default %LocalAppData%\Aethel Launcher and copy if install_path differs
+                let default_dir = dirs::data_local_dir().map(|d| d.join("Aethel Launcher"));
+                if let Some(def_p) = &default_dir {
+                    if def_p.exists() && *def_p != install_path {
+                        let def_bin = def_p.join("aethel-launcher-bin.exe");
+                        if def_bin.exists() && !install_path.join("aethel-launcher-bin.exe").exists() {
+                            let _ = std::fs::copy(&def_bin, install_path.join("aethel-launcher-bin.exe"));
+                        }
+                    }
+                }
+
+                // 2. Guarantee both "Aethel Launcher.exe" and "aethel-launcher-bin.exe" exist in install_path
+                let bin_target = install_path.join("aethel-launcher-bin.exe");
+                let friendly_target = install_path.join("Aethel Launcher.exe");
+                if bin_target.exists() && !friendly_target.exists() {
+                    let _ = std::fs::copy(&bin_target, &friendly_target);
+                } else if friendly_target.exists() && !bin_target.exists() {
+                    let _ = std::fs::copy(&friendly_target, &bin_target);
+                }
+
+                // Also ensure in default dir if it exists
+                if let Some(def_p) = &default_dir {
+                    let d_bin = def_p.join("aethel-launcher-bin.exe");
+                    let d_friendly = def_p.join("Aethel Launcher.exe");
+                    if d_bin.exists() && !d_friendly.exists() {
+                        let _ = std::fs::copy(&d_bin, &d_friendly);
+                    }
+                }
             }
         }
 

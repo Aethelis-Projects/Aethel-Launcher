@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Monochrome Crisp White Edition -->
+  <g>
+    <!-- Primary Arch -->
+    <path
+      d="M 130 395 
+         L 238 135 
+         C 246 116 266 116 274 135 
+         L 332 260 
+         C 342 282 330 314 306 320 
+         C 260 332 205 338 168 395 
+         Z"
+      stroke="#FFFFFF"
+      stroke-width="26"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Inner Loop Counter -->
+    <path
+      d="M 256 195 
+         L 225 275 
+         C 221 285 228 295 238 295 
+         L 278 290 
+         C 288 288 294 278 289 268 
+         Z"
+      stroke="#FFFFFF"
+      stroke-width="20"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Detached Right Leg -->
+    <path
+      d="M 346 288 
+         L 395 395"
+      stroke="#FFFFFF"
+      stroke-width="26"
+      stroke-linecap="round"
+    />
+  </g>
+</svg>

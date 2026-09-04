@@ -13,7 +13,8 @@ fn main() {
             cancel_installation,
             launch_application,
             start_installation,
-            get_default_install_path
+            get_default_install_path,
+            exit_installer
         ])
         .run(tauri::generate_context!())
         .expect("error while running Aethel Installer application");
