@@ -30,3 +30,35 @@ pub struct AccountMetadata {
     pub last_used_at: String,
     pub is_active: bool,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct JavaInfo {
+    pub path: std::path::PathBuf,
+    pub version: String,
+    pub major: u32,
+    pub arch: String,
+    pub vendor: Option<String>,
+    pub is_system: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum CrashPattern {
+    OutOfMemory,
+    ClassNotFound(String),
+    NoClassDefFound(String),
+    UnsatisfiedLink(String),
+    WrongJavaVersion { expected: u32, actual: Option<u32> },
+    GpuDriverIssue,
+    ModConflict(String),
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct CrashReport {
+    pub pattern: CrashPattern,
+    pub diagnosis: String,
+    pub suggestion: String,
+    pub full_log: String,
+    pub exit_code: Option<i32>,
+    pub upload_url: Option<String>,
+}

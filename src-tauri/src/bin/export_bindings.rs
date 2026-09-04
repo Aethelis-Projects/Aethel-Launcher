@@ -1,7 +1,7 @@
 use specta_typescript::{BigIntExportBehavior, Typescript};
 
 fn main() {
-    let builder = aethel_tauri::create_specta_builder::<tauri::Wry>();
+    let builder = aethel_tauri::create_specta_builder();
     builder
         .export(
             Typescript::default().bigint(BigIntExportBehavior::Number),

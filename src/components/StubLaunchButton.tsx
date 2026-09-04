@@ -10,7 +10,7 @@ import { localizeError } from '../utils/errors';
 export const StubLaunchButton: React.FC = () => {
   const { t } = useTranslation();
   const { activeAccount } = useAccountStore();
-  const { maxRamMb } = useSettingsStore();
+  const { maxRamMb, javaPath, gcPreset } = useSettingsStore();
   const { addLog } = useLogStore();
 
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export const StubLaunchButton: React.FC = () => {
     addLog(`[Aethel] Requesting dry-run launch with stub player "${activeAccount.name}"...`, false);
 
     try {
-      const res = await commands.launchWithStubIdentity('1.20.4', maxRamMb);
+      const res = await commands.launchWithStubIdentity('1.20.4', maxRamMb, javaPath, gcPreset);
       if (res.status === 'ok') {
         setReceipt(res.data);
         addLog(`[Aethel] Dry-run launch successful! Tier: ${res.data.classpath_tier}`, false);

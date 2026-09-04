@@ -1,6 +1,10 @@
 use aethel_auth::{generate_offline_uuid, storage::SecureStorage};
-use aethel_core::{AccountMetadata, BackendEvent, Instance};
-use aethel_launch::{build_launch_receipt, JavaVersion, LaunchConfiguration, LaunchReceipt};
+use aethel_core::{AccountMetadata, BackendEvent, CrashReport, Instance, JavaInfo};
+use aethel_java::{detect_system_java as scan_system_java, GCPreset, JavaResolver};
+use aethel_launch::{
+    build_launch_receipt, upload_to_mclogs, CrashAnalyzer, JavaVersion, LaunchConfiguration,
+    LaunchReceipt, ProcessSupervisor,
+};
 use aethel_manifest::VersionPackage;
 use aethel_storage::Database;
 use std::path::PathBuf;
@@ -91,13 +95,28 @@ fn get_launch_receipt(game_version: String, username: String) -> Result<LaunchRe
 fn launch_with_stub_identity(
     game_version: Option<String>,
     memory_max_mb: Option<u32>,
+    java_path: Option<String>,
+    gc_preset: Option<String>,
 ) -> Result<LaunchReceipt, String> {
     let version = game_version.unwrap_or_else(|| "1.20.4".to_string());
     let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
     let pkg = VersionPackage::parse(fixture).map_err(|e| e.to_string())?;
 
+    let preset = match gc_preset.as_deref() {
+        Some("ZGC") => GCPreset::ZGC,
+        Some("GenerationalZGC") => GCPreset::GenerationalZGC,
+        Some("Parallel") => GCPreset::Parallel,
+        _ => GCPreset::G1GC,
+    };
+    let jvm_args = preset.to_jvm_args(21);
+
+    let resolved_java = match java_path {
+        Some(p) if !p.trim().is_empty() => PathBuf::from(p),
+        _ => PathBuf::from("javaw.exe"),
+    };
+
     let config = LaunchConfiguration {
-        java_path: PathBuf::from("javaw.exe"),
+        java_path: resolved_java,
         java_version: JavaVersion::V21,
         game_dir: PathBuf::from(format!("instances/{version}")),
         assets_dir: PathBuf::from("assets"),
@@ -113,7 +132,7 @@ fn launch_with_stub_identity(
         user_type: "legacy".to_string(),
         memory_min_mb: Some(1024),
         memory_max_mb: Some(memory_max_mb.unwrap_or(4096)),
-        custom_jvm_args: Some(vec!["-XX:+UseG1GC".to_string()]),
+        custom_jvm_args: Some(jvm_args),
     };
 
     build_launch_receipt(&config, None).map_err(|e| e.to_string())
@@ -254,6 +273,8 @@ fn logout(uuid: String) -> Result<(), String> {
 fn launch_with_active_identity(
     game_version: Option<String>,
     memory_max_mb: Option<u32>,
+    java_path: Option<String>,
+    gc_preset: Option<String>,
 ) -> Result<LaunchReceipt, String> {
     let version = game_version.unwrap_or_else(|| "1.20.4".to_string());
     let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
@@ -261,6 +282,14 @@ fn launch_with_active_identity(
 
     let db = get_database()?;
     let active = db.get_active_account().map_err(|e| e.to_string())?;
+
+    let preset = match gc_preset.as_deref() {
+        Some("ZGC") => GCPreset::ZGC,
+        Some("GenerationalZGC") => GCPreset::GenerationalZGC,
+        Some("Parallel") => GCPreset::Parallel,
+        _ => GCPreset::G1GC,
+    };
+    let mut base_jvm_args = preset.to_jvm_args(21);
 
     let (player_name, player_uuid, auth_access_token, user_type, custom_jvm_args) = match active {
         Some(acc) if acc.account_type == "microsoft" => {
@@ -275,23 +304,22 @@ fn launch_with_active_identity(
                 acc.uuid,
                 token,
                 "mojang".to_string(),
-                vec!["-XX:+UseG1GC".to_string()],
+                base_jvm_args,
             )
         }
         Some(acc) if acc.account_type == "authlib" => {
-            let mut jvm_args = vec!["-XX:+UseG1GC".to_string()];
             if let Some(ref server_url) = acc.server_url {
                 let cache_dir = get_app_data_dir().join("libraries");
                 let injector = aethel_auth::authlib::AuthlibInjector::new(cache_dir);
                 let jar_path = injector.jar_path();
-                jvm_args.push(injector.java_agent_arg(&jar_path, server_url));
+                base_jvm_args.push(injector.java_agent_arg(&jar_path, server_url));
             }
             (
                 acc.username,
                 acc.uuid,
                 "0".to_string(),
                 "mojang".to_string(),
-                jvm_args,
+                base_jvm_args,
             )
         }
         Some(acc) => {
@@ -301,7 +329,7 @@ fn launch_with_active_identity(
                 acc.uuid,
                 "0".to_string(),
                 "legacy".to_string(),
-                vec!["-XX:+UseG1GC".to_string()],
+                base_jvm_args,
             )
         }
         None => (
@@ -309,12 +337,17 @@ fn launch_with_active_identity(
             "00000000-0000-0000-0000-000000000000".to_string(),
             "0".to_string(),
             "legacy".to_string(),
-            vec!["-XX:+UseG1GC".to_string()],
+            base_jvm_args,
         ),
     };
 
+    let resolved_java = match java_path {
+        Some(p) if !p.trim().is_empty() => PathBuf::from(p),
+        _ => PathBuf::from("javaw.exe"),
+    };
+
     let config = LaunchConfiguration {
-        java_path: PathBuf::from("javaw.exe"),
+        java_path: resolved_java,
         java_version: JavaVersion::V21,
         game_dir: PathBuf::from(format!("instances/{version}")),
         assets_dir: PathBuf::from("assets"),
@@ -336,8 +369,122 @@ fn launch_with_active_identity(
     build_launch_receipt(&config, None).map_err(|e| e.to_string())
 }
 
-pub fn create_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
-    tauri_specta::Builder::<R>::new()
+#[tauri::command]
+#[specta::specta]
+fn detect_system_java() -> Result<Vec<JavaInfo>, String> {
+    Ok(scan_system_java())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn download_jre(major: u32) -> Result<String, String> {
+    let runtimes_dir = get_app_data_dir().join("runtimes");
+    let resolver = JavaResolver::new(runtimes_dir);
+    let path = resolver
+        .ensure_jre(major)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn upload_crash_to_mclogs(log_content: String) -> Result<String, String> {
+    upload_to_mclogs(&log_content)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn analyze_crash_log(exit_code: Option<i32>, log_content: String) -> Result<CrashReport, String> {
+    let lines: Vec<String> = log_content.lines().map(|s| s.to_string()).collect();
+    Ok(CrashAnalyzer::analyze(exit_code, &lines))
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn launch_instance(
+    app: tauri::AppHandle,
+    instance_id: String,
+    game_version: Option<String>,
+    memory_max_mb: Option<u32>,
+    java_path: Option<String>,
+    gc_preset: Option<String>,
+) -> Result<u32, String> {
+    let receipt = launch_with_active_identity(game_version, memory_max_mb, java_path, gc_preset)?;
+
+    use tauri_specta::Event;
+    let _ = BackendEvent::ProcessStarting {
+        instance_id: instance_id.clone(),
+    }
+    .emit(&app);
+
+    let app_log = app.clone();
+    let inst_log = instance_id.clone();
+    let log_cb = Arc::new(move |line: &str| {
+        let _ = BackendEvent::ProcessLog {
+            instance_id: inst_log.clone(),
+            line: line.to_string(),
+            is_stderr: false,
+        }
+        .emit(&app_log);
+    });
+
+    let mut proc = ProcessSupervisor::spawn(&receipt, Some(log_cb))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let pid = proc.pid();
+
+    let _ = BackendEvent::ProcessStarted {
+        instance_id: instance_id.clone(),
+        pid,
+    }
+    .emit(&app);
+
+    let app_exit = app.clone();
+    let inst_exit = instance_id;
+    tauri::async_runtime::spawn(async move {
+        match proc.wait().await {
+            Ok(status) => {
+                let code = status.code();
+                if status.success() {
+                    let _ = BackendEvent::ProcessExited {
+                        instance_id: inst_exit,
+                        exit_code: code,
+                    }
+                    .emit(&app_exit);
+                } else {
+                    let logs = proc.logs();
+                    let crash_report = CrashAnalyzer::analyze(code, &logs);
+                    let _ = BackendEvent::ProcessCrashed {
+                        instance_id: inst_exit.clone(),
+                        report: crash_report,
+                    }
+                    .emit(&app_exit);
+                    let _ = BackendEvent::ProcessExited {
+                        instance_id: inst_exit,
+                        exit_code: code,
+                    }
+                    .emit(&app_exit);
+                }
+            }
+            Err(_) => {
+                let _ = BackendEvent::ProcessExited {
+                    instance_id: inst_exit,
+                    exit_code: Some(1),
+                }
+                .emit(&app_exit);
+            }
+        }
+    });
+
+    Ok(pid)
+}
+
+pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
             get_launcher_version,
             get_offline_uuid,
@@ -345,6 +492,11 @@ pub fn create_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             get_launch_receipt,
             launch_with_stub_identity,
             launch_with_active_identity,
+            launch_instance,
+            detect_system_java,
+            download_jre,
+            upload_crash_to_mclogs,
+            analyze_crash_log,
             login_microsoft,
             login_offline,
             login_authlib,
@@ -366,7 +518,7 @@ mod tests {
     #[test]
     fn test_launch_with_stub_identity_dry_run() {
         let _lock = TEST_LOCK.lock().unwrap();
-        let receipt = launch_with_stub_identity(Some("1.20.4".to_string()), Some(2048))
+        let receipt = launch_with_stub_identity(Some("1.20.4".to_string()), Some(2048), None, None)
             .expect("should produce valid launch receipt");
 
         assert!(receipt.arguments.contains(&"Player".to_string()));
@@ -390,8 +542,9 @@ mod tests {
             .expect("active acc");
         assert_eq!(active.username, "TestCrafter");
 
-        let receipt = launch_with_active_identity(Some("1.20.4".to_string()), Some(3072))
-            .expect("launch receipt");
+        let receipt =
+            launch_with_active_identity(Some("1.20.4".to_string()), Some(3072), None, None)
+                .expect("launch receipt");
         assert!(receipt.arguments.contains(&"TestCrafter".to_string()));
         assert!(receipt.arguments.contains(&"-Xmx3072M".to_string()));
 
@@ -409,7 +562,7 @@ mod tests {
         assert_eq!(acc.username, "ElyPlayer");
         assert_eq!(acc.account_type, "authlib");
 
-        let receipt = launch_with_active_identity(None, None).expect("launch receipt");
+        let receipt = launch_with_active_identity(None, None, None, None).expect("launch receipt");
         assert!(receipt.arguments.contains(&"ElyPlayer".to_string()));
 
         let has_agent = receipt
@@ -419,5 +572,40 @@ mod tests {
         assert!(has_agent, "Receipt should contain authlib -javaagent arg");
 
         logout(acc.uuid).expect("logout");
+    }
+
+    #[test]
+    fn test_system_java_and_gc_flags() {
+        let _lock = TEST_LOCK.lock().unwrap();
+        let detected = detect_system_java().expect("detect java");
+        let _ = detected.len();
+
+        let receipt = launch_with_stub_identity(
+            Some("1.20.4".to_string()),
+            Some(4096),
+            Some("C:/custom/java/bin/javaw.exe".to_string()),
+            Some("Parallel".to_string()),
+        )
+        .expect("launch receipt with custom java & parallel GC");
+
+        assert_eq!(
+            receipt.java_path,
+            PathBuf::from("C:/custom/java/bin/javaw.exe")
+        );
+        assert!(receipt
+            .arguments
+            .contains(&"-XX:+UseParallelGC".to_string()));
+    }
+
+    #[test]
+    fn test_analyze_crash_log_command() {
+        let report = analyze_crash_log(
+            Some(1),
+            "[main/ERROR]: Exception in thread \"main\" java.lang.OutOfMemoryError: Java heap space".to_string(),
+        )
+        .expect("analyze crash log");
+
+        assert_eq!(report.pattern, aethel_core::CrashPattern::OutOfMemory);
+        assert!(report.suggestion.contains("Allocate more RAM"));
     }
 }

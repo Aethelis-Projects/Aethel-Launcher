@@ -8,16 +8,18 @@ import { SettingsModal } from './components/SettingsModal';
 import { LogViewer } from './components/LogViewer';
 import { StubLaunchButton } from './components/StubLaunchButton';
 import { AccountModal } from './components/AccountModal';
+import { CrashReportModal } from './components/CrashReportModal';
 import { useAccountStore } from './store/accountStore';
 import { useDownloadStore } from './store/downloadStore';
 import { useLogStore } from './store/logStore';
 import { useInstanceStore } from './store/instanceStore';
-import { events } from './bindings';
+import { events, type CrashReport } from './bindings';
 
 export function App() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'instances' | 'logs'>('instances');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeCrashReport, setActiveCrashReport] = useState<CrashReport | null>(null);
   const { isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
 
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
@@ -60,6 +62,9 @@ export function App() {
               break;
             case 'ProcessExited':
               setLaunchStatus(e.data.instance_id, 'idle');
+              break;
+            case 'ProcessCrashed':
+              setActiveCrashReport(e.data.report);
               break;
             default:
               break;
@@ -143,6 +148,13 @@ export function App() {
 
       {/* Global Settings Modal */}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+
+      {/* Crash Report Modal */}
+      <CrashReportModal
+        isOpen={activeCrashReport !== null}
+        onClose={() => setActiveCrashReport(null)}
+        report={activeCrashReport}
+      />
     </div>
   );
 }

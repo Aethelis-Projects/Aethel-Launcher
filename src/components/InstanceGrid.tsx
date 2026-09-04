@@ -21,7 +21,7 @@ export const InstanceGrid: React.FC = () => {
     lastError,
   } = useInstanceStore();
 
-  const { maxRamMb } = useSettingsStore();
+  const { maxRamMb, javaPath, gcPreset } = useSettingsStore();
   const { addLog } = useLogStore();
 
   const handleLaunch = async (instanceId: string, version: string) => {
@@ -31,7 +31,7 @@ export const InstanceGrid: React.FC = () => {
     addLog(`[Aethel] Synthesizing launch configuration for ${version}...`, false);
 
     try {
-      const res = await commands.launchWithStubIdentity(version, maxRamMb);
+      const res = await commands.launchWithStubIdentity(version, maxRamMb, javaPath, gcPreset);
       if (res.status === 'ok') {
         setLastReceipt(res.data);
         setLaunchStatus(instanceId, 'running');

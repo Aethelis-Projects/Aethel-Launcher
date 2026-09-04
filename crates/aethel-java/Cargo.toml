@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "aethel-java"
 version.workspace = true
 edition.workspace = true
@@ -8,6 +8,19 @@ repository.workspace = true
 
 [dependencies]
 aethel-core = { path = "../aethel-core" }
-tokio = { workspace = true }
+aethel-manifest = { path = "../aethel-manifest" }
+aethel-download = { path = "../aethel-download" }
+tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true }
 thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true }
+zip = { workspace = true }
+dirs = { workspace = true }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

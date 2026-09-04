@@ -542,6 +542,22 @@ pub fn compute_file_hash(path: &Path, algo: HashAlgorithm) -> Result<String, App
             }
             Ok(format!("{:x}", hasher.finalize()))
         }
+        HashAlgorithm::Sha256 => {
+            let mut hasher = sha2::Sha256::new();
+            loop {
+                let n = file.read(&mut buffer).map_err(|e| {
+                    AppError::new(
+                        AppErrorCode::InternalError,
+                        format!("Read error during hashing: {e}"),
+                    )
+                })?;
+                if n == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..n]);
+            }
+            Ok(format!("{:x}", hasher.finalize()))
+        }
         HashAlgorithm::Sha512 => {
             let mut hasher = sha2::Sha512::new();
             loop {

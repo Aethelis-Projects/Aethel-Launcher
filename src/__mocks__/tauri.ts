@@ -45,7 +45,41 @@ export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknow
       return [];
     case 'get_launch_receipt':
     case 'launch_with_stub_identity':
+    case 'launch_with_active_identity':
       return mockLaunchReceipt;
+    case 'launch_instance':
+      return 12345;
+    case 'detect_system_java':
+      return [
+        {
+          path: 'C:/java/bin/javaw.exe',
+          version: '21.0.2',
+          major: 21,
+          arch: 'x86_64',
+          vendor: 'Eclipse Temurin',
+          is_system: true,
+        },
+      ];
+    case 'download_jre':
+      return 'runtimes/java-21/bin/javaw.exe';
+    case 'upload_crash_to_mclogs':
+      return 'https://mclo.gs/mock123';
+    case 'analyze_crash_log':
+      return {
+        pattern: 'OutOfMemory',
+        diagnosis: 'The game ran out of allocated memory.',
+        suggestion: 'Allocate more RAM in Instance Settings.',
+        full_log: 'OutOfMemoryError',
+        exit_code: 1,
+        upload_url: null,
+      };
+    case 'get_accounts':
+      return [];
+    case 'get_active_account':
+      return null;
+    case 'set_active_account':
+    case 'logout':
+      return null;
     default:
       throw new Error(`Unmocked command: ${cmd} with args: ${JSON.stringify(args)}`);
   }

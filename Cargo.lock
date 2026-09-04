@@ -108,9 +108,20 @@ name = "aethel-java"
 version = "0.1.0"
 dependencies = [
  "aethel-core",
+ "aethel-download",
+ "aethel-manifest",
+ "dirs",
  "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "specta",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
+ "tracing",
+ "zip",
 ]
 
 [[package]]
@@ -120,12 +131,14 @@ dependencies = [
  "aethel-core",
  "aethel-manifest",
  "encoding_rs",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "specta",
  "tempfile",
  "thiserror 2.0.20",
  "tokio",
+ "tracing",
  "windows-sys 0.59.0",
 ]
 
@@ -186,6 +199,7 @@ version = "0.1.0"
 dependencies = [
  "aethel-auth",
  "aethel-core",
+ "aethel-java",
  "aethel-launch",
  "aethel-manifest",
  "aethel-storage",

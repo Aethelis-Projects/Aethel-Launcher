@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Cpu, HardDrive } from 'lucide-react';
+import { X, Cpu, HardDrive, RefreshCw } from 'lucide-react';
 import { useSettingsStore, type GcPreset } from '../store/settingsStore';
+import { commands, type JavaInfo } from '../bindings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,7 +14,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const { minRamMb, maxRamMb, gcPreset, javaPath, setMinRamMb, setMaxRamMb, setGcPreset, setJavaPath } =
     useSettingsStore();
 
+  const [detectedJavas, setDetectedJavas] = useState<JavaInfo[]>([]);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+
   if (!isOpen) return null;
+
+  const handleDetectJava = async () => {
+    setIsDetecting(true);
+    setDetectError(null);
+    try {
+      const res = await commands.detectSystemJava();
+      if (res.status === 'ok') {
+        setDetectedJavas(res.data);
+        if (res.data.length > 0 && (!javaPath || javaPath === 'javaw.exe')) {
+          setJavaPath(res.data[0].path);
+        }
+      } else {
+        setDetectError(res.error);
+      }
+    } catch (err) {
+      setDetectError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsDetecting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -83,10 +108,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           {/* Java & Runtime Section */}
           <div className="space-y-4 pt-4 border-t border-zinc-800/60">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              <Cpu className="w-4 h-4 text-indigo-400" />
-              <span>{t('settings.java')}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                <Cpu className="w-4 h-4 text-indigo-400" />
+                <span>{t('settings.java')}</span>
+              </div>
+              <button
+                onClick={handleDetectJava}
+                disabled={isDetecting}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg text-cyan-400 transition-colors disabled:opacity-50"
+                title={t('settings.autoDetectJava', 'Auto-detect system Java runtimes')}
+              >
+                <RefreshCw className={`w-3 h-3 ${isDetecting ? 'animate-spin' : ''}`} />
+                <span>{t('settings.autoDetect', 'Detect Java')}</span>
+              </button>
             </div>
+
+            {/* Detected Java Selector */}
+            {detectedJavas.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-zinc-400">
+                  {t('settings.detectedJava', 'Installed Java Runtimes')}
+                </label>
+                <select
+                  value={javaPath}
+                  onChange={(e) => setJavaPath(e.target.value)}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                >
+                  {detectedJavas.map((j) => (
+                    <option key={j.path} value={j.path}>
+                      Java {j.major} ({j.version}) - {j.vendor || 'System'} [{j.arch}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {detectError && (
+              <p className="text-xs text-red-400">{detectError}</p>
+            )}
 
             {/* Java Path */}
             <div className="space-y-1.5">
@@ -108,9 +168,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 onChange={(e) => setGcPreset(e.target.value as GcPreset)}
                 className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
               >
-                <option value="G1GC">{t('settings.gcG1GC')}</option>
-                <option value="ZGC">{t('settings.gcZGC')}</option>
-                <option value="Parallel">{t('settings.gcParallel')}</option>
+                <option value="G1GC">{t('settings.gcG1GC', 'G1GC (Recommended, Stable)')}</option>
+                <option value="ZGC">{t('settings.gcZGC', 'ZGC (Ultra Low Pause, Java 15+)')}</option>
+                <option value="GenerationalZGC">{t('settings.gcGenerationalZGC', 'Generational ZGC (High Throughput, Java 21+)')}</option>
+                <option value="Parallel">{t('settings.gcParallel', 'Parallel GC (Low Overhead)')}</option>
               </select>
             </div>
           </div>

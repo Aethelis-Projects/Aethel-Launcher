@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type GcPreset = 'G1GC' | 'ZGC' | 'Parallel';
+export type GcPreset = 'G1GC' | 'ZGC' | 'GenerationalZGC' | 'Parallel';
 
 interface SettingsState {
   minRamMb: number;

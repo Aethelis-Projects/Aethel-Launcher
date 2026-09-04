@@ -342,68 +342,10 @@ pub fn build_launch_receipt(
     })
 }
 
-/// Process supervisor supporting Windows Job Objects and Unix process groups.
-pub struct ProcessSupervisor;
+pub mod crash;
+pub mod supervisor;
 
-impl ProcessSupervisor {
-    /// Spawns the Java process attached to a Job Object on Windows.
-    pub fn spawn(receipt: &LaunchReceipt) -> Result<u32, AppError> {
-        let mut cmd = std::process::Command::new(&receipt.java_path);
-        cmd.current_dir(&receipt.working_dir);
-        cmd.args(&receipt.arguments);
-
-        for (k, v) in &receipt.environment {
-            cmd.env(k, v);
-        }
-
-        #[cfg(windows)]
-        {
-            use windows_sys::Win32::System::JobObjects::{
-                AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
-                SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-            };
-
-            let child = cmd.spawn().map_err(|e| {
-                AppError::new(
-                    AppErrorCode::InternalError,
-                    format!("Failed to spawn process: {e}"),
-                )
-            })?;
-            let pid = child.id();
-
-            unsafe {
-                let job = CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
-                if !job.is_null() {
-                    let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-                    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-
-                    let res = SetInformationJobObject(
-                        job,
-                        JobObjectExtendedLimitInformation,
-                        &info as *const _ as *const _,
-                        std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
-                    );
-
-                    if res != 0 {
-                        use std::os::windows::io::AsRawHandle;
-                        AssignProcessToJobObject(job, child.as_raw_handle());
-                    }
-                }
-            }
-
-            Ok(pid)
-        }
-
-        #[cfg(not(windows))]
-        {
-            let child = cmd.spawn().map_err(|e| {
-                AppError::new(
-                    AppErrorCode::InternalError,
-                    format!("Failed to spawn process: {e}"),
-                )
-            })?;
-            Ok(child.id())
-        }
-    }
-}
+pub use crash::{upload_to_mclogs, upload_to_mclogs_endpoint, CrashAnalyzer};
+#[cfg(windows)]
+pub use supervisor::JobObject;
+pub use supervisor::{LogCallback, ProcessSupervisor, SupervisedProcess};

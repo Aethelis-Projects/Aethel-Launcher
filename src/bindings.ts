@@ -27,17 +27,57 @@ async getLaunchReceipt(gameVersion: string, username: string) : Promise<Result<L
     else return { status: "error", error: e  as any };
 }
 },
-async launchWithStubIdentity(gameVersion: string | null, memoryMaxMb: number | null) : Promise<Result<LaunchReceipt, string>> {
+async launchWithStubIdentity(gameVersion: string | null, memoryMaxMb: number | null, javaPath: string | null, gcPreset: string | null) : Promise<Result<LaunchReceipt, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("launch_with_stub_identity", { gameVersion, memoryMaxMb }) };
+    return { status: "ok", data: await TAURI_INVOKE("launch_with_stub_identity", { gameVersion, memoryMaxMb, javaPath, gcPreset }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async launchWithActiveIdentity(gameVersion: string | null, memoryMaxMb: number | null) : Promise<Result<LaunchReceipt, string>> {
+async launchWithActiveIdentity(gameVersion: string | null, memoryMaxMb: number | null, javaPath: string | null, gcPreset: string | null) : Promise<Result<LaunchReceipt, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("launch_with_active_identity", { gameVersion, memoryMaxMb }) };
+    return { status: "ok", data: await TAURI_INVOKE("launch_with_active_identity", { gameVersion, memoryMaxMb, javaPath, gcPreset }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async launchInstance(instanceId: string, gameVersion: string | null, memoryMaxMb: number | null, javaPath: string | null, gcPreset: string | null) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("launch_instance", { instanceId, gameVersion, memoryMaxMb, javaPath, gcPreset }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async detectSystemJava() : Promise<Result<JavaInfo[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("detect_system_java") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async downloadJre(major: number) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_jre", { major }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async uploadCrashToMclogs(logContent: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("upload_crash_to_mclogs", { logContent }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async analyzeCrashLog(exitCode: number | null, logContent: string) : Promise<Result<CrashReport, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("analyze_crash_log", { exitCode, logContent }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -118,9 +158,12 @@ backendEvent: "backend-event"
 
 export type AccountMetadata = { uuid: string; username: string; account_type: string; skin_url: string | null; cape_url: string | null; server_url: string | null; last_used_at: string; is_active: boolean }
 export type AppErrorCode = "NO_DISK_SPACE" | "NETWORK_ERROR" | "HASH_MISMATCH" | "JAVA_NOT_FOUND" | "JAVA_INCOMPATIBLE" | "CLASSPATH_TOO_LONG" | "INVALID_MANIFEST" | "ZIP_SLIP_DETECTED" | "AUTH_FAILED" | "KEYRING_ACCESS_FAILED" | "ENCRYPTION_FAILED" | "DECRYPTION_FAILED" | "INSTANCE_NOT_FOUND" | "INTERNAL_ERROR"
-export type BackendEvent = { type: "DownloadProgress"; data: { task_id: string; current: number; total: number; speed_bps: number; file_name: string } } | { type: "DownloadBatchProgress"; data: { items: DownloadProgressItem[] } } | { type: "DownloadCompleted"; data: { task_id: string } } | { type: "DownloadFailed"; data: { task_id: string; error_code: AppErrorCode; message: string } } | { type: "ProcessStarting"; data: { instance_id: string } } | { type: "ProcessStarted"; data: { instance_id: string; pid: number } } | { type: "ProcessLog"; data: { instance_id: string; line: string; is_stderr: boolean } } | { type: "ProcessLogBatch"; data: { instance_id: string; lines: string[] } } | { type: "ProcessExited"; data: { instance_id: string; exit_code: number | null } } | { type: "InstanceUpdated"; data: { instance_id: string } }
+export type BackendEvent = { type: "DownloadProgress"; data: { task_id: string; current: number; total: number; speed_bps: number; file_name: string } } | { type: "DownloadBatchProgress"; data: { items: DownloadProgressItem[] } } | { type: "DownloadCompleted"; data: { task_id: string } } | { type: "DownloadFailed"; data: { task_id: string; error_code: AppErrorCode; message: string } } | { type: "ProcessStarting"; data: { instance_id: string } } | { type: "ProcessStarted"; data: { instance_id: string; pid: number } } | { type: "ProcessLog"; data: { instance_id: string; line: string; is_stderr: boolean } } | { type: "ProcessLogBatch"; data: { instance_id: string; lines: string[] } } | { type: "ProcessExited"; data: { instance_id: string; exit_code: number | null } } | { type: "ProcessCrashed"; data: { instance_id: string; report: CrashReport } } | { type: "InstanceUpdated"; data: { instance_id: string } }
+export type CrashPattern = "OutOfMemory" | { ClassNotFound: string } | { NoClassDefFound: string } | { UnsatisfiedLink: string } | { WrongJavaVersion: { expected: number; actual: number | null } } | "GpuDriverIssue" | { ModConflict: string } | "Unknown"
+export type CrashReport = { pattern: CrashPattern; diagnosis: string; suggestion: string; full_log: string; exit_code: number | null; upload_url: string | null }
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
 export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string }
+export type JavaInfo = { path: string; version: string; major: number; arch: string; vendor: string | null; is_system: boolean }
 /**
  * Structured receipt representing synthesized launch parameters.
  */

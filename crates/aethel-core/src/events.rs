@@ -56,6 +56,10 @@ pub enum BackendEvent {
         instance_id: String,
         exit_code: Option<i32>,
     },
+    ProcessCrashed {
+        instance_id: String,
+        report: crate::types::CrashReport,
+    },
     InstanceUpdated {
         instance_id: String,
     },
