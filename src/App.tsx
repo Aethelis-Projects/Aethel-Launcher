@@ -7,6 +7,8 @@ import { DownloadDrawer } from './components/DownloadDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { LogViewer } from './components/LogViewer';
 import { StubLaunchButton } from './components/StubLaunchButton';
+import { AccountModal } from './components/AccountModal';
+import { useAccountStore } from './store/accountStore';
 import { useDownloadStore } from './store/downloadStore';
 import { useLogStore } from './store/logStore';
 import { useInstanceStore } from './store/instanceStore';
@@ -16,10 +18,15 @@ export function App() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'instances' | 'logs'>('instances');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
 
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
   const { addLog, addLogBatch } = useLogStore();
   const { setLaunchStatus } = useInstanceStore();
+
+  useEffect(() => {
+    fetchAccounts();
+  }, [fetchAccounts]);
 
   // Listen to backend events from Tauri
   useEffect(() => {
@@ -130,6 +137,9 @@ export function App() {
           <DownloadDrawer />
         </main>
       </div>
+
+      {/* Account Management Modal */}
+      <AccountModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} />
 
       {/* Global Settings Modal */}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

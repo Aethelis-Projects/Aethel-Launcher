@@ -13,6 +13,9 @@ pub enum AppErrorCode {
     InvalidManifest,
     ZipSlipDetected,
     AuthFailed,
+    KeyringAccessFailed,
+    EncryptionFailed,
+    DecryptionFailed,
     InstanceNotFound,
     InternalError,
 }

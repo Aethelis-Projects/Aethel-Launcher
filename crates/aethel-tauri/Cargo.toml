@@ -17,4 +17,6 @@ specta-typescript = "0.0.9"
 tauri-specta = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }
+chrono = { workspace = true }
+dirs = { workspace = true }
 

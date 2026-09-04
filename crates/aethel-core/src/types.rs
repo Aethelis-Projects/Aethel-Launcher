@@ -18,3 +18,15 @@ pub struct Instance {
     pub banner_path: Option<String>,
     pub created_at: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct AccountMetadata {
+    pub uuid: String,
+    pub username: String,
+    pub account_type: String,
+    pub skin_url: Option<String>,
+    pub cape_url: Option<String>,
+    pub server_url: Option<String>,
+    pub last_used_at: String,
+    pub is_active: bool,
+}

@@ -34,6 +34,70 @@ async launchWithStubIdentity(gameVersion: string | null, memoryMaxMb: number | n
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async launchWithActiveIdentity(gameVersion: string | null, memoryMaxMb: number | null) : Promise<Result<LaunchReceipt, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("launch_with_active_identity", { gameVersion, memoryMaxMb }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async loginMicrosoft() : Promise<Result<AccountMetadata, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("login_microsoft") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async loginOffline(username: string) : Promise<Result<AccountMetadata, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("login_offline", { username }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async loginAuthlib(serverUrl: string, username: string) : Promise<Result<AccountMetadata, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("login_authlib", { serverUrl, username }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getAccounts() : Promise<Result<AccountMetadata[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_accounts") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getActiveAccount() : Promise<Result<AccountMetadata | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_active_account") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setActiveAccount(uuid: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_active_account", { uuid }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async logout(uuid: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("logout", { uuid }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -52,7 +116,8 @@ backendEvent: "backend-event"
 
 /** user-defined types **/
 
-export type AppErrorCode = "NO_DISK_SPACE" | "NETWORK_ERROR" | "HASH_MISMATCH" | "JAVA_NOT_FOUND" | "JAVA_INCOMPATIBLE" | "CLASSPATH_TOO_LONG" | "INVALID_MANIFEST" | "ZIP_SLIP_DETECTED" | "AUTH_FAILED" | "INSTANCE_NOT_FOUND" | "INTERNAL_ERROR"
+export type AccountMetadata = { uuid: string; username: string; account_type: string; skin_url: string | null; cape_url: string | null; server_url: string | null; last_used_at: string; is_active: boolean }
+export type AppErrorCode = "NO_DISK_SPACE" | "NETWORK_ERROR" | "HASH_MISMATCH" | "JAVA_NOT_FOUND" | "JAVA_INCOMPATIBLE" | "CLASSPATH_TOO_LONG" | "INVALID_MANIFEST" | "ZIP_SLIP_DETECTED" | "AUTH_FAILED" | "KEYRING_ACCESS_FAILED" | "ENCRYPTION_FAILED" | "DECRYPTION_FAILED" | "INSTANCE_NOT_FOUND" | "INTERNAL_ERROR"
 export type BackendEvent = { type: "DownloadProgress"; data: { task_id: string; current: number; total: number; speed_bps: number; file_name: string } } | { type: "DownloadBatchProgress"; data: { items: DownloadProgressItem[] } } | { type: "DownloadCompleted"; data: { task_id: string } } | { type: "DownloadFailed"; data: { task_id: string; error_code: AppErrorCode; message: string } } | { type: "ProcessStarting"; data: { instance_id: string } } | { type: "ProcessStarted"; data: { instance_id: string; pid: number } } | { type: "ProcessLog"; data: { instance_id: string; line: string; is_stderr: boolean } } | { type: "ProcessLogBatch"; data: { instance_id: string; lines: string[] } } | { type: "ProcessExited"; data: { instance_id: string; exit_code: number | null } } | { type: "InstanceUpdated"; data: { instance_id: string } }
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
 export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string }

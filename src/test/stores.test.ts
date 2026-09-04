@@ -25,6 +25,15 @@ describe('Zustand Stores Suite', () => {
       expect(useAccountStore.getState().activeAccount.name).toBe('Steve');
       expect(useAccountStore.getState().activeAccount.uuid).toBe('5627dd98-e6be-3c21-b8a8-e92344183641');
     });
+
+    it('can toggle account modal visibility', () => {
+      const { setIsAccountModalOpen } = useAccountStore.getState();
+      expect(useAccountStore.getState().isAccountModalOpen).toBe(false);
+      setIsAccountModalOpen(true);
+      expect(useAccountStore.getState().isAccountModalOpen).toBe(true);
+      setIsAccountModalOpen(false);
+      expect(useAccountStore.getState().isAccountModalOpen).toBe(false);
+    });
   });
 
   describe('SettingsStore', () => {

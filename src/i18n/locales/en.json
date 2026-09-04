@@ -118,6 +118,18 @@
       "title": "Authentication Failed",
       "message": "Could not authenticate profile. Please re-login."
     },
+    "KEYRING_ACCESS_FAILED": {
+      "title": "Keyring Access Failed",
+      "message": "Could not access the system credential vault. Falling back to secure encrypted file."
+    },
+    "ENCRYPTION_FAILED": {
+      "title": "Encryption Error",
+      "message": "Failed to encrypt credentials using AES-256-GCM."
+    },
+    "DECRYPTION_FAILED": {
+      "title": "Decryption Error",
+      "message": "Failed to decrypt credentials using AES-256-GCM."
+    },
     "INSTANCE_NOT_FOUND": {
       "title": "Instance Not Found",
       "message": "The specified instance record does not exist in local storage."
@@ -126,5 +138,34 @@
       "title": "Internal Error",
       "message": "An unexpected error occurred. Review the log console for stack trace details."
     }
+  },
+  "auth": {
+    "title": "Account Management",
+    "accounts": "Accounts",
+    "addAccount": "Add Account",
+    "active": "Active",
+    "switch": "Select",
+    "remove": "Remove",
+    "noAccounts": "No accounts added yet",
+    "microsoft": {
+      "title": "Microsoft Account",
+      "description": "Sign in securely via your browser with your official Microsoft account.",
+      "button": "Sign in with Microsoft",
+      "signingIn": "Waiting for browser authorization..."
+    },
+    "offline": {
+      "title": "Offline Account",
+      "description": "Play locally without an internet connection using an offline nickname.",
+      "placeholder": "Enter username (1-16 characters)",
+      "button": "Add Offline Account"
+    },
+    "authlib": {
+      "title": "Custom Auth / Ely.by",
+      "description": "Sign in with a custom authlib-injector compatible auth server (e.g. Ely.by).",
+      "serverPlaceholder": "Auth Server URL (e.g. https://authlib-injector.yggdrasil.ely.by)",
+      "usernamePlaceholder": "Username or Email",
+      "button": "Add Custom Account"
+    },
+    "close": "Close"
   }
 }

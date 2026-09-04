@@ -33,6 +33,15 @@ pub fn humanize_error(code: AppErrorCode) -> &'static str {
         AppErrorCode::AuthFailed => {
             "Authentication failed. Please verify credentials or refresh your login session."
         }
+        AppErrorCode::KeyringAccessFailed => {
+            "Failed to access the operating system credential store (Keyring)."
+        }
+        AppErrorCode::EncryptionFailed => {
+            "Cryptographic failure: unable to encrypt credentials with AES-GCM."
+        }
+        AppErrorCode::DecryptionFailed => {
+            "Cryptographic failure: unable to decrypt credentials with AES-GCM."
+        }
         AppErrorCode::InstanceNotFound => {
             "Instance not found. The specified instance ID does not exist in local storage."
         }
@@ -58,6 +67,9 @@ mod tests {
             AppErrorCode::InvalidManifest,
             AppErrorCode::ZipSlipDetected,
             AppErrorCode::AuthFailed,
+            AppErrorCode::KeyringAccessFailed,
+            AppErrorCode::EncryptionFailed,
+            AppErrorCode::DecryptionFailed,
             AppErrorCode::InstanceNotFound,
             AppErrorCode::InternalError,
         ];

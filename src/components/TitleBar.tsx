@@ -7,7 +7,7 @@ import { useDownloadStore } from '../store/downloadStore';
 
 export const TitleBar: React.FC = () => {
   const { i18n } = useTranslation();
-  const { activeAccount } = useAccountStore();
+  const { activeAccount, setIsAccountModalOpen } = useAccountStore();
   const { tasks, setIsOpen, isOpen } = useDownloadStore();
 
   const activeDownloadCount = Object.values(tasks).filter(
@@ -80,10 +80,13 @@ export const TitleBar: React.FC = () => {
         </button>
 
         {/* Profile badge */}
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]">
+        <button
+          onClick={() => setIsAccountModalOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-zinc-100 text-[11px] transition-all cursor-pointer"
+        >
           <User className="w-3 h-3 text-cyan-400" />
           <span>{activeAccount.name}</span>
-        </div>
+        </button>
 
         {/* Window controls */}
         <div className="flex items-center ml-2 border-l border-zinc-800 pl-2">

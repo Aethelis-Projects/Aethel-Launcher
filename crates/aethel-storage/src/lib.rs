@@ -1,4 +1,4 @@
-use aethel_core::{AppError, AppErrorCode, Instance, Result};
+use aethel_core::{AccountMetadata, AppError, AppErrorCode, Instance, Result};
 use rusqlite::{params, Connection};
 use std::path::Path;
 use tracing::info;
@@ -108,6 +108,7 @@ impl Database {
                          account_type TEXT NOT NULL,
                          skin_url TEXT,
                          cape_url TEXT,
+                         server_url TEXT,
                          last_used_at TEXT NOT NULL
                      );
 
@@ -269,6 +270,220 @@ impl Database {
         }
         Ok(list)
     }
+
+    pub fn insert_or_update_account(&self, account: &AccountMetadata) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO accounts_metadata (uuid, username, account_type, skin_url, cape_url, server_url, last_used_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                 ON CONFLICT(uuid) DO UPDATE SET
+                     username = excluded.username,
+                     account_type = excluded.account_type,
+                     skin_url = excluded.skin_url,
+                     cape_url = excluded.cape_url,
+                     server_url = excluded.server_url,
+                     last_used_at = excluded.last_used_at;",
+                params![
+                    account.uuid,
+                    account.username,
+                    account.account_type,
+                    account.skin_url,
+                    account.cape_url,
+                    account.server_url,
+                    account.last_used_at,
+                ],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to insert or update account: {}", e),
+                )
+            })?;
+        Ok(())
+    }
+
+    pub fn get_account(&self, uuid: &str) -> Result<Option<AccountMetadata>> {
+        let active_uuid = self.get_setting("active_account_uuid")?;
+        let is_active = active_uuid.as_deref() == Some(uuid);
+
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT uuid, username, account_type, skin_url, cape_url, server_url, last_used_at
+                 FROM accounts_metadata WHERE uuid = ?1;",
+            )
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+        let mut rows = stmt
+            .query(params![uuid])
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+        if let Some(row) = rows
+            .next()
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?
+        {
+            Ok(Some(AccountMetadata {
+                uuid: row
+                    .get(0)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                username: row
+                    .get(1)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                account_type: row
+                    .get(2)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                skin_url: row
+                    .get(3)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                cape_url: row
+                    .get(4)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                server_url: row
+                    .get(5)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                last_used_at: row
+                    .get(6)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                is_active,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn list_accounts(&self) -> Result<Vec<AccountMetadata>> {
+        let active_uuid = self.get_setting("active_account_uuid")?;
+
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT uuid, username, account_type, skin_url, cape_url, server_url, last_used_at
+                 FROM accounts_metadata ORDER BY last_used_at DESC;",
+            )
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, String>(6)?,
+                ))
+            })
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+        let mut list = Vec::new();
+        for r in rows {
+            let (uuid, username, account_type, skin_url, cape_url, server_url, last_used_at) =
+                r.map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+            let is_active =
+                active_uuid.as_deref() == Some(&uuid) || (active_uuid.is_none() && list.is_empty());
+            list.push(AccountMetadata {
+                uuid,
+                username,
+                account_type,
+                skin_url,
+                cape_url,
+                server_url,
+                last_used_at,
+                is_active,
+            });
+        }
+        Ok(list)
+    }
+
+    pub fn delete_account(&self, uuid: &str) -> Result<()> {
+        self.conn
+            .execute(
+                "DELETE FROM accounts_metadata WHERE uuid = ?1;",
+                params![uuid],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to delete account: {}", e),
+                )
+            })?;
+
+        if let Ok(Some(active)) = self.get_setting("active_account_uuid") {
+            if active == uuid {
+                let _ = self.conn.execute(
+                    "DELETE FROM settings WHERE key = 'active_account_uuid';",
+                    [],
+                );
+            }
+        }
+        Ok(())
+    }
+
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM settings WHERE key = ?1;")
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+        let mut rows = stmt
+            .query(params![key])
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+        if let Some(row) = rows
+            .next()
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?
+        {
+            Ok(Some(row.get(0).map_err(|e| {
+                AppError::new(AppErrorCode::InternalError, e.to_string())
+            })?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value;",
+                params![key, value],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to set setting: {}", e),
+                )
+            })?;
+        Ok(())
+    }
+
+    pub fn get_active_account(&self) -> Result<Option<AccountMetadata>> {
+        if let Some(active_uuid) = self.get_setting("active_account_uuid")? {
+            if let Some(acc) = self.get_account(&active_uuid)? {
+                return Ok(Some(acc));
+            }
+        }
+
+        let accounts = self.list_accounts()?;
+        Ok(accounts.into_iter().next())
+    }
+
+    pub fn set_active_account(&self, uuid: &str) -> Result<()> {
+        self.set_setting("active_account_uuid", uuid)?;
+        self.conn
+            .execute(
+                "UPDATE accounts_metadata SET last_used_at = datetime('now') WHERE uuid = ?1;",
+                params![uuid],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to update account last_used_at: {}", e),
+                )
+            })?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -347,5 +562,47 @@ mod tests {
 
         let all = db.list_instances().expect("list");
         assert_eq!(all.len(), 1);
+    }
+
+    #[test]
+    fn test_account_metadata_crud() {
+        let db = Database::in_memory().expect("in memory db");
+
+        let acc = AccountMetadata {
+            uuid: "00000000-0000-0000-0000-000000000001".into(),
+            username: "Player1".into(),
+            account_type: "offline".into(),
+            skin_url: None,
+            cape_url: None,
+            server_url: None,
+            last_used_at: "2026-09-04T00:00:00Z".into(),
+            is_active: false,
+        };
+
+        db.insert_or_update_account(&acc).expect("insert account");
+
+        let fetched = db
+            .get_account("00000000-0000-0000-0000-000000000001")
+            .expect("get account")
+            .expect("account exists");
+        assert_eq!(fetched.username, "Player1");
+        assert_eq!(fetched.account_type, "offline");
+
+        let accounts = db.list_accounts().expect("list accounts");
+        assert_eq!(accounts.len(), 1);
+        assert!(accounts[0].is_active);
+
+        db.set_active_account("00000000-0000-0000-0000-000000000001")
+            .expect("set active");
+        let active = db
+            .get_active_account()
+            .expect("get active")
+            .expect("has active");
+        assert_eq!(active.uuid, "00000000-0000-0000-0000-000000000001");
+
+        db.delete_account("00000000-0000-0000-0000-000000000001")
+            .expect("delete account");
+        let remaining = db.list_accounts().expect("list after delete");
+        assert_eq!(remaining.len(), 0);
     }
 }

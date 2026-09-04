@@ -8,4 +8,4 @@ pub use error::{AppError, AppErrorCode, Result};
 pub use events::{BackendEvent, DownloadProgressItem, RateLimitedBatcher};
 pub use hash::HashAlgorithm;
 pub use i18n::humanize_error;
-pub use types::Instance;
+pub use types::{AccountMetadata, Instance};
