@@ -7,7 +7,8 @@ use std::path::Path;
 use zip::ZipArchive;
 
 /// Default public CurseForge Core API key for launcher integration
-pub const DEFAULT_CURSEFORGE_KEY: &str = "$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEJQnPnm";
+pub const DEFAULT_CURSEFORGE_KEY: &str =
+    "$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEJQnPnm";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -161,7 +162,10 @@ impl CurseForgeClient {
     }
 
     /// Fetches file metadata in batches of at most 50 file IDs per request (ToS & batch limit).
-    pub async fn get_files_batch(&self, file_ids: &[u32]) -> Result<Vec<CurseForgeApiFile>, AppError> {
+    pub async fn get_files_batch(
+        &self,
+        file_ids: &[u32],
+    ) -> Result<Vec<CurseForgeApiFile>, AppError> {
         let mut results = Vec::new();
 
         for chunk in file_ids.chunks(50) {
@@ -226,7 +230,10 @@ impl CurseForgeImporter {
         let file = File::open(zip_path).map_err(|e| {
             AppError::new(
                 AppErrorCode::InternalError,
-                format!("Failed to open CurseForge zip archive {}: {e}", zip_path.display()),
+                format!(
+                    "Failed to open CurseForge zip archive {}: {e}",
+                    zip_path.display()
+                ),
             )
         })?;
 
@@ -256,7 +263,11 @@ impl CurseForgeImporter {
     }
 
     /// Safely extracts all files from the `overrides/` folder into `instance_dir`.
-    pub fn extract_overrides(zip_path: &Path, instance_dir: &Path, overrides_dir_name: &str) -> Result<usize, AppError> {
+    pub fn extract_overrides(
+        zip_path: &Path,
+        instance_dir: &Path,
+        overrides_dir_name: &str,
+    ) -> Result<usize, AppError> {
         let file = File::open(zip_path).map_err(|e| {
             AppError::new(
                 AppErrorCode::InternalError,
@@ -305,7 +316,10 @@ impl CurseForgeImporter {
                 std::fs::create_dir_all(&dest_path).map_err(|e| {
                     AppError::new(
                         AppErrorCode::InternalError,
-                        format!("Failed to create overrides directory {}: {e}", dest_path.display()),
+                        format!(
+                            "Failed to create overrides directory {}: {e}",
+                            dest_path.display()
+                        ),
                     )
                 })?;
             } else {
@@ -313,7 +327,10 @@ impl CurseForgeImporter {
                     std::fs::create_dir_all(parent).map_err(|e| {
                         AppError::new(
                             AppErrorCode::InternalError,
-                            format!("Failed to create parent directory {}: {e}", parent.display()),
+                            format!(
+                                "Failed to create parent directory {}: {e}",
+                                parent.display()
+                            ),
                         )
                     })?;
                 }
@@ -347,9 +364,9 @@ impl CurseForgeImporter {
     ) -> Result<ImportResult, AppError> {
         let manifest = Self::read_manifest(zip_path)?;
 
-        let (loader, loader_version) = manifest.parse_loader().unwrap_or_else(|_| {
-            ("vanilla".to_string(), "".to_string())
-        });
+        let (loader, loader_version) = manifest
+            .parse_loader()
+            .unwrap_or_else(|_| ("vanilla".to_string(), "".to_string()));
 
         std::fs::create_dir_all(instance_dir).map_err(|e| {
             AppError::new(
@@ -359,7 +376,8 @@ impl CurseForgeImporter {
         })?;
 
         // 1. Extract overrides
-        let overrides_applied = Self::extract_overrides(zip_path, instance_dir, &manifest.overrides)?;
+        let overrides_applied =
+            Self::extract_overrides(zip_path, instance_dir, &manifest.overrides)?;
 
         // 2. Fetch and download mod files declared in manifest
         let mut files_installed = 0;
@@ -404,8 +422,16 @@ impl CurseForgeImporter {
             instance_id: instance_id.to_string(),
             name: manifest.name,
             game_version: manifest.minecraft.version,
-            loader: if loader == "vanilla" { None } else { Some(loader) },
-            loader_version: if loader_version.is_empty() { None } else { Some(loader_version) },
+            loader: if loader == "vanilla" {
+                None
+            } else {
+                Some(loader)
+            },
+            loader_version: if loader_version.is_empty() {
+                None
+            } else {
+                Some(loader_version)
+            },
             files_installed,
             overrides_applied,
         })
@@ -443,7 +469,8 @@ mod tests {
 
     #[test]
     fn test_parse_curseforge_manifest() {
-        let manifest = CurseForgeManifest::parse(SAMPLE_CURSEFORGE_MANIFEST).expect("valid manifest");
+        let manifest =
+            CurseForgeManifest::parse(SAMPLE_CURSEFORGE_MANIFEST).expect("valid manifest");
         assert_eq!(manifest.name, "All the Mods 10");
         assert_eq!(manifest.version, "8.1");
         assert_eq!(manifest.minecraft.version, "1.21.1");

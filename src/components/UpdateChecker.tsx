@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sparkles, Download, X, CheckCircle2, Loader2, Calendar, FileDown, ArrowRight } from 'lucide-react';
+import { Sparkles, Download, X, CheckCircle2, Loader2, Calendar, FileDown, ArrowRight, ExternalLink } from 'lucide-react';
 import { useUpdateStore } from '../store/updateStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { parseChangelog } from '../utils/changelogParser';
 
 interface UpdateCheckerProps {
   channel?: string;
@@ -57,6 +58,8 @@ export const UpdateChecker: React.FC<UpdateCheckerProps> = ({
   };
 
   if (!updateInfo) return null;
+
+  const parsedChangelog = parseChangelog(updateInfo.body, updateInfo.version);
 
   return (
     <>
@@ -115,13 +118,52 @@ export const UpdateChecker: React.FC<UpdateCheckerProps> = ({
                 )}
               </div>
 
-              {/* Release Notes / Markdown body */}
-              <div className="space-y-1.5">
-                <span className="font-semibold text-zinc-300 uppercase tracking-wider text-[11px]">
-                  {t('update.whatsNew', "What's changed in this release")}
-                </span>
-                <div className="max-h-56 overflow-y-auto rounded-xl bg-zinc-900/90 p-3.5 text-zinc-300 whitespace-pre-wrap font-sans text-xs leading-relaxed border border-zinc-800">
-                  {updateInfo.body || t('update.upToDate', 'Bug fixes and improvements.')}
+              {/* Release Notes / Structured Changelog */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-2.5 px-0.5">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    {t('update.whatsNew', "Что изменилось в этой версии")}
+                  </span>
+                  <span className="text-[10px] font-medium text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
+                    Changelog
+                  </span>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto rounded-xl bg-zinc-900/80 p-4 text-zinc-300 font-sans text-xs leading-relaxed border border-zinc-800/80 space-y-3.5 shadow-inner">
+                  {parsedChangelog.sections.map((sec, idx) => (
+                    <div key={idx} className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-zinc-200 font-semibold text-xs border-b border-zinc-800/60 pb-1">
+                        <span>{sec.icon}</span>
+                        <span>{sec.title}</span>
+                      </div>
+                      <ul className="space-y-1 pl-1">
+                        {sec.items.map((item, itemIdx) => (
+                          <li key={itemIdx} className="flex items-start gap-2 text-zinc-300 leading-normal">
+                            <span className="text-cyan-400/80 font-bold shrink-0 text-sm leading-4">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+
+                  {parsedChangelog.compareUrl && (
+                    <div className="pt-2.5 border-t border-zinc-800/80 flex items-center justify-between">
+                      <span className="text-[11px] text-zinc-500">
+                        {t('update.fullChangelog', 'Полный список изменений')}
+                      </span>
+                      <a
+                        href={parsedChangelog.compareUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-cyan-400 hover:text-cyan-300 bg-cyan-950/30 hover:bg-cyan-950/60 border border-cyan-500/30 transition-all"
+                      >
+                        <span>GitHub Release</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 

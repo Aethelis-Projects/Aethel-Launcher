@@ -19,8 +19,8 @@ export const ComponentsScreen: React.FC = () => {
       isComplete: false,
       error: null,
     });
-    addLog([INFO] Target install path: );
-    addLog([INFO] Selected components: );
+    addLog(`[INFO] Target install path: ${installPath}`);
+    addLog(`[INFO] Selected components: ${Object.keys(components).filter((k) => components[k as keyof SelectedComponents]).join(', ')}`);
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
@@ -75,9 +75,9 @@ export const ComponentsScreen: React.FC = () => {
           stage,
           percent: p,
           speed: '24.5 MB/s',
-          eta: ${Math.max(1, Math.round((100 - p) / 10))}s,
+          eta: `${Math.max(1, Math.round((100 - p) / 10))}s`,
         });
-        addLog([INFO] );
+        addLog(`[INFO] ${stage}`);
       }
     }, 450);
   };

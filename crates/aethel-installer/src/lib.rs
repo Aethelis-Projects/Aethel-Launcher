@@ -1,8 +1,8 @@
+pub mod commands;
 pub mod downloader;
 pub mod installer;
 pub mod shortcuts;
 pub mod uninstall;
-pub mod commands;
 
 pub use downloader::*;
 pub use installer::*;

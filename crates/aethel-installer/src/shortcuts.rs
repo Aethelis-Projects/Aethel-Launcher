@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use aethel_core::{AppError, AppErrorCode};
 use std::path::Path;
 
@@ -19,7 +20,9 @@ impl ShortcutManager {
             if create_desktop {
                 if let Some(desktop_dir) = dirs::desktop_dir() {
                     let shortcut_path = desktop_dir.join(format!("{app_name}.lnk"));
-                    if Self::create_windows_shortcut(target_exe, install_dir, &shortcut_path).is_ok() {
+                    if Self::create_windows_shortcut(target_exe, install_dir, &shortcut_path)
+                        .is_ok()
+                    {
                         created.push(shortcut_path.to_string_lossy().to_string());
                     }
                 }
@@ -30,7 +33,9 @@ impl ShortcutManager {
                     let start_menu_dir = data_dir.join(r"Microsoft\Windows\Start Menu\Programs");
                     let _ = std::fs::create_dir_all(&start_menu_dir);
                     let shortcut_path = start_menu_dir.join(format!("{app_name}.lnk"));
-                    if Self::create_windows_shortcut(target_exe, install_dir, &shortcut_path).is_ok() {
+                    if Self::create_windows_shortcut(target_exe, install_dir, &shortcut_path)
+                        .is_ok()
+                    {
                         created.push(shortcut_path.to_string_lossy().to_string());
                     }
                 }
@@ -74,7 +79,14 @@ impl ShortcutManager {
 
         #[cfg(target_os = "macos")]
         {
-            let _ = (target_exe, install_dir, create_desktop, create_start_menu);
+            let _ = (
+                target_exe,
+                install_dir,
+                app_name,
+                create_desktop,
+                create_start_menu,
+            );
+            let _ = &mut created;
         }
 
         Ok(created)
@@ -110,7 +122,10 @@ impl ShortcutManager {
         if !output.status.success() {
             return Err(AppError::new(
                 AppErrorCode::InternalError,
-                format!("Shortcut creation failed: {}", String::from_utf8_lossy(&output.stderr)),
+                format!(
+                    "Shortcut creation failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ),
             ));
         }
 

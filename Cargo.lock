@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-auth"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aes-gcm",
  "aethel-core",
@@ -74,7 +74,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-core"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "chrono",
  "serde",
@@ -89,7 +89,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-download"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-core",
  "futures-util",
@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-installer"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-java"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -149,7 +149,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-launch"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-core",
  "aethel-manifest",
@@ -167,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-launcher-bin"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-auth",
  "aethel-core",
@@ -186,7 +186,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-manifest"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-core",
  "serde",
@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-modding"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -219,7 +219,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-storage"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-core",
  "chrono",
@@ -231,7 +231,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-tauri"
-version = "0.1.0"
+version = "1.0.0-rc.2"
 dependencies = [
  "aethel-auth",
  "aethel-core",

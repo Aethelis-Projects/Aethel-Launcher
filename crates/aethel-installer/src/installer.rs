@@ -107,8 +107,11 @@ impl Installer {
         }
         #[cfg(not(windows))]
         {
-            // On Unix: root check (uid == 0)
-            unsafe { libc::getuid() == 0 }
+            // On Unix: root check via environment variables USER / LOGNAME
+            std::env::var("USER")
+                .or_else(|_| std::env::var("LOGNAME"))
+                .map(|u| u == "root")
+                .unwrap_or(false)
         }
     }
 
@@ -212,6 +215,7 @@ impl Installer {
         }
         #[cfg(not(windows))]
         {
+            let _ = path;
             Ok(10 * 1024 * 1024 * 1024) // 10 GB dummy fallback on non-windows
         }
     }
@@ -247,14 +251,20 @@ mod tests {
     fn test_install_path_validation_empty() {
         let res = Installer::validate_install_path("   ");
         assert!(!res.is_valid);
-        assert_eq!(res.error_message, Some("Installation path cannot be empty".to_string()));
+        assert_eq!(
+            res.error_message,
+            Some("Installation path cannot be empty".to_string())
+        );
     }
 
     #[test]
     fn test_install_path_validation_relative() {
         let res = Installer::validate_install_path("relative/path/launcher");
         assert!(!res.is_valid);
-        assert_eq!(res.error_message, Some("Installation path must be an absolute path".to_string()));
+        assert_eq!(
+            res.error_message,
+            Some("Installation path must be an absolute path".to_string())
+        );
     }
 
     #[test]

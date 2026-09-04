@@ -93,7 +93,16 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: cargo tauri build --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG_NAME" =~ -(alpha|beta|rc) ]]; then
+            echo "Pre-release detected ($TAG_NAME): building bundles nsis,appimage,deb,dmg"
+            cargo tauri build --target ${{ matrix.target }} --bundles nsis,appimage,deb,dmg
+          else
+            echo "Stable release ($TAG_NAME): building all targets"
+            cargo tauri build --target ${{ matrix.target }}
+          fi
 
       # Windows: Sign binary if certificate exists
       - name: Sign Windows Binary
@@ -129,7 +138,23 @@ jobs:
         with:
           draft: ${{ steps.release_type.outputs.draft }}
           prerelease: ${{ steps.release_type.outputs.prerelease }}
-          generate_release_notes: true
+          generate_release_notes: false
+          body: |
+            ## ✨ Release ${{ github.ref_name }}
+
+            ### 🚀 Highlights & Features
+            - **Custom Animated Installer**: 6-screen installer wizard with Minisign integrity verification, Java runtime selector, and real-time unpacker.
+            - **CurseForge Modpack Importer**: Full support for `.zip` modpacks with `manifest.json`, batch mod resolution via API/CDN, and override extraction.
+            - **Real Process Spawning**: Live Minecraft process execution with real-time stdout/stderr log capture and crash diagnosis.
+            - **Window Frame Polish**: Clean frameless window with custom minimize, maximize, and close controls.
+
+            ### 🛠 Fixes & Optimizations
+            - Fixed WiX MSI build compatibility for SemVer pre-releases (`-rc.2`).
+            - Resolved standalone installer webview localhost connection issues.
+            - Redesigned in-app update notification modal with structured changelog cards.
+
+            ---
+            **Full Changelog**: https://github.com/Aethelis-Projects/Aethel-Launcher/compare/v1.0.0-rc.1...${{ github.ref_name }}
           files: |
             target/${{ matrix.target }}/release/bundle/msi/*.msi
             target/${{ matrix.target }}/release/bundle/nsis/*.exe

@@ -63,6 +63,9 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
+      - name: Build Installer Frontend Bundle
+        run: npm run build:installer
+
       - name: Build Aethel Custom Installer Binary
         run: cargo build --release --package aethel-installer --target ${{ matrix.target }}
 

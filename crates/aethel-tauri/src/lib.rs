@@ -613,7 +613,8 @@ async fn launch_instance(
     java_path: Option<String>,
     gc_preset: Option<String>,
 ) -> Result<u32, String> {
-    let mut receipt = launch_with_active_identity(game_version, memory_max_mb, java_path, gc_preset)?;
+    let mut receipt =
+        launch_with_active_identity(game_version, memory_max_mb, java_path, gc_preset)?;
     let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
     let dirs = [
         "natives",
@@ -1085,7 +1086,8 @@ async fn import_modpack(
     instance_name: Option<String>,
 ) -> Result<Instance, String> {
     let archive_path = std::path::Path::new(&file_path);
-    let archive_type = ModpackImporter::detect_archive_type(archive_path).map_err(|e| e.to_string())?;
+    let archive_type =
+        ModpackImporter::detect_archive_type(archive_path).map_err(|e| e.to_string())?;
 
     let inst_id = uuid::Uuid::new_v4().to_string();
     let instance_dir = get_app_data_dir().join("instances").join(&inst_id);
@@ -1100,7 +1102,8 @@ async fn import_modpack(
             (name, res.game_version, res.loader, res.loader_version)
         }
         ModpackArchiveType::CurseForge => {
-            let manifest = CurseForgeImporter::read_manifest(archive_path).map_err(|e| e.to_string())?;
+            let manifest =
+                CurseForgeImporter::read_manifest(archive_path).map_err(|e| e.to_string())?;
             let name = instance_name.unwrap_or(manifest.name);
             let res = CurseForgeImporter::import(archive_path, &instance_dir, &inst_id)
                 .await
@@ -1110,7 +1113,8 @@ async fn import_modpack(
         ModpackArchiveType::AethelBackup => {
             let orig = InstanceImporter::read_metadata(archive_path).map_err(|e| e.to_string())?;
             let name = instance_name.unwrap_or(orig.name);
-            let mut inst = InstanceImporter::import(archive_path, &instance_dir).map_err(|e| e.to_string())?;
+            let mut inst =
+                InstanceImporter::import(archive_path, &instance_dir).map_err(|e| e.to_string())?;
             inst.id = inst_id;
             inst.name = name;
             inst.created_at = chrono::Utc::now().to_rfc3339();

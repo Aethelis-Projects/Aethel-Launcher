@@ -4,10 +4,8 @@
   "version": "1.0.0-rc.2",
   "identifier": "org.aethelis.installer",
   "build": {
-    "beforeDevCommand": "",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "",
-    "frontendDist": "../../dist"
+    "beforeBuildCommand": "npm run build:installer",
+    "frontendDist": "./dist"
   },
   "app": {
     "windows": [

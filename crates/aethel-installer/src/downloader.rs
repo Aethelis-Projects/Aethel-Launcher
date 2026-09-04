@@ -25,7 +25,11 @@ impl InstallerDownloader {
     }
 
     /// Verifies that data matches the provided Minisign signature.
-    pub fn verify_signature(data: &[u8], signature_str: &str, pubkey_str: &str) -> Result<(), AppError> {
+    pub fn verify_signature(
+        data: &[u8],
+        signature_str: &str,
+        pubkey_str: &str,
+    ) -> Result<(), AppError> {
         let pk = PublicKey::from_base64(pubkey_str.trim()).map_err(|e| {
             AppError::new(
                 AppErrorCode::HashMismatch,
@@ -58,7 +62,8 @@ impl InstallerDownloader {
             format!("v{version}")
         };
 
-        let base = format!("https://github.com/Aethelis-Projects/aethel-launcher/releases/download/{tag}");
+        let base =
+            format!("https://github.com/Aethelis-Projects/aethel-launcher/releases/download/{tag}");
 
         #[cfg(target_os = "windows")]
         {
@@ -88,7 +93,11 @@ impl InstallerDownloader {
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         let os = "linux";
 
-        let arch = if cfg!(target_arch = "aarch64") { "aarch64" } else { "x64" };
+        let arch = if cfg!(target_arch = "aarch64") {
+            "aarch64"
+        } else {
+            "x64"
+        };
 
         Some(format!(
             "https://api.adoptium.net/v3/binary/latest/{major}/ga/{os}/{arch}/jre/hotspot/normal/eclipse?project=jdk"

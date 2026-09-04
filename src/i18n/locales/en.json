@@ -271,7 +271,8 @@
     "recommendedUpdate": "Recommended Launcher Update",
     "whatsNew": "What's changed in this release",
     "fileSize": "Download size",
-    "releaseDate": "Release date"
+    "releaseDate": "Release date",
+    "fullChangelog": "Full changelog"
   },
   "modpack": {
     "import": "Import Modpack / Backup",

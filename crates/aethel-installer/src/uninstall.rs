@@ -30,7 +30,10 @@ impl Uninstaller {
         std::fs::write(&manifest_path, json).map_err(|e| {
             AppError::new(
                 AppErrorCode::InternalError,
-                format!("Failed to write install manifest {}: {e}", manifest_path.display()),
+                format!(
+                    "Failed to write install manifest {}: {e}",
+                    manifest_path.display()
+                ),
             )
         })?;
 
@@ -43,7 +46,10 @@ impl Uninstaller {
         let contents = std::fs::read_to_string(&manifest_path).map_err(|e| {
             AppError::new(
                 AppErrorCode::InternalError,
-                format!("Failed to read install manifest {}: {e}", manifest_path.display()),
+                format!(
+                    "Failed to read install manifest {}: {e}",
+                    manifest_path.display()
+                ),
             )
         })?;
 
