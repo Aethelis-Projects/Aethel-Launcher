@@ -52,12 +52,19 @@ export const InstanceGrid: React.FC = () => {
 
       addLog(`[Aethel] Synthesizing launch configuration for ${version}...`, false);
 
-      const res = await commands.launchWithStubIdentity(version, maxRamMb, effectiveJavaPath, gcPreset);
+      const receiptRes = await commands.launchWithStubIdentity(version, maxRamMb, effectiveJavaPath, gcPreset);
+      if (receiptRes.status === 'ok') {
+        setLastReceipt(receiptRes.data);
+        addLog(`[Aethel] Launch receipt verified: Classpath Tier = ${receiptRes.data.classpath_tier}`, false);
+        addLog(`[Aethel] Process command: ${receiptRes.data.command} ${receiptRes.data.arguments.slice(0, 5).join(' ')} ...`, false);
+      }
+
+      addLog(`[Aethel] Spawning game process for ${version}...`, false);
+      const res = await commands.launchInstance(instanceId, version, maxRamMb, effectiveJavaPath, gcPreset);
       if (res.status === 'ok') {
-        setLastReceipt(res.data);
+        const pid = res.data;
         setLaunchStatus(instanceId, 'running');
-        addLog(`[Aethel] Launch receipt verified: Classpath Tier = ${res.data.classpath_tier}`, false);
-        addLog(`[Aethel] Process command: ${res.data.command} ${res.data.arguments.slice(0, 5).join(' ')} ...`, false);
+        addLog(`[Aethel] Game process started (PID: ${pid})`, false);
         addLog(`[Aethel] Active player: Player (00000000-0000-0000-0000-000000000000)`, false);
       } else {
         setLastError(res.error);

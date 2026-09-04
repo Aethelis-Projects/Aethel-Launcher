@@ -114,9 +114,50 @@ pub fn verify_file_hashes(
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModpackArchiveType {
+    Modrinth,
+    CurseForge,
+    AethelBackup,
+}
+
 pub struct ModpackImporter;
 
 impl ModpackImporter {
+    /// Detects whether an archive is a Modrinth .mrpack, CurseForge .zip, or Aethel instance backup.
+    pub fn detect_archive_type(archive_path: &Path) -> Result<ModpackArchiveType, AppError> {
+        let file = File::open(archive_path).map_err(|e| {
+            AppError::new(
+                AppErrorCode::InternalError,
+                format!("Failed to open archive {}: {e}", archive_path.display()),
+            )
+        })?;
+
+        let mut archive = ZipArchive::new(file).map_err(|e| {
+            AppError::new(
+                AppErrorCode::InvalidManifest,
+                format!("Invalid zip archive: {e}"),
+            )
+        })?;
+
+        if archive.by_name("modrinth.index.json").is_ok() {
+            return Ok(ModpackArchiveType::Modrinth);
+        }
+
+        if archive.by_name("manifest.json").is_ok() {
+            return Ok(ModpackArchiveType::CurseForge);
+        }
+
+        if archive.by_name("instance.json").is_ok() {
+            return Ok(ModpackArchiveType::AethelBackup);
+        }
+
+        Err(AppError::new(
+            AppErrorCode::InvalidManifest,
+            "Archive does not contain recognized manifest (modrinth.index.json, manifest.json, or instance.json)",
+        ))
+    }
+
     /// Reads and parses modrinth.index.json from a .mrpack file.
     pub fn read_index(mrpack_path: &Path) -> Result<ModrinthIndex, AppError> {
         let file = File::open(mrpack_path).map_err(|e| {

@@ -9,10 +9,11 @@ use aethel_launch::{
 };
 use aethel_manifest::VersionPackage;
 use aethel_modding::{
-    DependencyResolver, ExportOptions, FabricInstaller, ForgeInstaller, InstalledMod,
-    InstanceExporter, InstanceImporter, ModManager, ModSearchResult, ModUpdate, ModVersion,
-    ModloaderType, ModloaderVersion, ModpackExporter, ModpackImporter, ModrinthClient,
-    ModrinthIndex, NeoForgeInstaller, QuiltInstaller, ResolutionResult,
+    CurseForgeImporter, DependencyResolver, ExportOptions, FabricInstaller, ForgeInstaller,
+    InstalledMod, InstanceExporter, InstanceImporter, ModManager, ModSearchResult, ModUpdate,
+    ModVersion, ModloaderType, ModloaderVersion, ModpackArchiveType, ModpackExporter,
+    ModpackImporter, ModrinthClient, ModrinthIndex, NeoForgeInstaller, QuiltInstaller,
+    ResolutionResult,
 };
 use aethel_storage::Database;
 use std::path::PathBuf;
@@ -612,7 +613,34 @@ async fn launch_instance(
     java_path: Option<String>,
     gc_preset: Option<String>,
 ) -> Result<u32, String> {
-    let receipt = launch_with_active_identity(game_version, memory_max_mb, java_path, gc_preset)?;
+    let mut receipt = launch_with_active_identity(game_version, memory_max_mb, java_path, gc_preset)?;
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let dirs = [
+        "natives",
+        "mods",
+        "config",
+        "saves",
+        "resourcepacks",
+        "shaderpacks",
+        "logs",
+        "crash-reports",
+    ];
+    for d in &dirs {
+        let _ = std::fs::create_dir_all(instance_dir.join(d));
+    }
+    let template_options = instance_dir.join("options.txt.template");
+    let options_file = instance_dir.join("options.txt");
+    if template_options.exists() && !options_file.exists() {
+        let _ = std::fs::copy(&template_options, &options_file);
+    }
+    receipt.working_dir = instance_dir;
+
+    if let Ok(db) = get_database() {
+        if let Ok(Some(mut inst)) = db.get_instance(&instance_id) {
+            inst.last_played_at = Some(chrono::Utc::now().to_rfc3339());
+            let _ = db.insert_instance(&inst);
+        }
+    }
 
     use tauri_specta::Event;
     let _ = BackendEvent::ProcessStarting {
@@ -1056,23 +1084,48 @@ async fn import_modpack(
     file_path: String,
     instance_name: Option<String>,
 ) -> Result<Instance, String> {
-    let mrpack_path = std::path::Path::new(&file_path);
-    let index = ModpackImporter::read_index(mrpack_path).map_err(|e| e.to_string())?;
+    let archive_path = std::path::Path::new(&file_path);
+    let archive_type = ModpackImporter::detect_archive_type(archive_path).map_err(|e| e.to_string())?;
 
     let inst_id = uuid::Uuid::new_v4().to_string();
-    let name = instance_name.unwrap_or(index.name);
     let instance_dir = get_app_data_dir().join("instances").join(&inst_id);
 
-    let import_res = ModpackImporter::import(mrpack_path, &instance_dir, &inst_id)
-        .await
-        .map_err(|e| e.to_string())?;
+    let (name, game_version, loader, loader_version) = match archive_type {
+        ModpackArchiveType::Modrinth => {
+            let index = ModpackImporter::read_index(archive_path).map_err(|e| e.to_string())?;
+            let name = instance_name.unwrap_or(index.name);
+            let res = ModpackImporter::import(archive_path, &instance_dir, &inst_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            (name, res.game_version, res.loader, res.loader_version)
+        }
+        ModpackArchiveType::CurseForge => {
+            let manifest = CurseForgeImporter::read_manifest(archive_path).map_err(|e| e.to_string())?;
+            let name = instance_name.unwrap_or(manifest.name);
+            let res = CurseForgeImporter::import(archive_path, &instance_dir, &inst_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            (name, res.game_version, res.loader, res.loader_version)
+        }
+        ModpackArchiveType::AethelBackup => {
+            let orig = InstanceImporter::read_metadata(archive_path).map_err(|e| e.to_string())?;
+            let name = instance_name.unwrap_or(orig.name);
+            let mut inst = InstanceImporter::import(archive_path, &instance_dir).map_err(|e| e.to_string())?;
+            inst.id = inst_id;
+            inst.name = name;
+            inst.created_at = chrono::Utc::now().to_rfc3339();
+            let db = get_database()?;
+            db.insert_instance(&inst).map_err(|e| e.to_string())?;
+            return Ok(inst);
+        }
+    };
 
     let inst = Instance {
         id: inst_id,
         name,
-        game_version: import_res.game_version,
-        loader: import_res.loader,
-        loader_version: import_res.loader_version,
+        game_version,
+        loader,
+        loader_version,
         java_path: None,
         memory_min_mb: Some(1024),
         memory_max_mb: Some(4096),

@@ -1,0 +1,63 @@
+﻿{
+  "common": {
+    "next": "Далее",
+    "back": "Назад",
+    "cancel": "Отмена",
+    "finish": "Готово",
+    "browse": "Обзор...",
+    "version": "Версия"
+  },
+  "welcome": {
+    "title": "Добро пожаловать в Aethel Launcher",
+    "subtitle": "Современный, производительный и безопасный лаунчер для Minecraft",
+    "start": "Начать установку",
+    "updateAvailable": "Доступна более новая версия инсталлера: {{version}}",
+    "downloadUpdate": "Скачать обновление"
+  },
+  "license": {
+    "title": "Лицензионное соглашение",
+    "subtitle": "Пожалуйста, ознакомьтесь с условиями лицензии перед установкой",
+    "accept": "Я принимаю условия лицензионного соглашения (MIT / Apache-2.0)",
+    "readFull": "Полный текст на GitHub"
+  },
+  "path": {
+    "title": "Папка для установки",
+    "subtitle": "Выберите каталог, в который будет установлен Aethel Launcher",
+    "recommended": "(Рекомендуется)",
+    "freeSpace": "Свободно на диске",
+    "requiredSpace": "Требуется места",
+    "createFolder": "Создать папку автоматически, если её нет"
+  },
+  "components": {
+    "title": "Выбор компонентов",
+    "subtitle": "Выберите дополнительные среды выполнения Java и системные ярлыки",
+    "launcher": "Aethel Launcher (Основное приложение)",
+    "launcherDesc": "Ядро лаунчера с менеджером инстансов, модов и аккаунтов",
+    "java21": "Java 21 Runtime (Adoptium Temurin)",
+    "java21Desc": "Рекомендуется для современных версий Minecraft (1.20.5+ и 1.21+)",
+    "java17": "Java 17 Runtime (Adoptium Temurin)",
+    "java17Desc": "Требуется для Minecraft 1.18 — 1.20.4",
+    "java8": "Java 8 Legacy Runtime",
+    "java8Desc": "Требуется для старых версий (1.7.10 — 1.16.5) и старых модпаков",
+    "desktopShortcut": "Создать ярлык на Рабочем столе",
+    "startMenuShortcut": "Создать ярлык в меню Пуск",
+    "fileAssociations": "Ассоциировать файлы .mrpack с лаунчером",
+    "totalSize": "Итоговый размер загрузки"
+  },
+  "progress": {
+    "title": "Установка Aethel Launcher",
+    "subtitle": "Пожалуйста, подождите, пока выполняется установка компонентов",
+    "speed": "Скорость",
+    "eta": "Осталось",
+    "showLog": "Показать журнал установки",
+    "hideLog": "Скрыть журнал установки"
+  },
+  "completion": {
+    "title": "Установка успешно завершена!",
+    "subtitle": "Aethel Launcher готов к запуску и игре",
+    "launchApp": "Запустить Aethel Launcher прямо сейчас",
+    "community": "Присоединяйтесь к нашему сообществу",
+    "discord": "Discord",
+    "github": "GitHub"
+  }
+}

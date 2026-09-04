@@ -1,0 +1,25 @@
+﻿@import tailwindcss;
+
+@layer utilities {
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 1.8s infinite;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  overflow: hidden;
+  background-color: #07090e;
+  color: #f8fafc;
+}

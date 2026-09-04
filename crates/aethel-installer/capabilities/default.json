@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2/capability",
   "identifier": "default",
-  "description": "Default capability for Aethel Launcher",
+  "description": "Default capability for Aathel Installer",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:default",
-    "core:window:allow-set-title",
+    "core:event:default",
     "opener:default"
   ]
 }

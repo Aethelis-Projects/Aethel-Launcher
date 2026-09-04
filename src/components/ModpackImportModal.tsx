@@ -36,10 +36,8 @@ export const ModpackImportModal: React.FC<ModpackImportModalProps> = ({
 
     try {
       const cleanPath = filePath.trim();
-      const isZip = cleanPath.toLowerCase().endsWith('.zip');
-
       let res;
-      if (isZip) {
+      if (cleanPath.toLowerCase().endsWith('.zip') && cleanPath.toLowerCase().includes('backup')) {
         res = await commands.importInstanceBackup(cleanPath);
       } else {
         res = await commands.importModpack(
@@ -48,17 +46,17 @@ export const ModpackImportModal: React.FC<ModpackImportModalProps> = ({
         );
       }
 
-      if (res.status === 'ok') {
+      if (res && res.status === 'ok') {
         setSuccessInstance(res.data);
         // Refresh instance store
         const instList = await commands.getInstances();
-        if (instList.status === 'ok') {
+        if (instList && instList.status === 'ok') {
           setInstances(instList.data);
         }
         if (onImportSuccess) {
           onImportSuccess(res.data);
         }
-      } else {
+      } else if (res) {
         setError(res.error);
       }
     } catch (err) {

@@ -1,0 +1,63 @@
+﻿{
+  "common": {
+    "next": "Next",
+    "back": "Back",
+    "cancel": "Cancel",
+    "finish": "Finish",
+    "browse": "Browse...",
+    "version": "Version"
+  },
+  "welcome": {
+    "title": "Welcome to Aethel Launcher",
+    "subtitle": "Next-generation, high-performance, and secure Minecraft launcher",
+    "start": "Start Installation",
+    "updateAvailable": "A newer installer version is available: {{version}}",
+    "downloadUpdate": "Download Update"
+  },
+  "license": {
+    "title": "License Agreement",
+    "subtitle": "Please review the license terms before proceeding with installation",
+    "accept": "I accept the terms of the license agreement (MIT / Apache-2.0)",
+    "readFull": "Read full text on GitHub"
+  },
+  "path": {
+    "title": "Installation Path",
+    "subtitle": "Select the destination folder where Aethel Launcher will be installed",
+    "recommended": "(Recommended)",
+    "freeSpace": "Available disk space",
+    "requiredSpace": "Required space",
+    "createFolder": "Automatically create directory if it does not exist"
+  },
+  "components": {
+    "title": "Select Components",
+    "subtitle": "Choose additional Java runtimes and system integrations",
+    "launcher": "Aethel Launcher (Core Application)",
+    "launcherDesc": "The core launcher engine with instance, mod, and account managers",
+    "java21": "Java 21 Runtime (Adoptium Temurin)",
+    "java21Desc": "Recommended for modern Minecraft (1.20.5+ and 1.21+)",
+    "java17": "Java 17 Runtime (Adoptium Temurin)",
+    "java17Desc": "Required for Minecraft 1.18 — 1.20.4",
+    "java8": "Java 8 Legacy Runtime",
+    "java8Desc": "Required for legacy versions (1.7.10 — 1.16.5) and classic modpacks",
+    "desktopShortcut": "Create Desktop Shortcut",
+    "startMenuShortcut": "Create Start Menu Shortcut",
+    "fileAssociations": "Associate .mrpack files with Aethel Launcher",
+    "totalSize": "Total estimated download size"
+  },
+  "progress": {
+    "title": "Installing Aethel Launcher",
+    "subtitle": "Please wait while components are being downloaded and installed",
+    "speed": "Speed",
+    "eta": "ETA",
+    "showLog": "Show installation log",
+    "hideLog": "Hide installation log"
+  },
+  "completion": {
+    "title": "Installation Completed!",
+    "subtitle": "Aethel Launcher is now ready for launch and gaming",
+    "launchApp": "Launch Aethel Launcher now",
+    "community": "Join our community",
+    "discord": "Discord",
+    "github": "GitHub"
+  }
+}

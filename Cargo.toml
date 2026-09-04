@@ -10,11 +10,12 @@ members = [
     "crates/aethel-modding",
     "crates/aethel-launch",
     "crates/aethel-tauri",
+    "crates/aethel-installer",
     "src-tauri",
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0-rc.2"
 edition = "2021"
 authors = ["Aethelis Projects <contact@aethelis.org>"]
 license = "MIT OR Apache-2.0"

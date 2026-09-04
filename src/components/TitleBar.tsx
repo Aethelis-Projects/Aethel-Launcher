@@ -20,22 +20,28 @@ export const TitleBar: React.FC = () => {
     localStorage.setItem('aethel_lng', next);
   };
 
-  const handleMinimize = () => {
+  const handleMinimize = async () => {
     try {
-      getCurrentWindow().minimize();
-    } catch {}
+      await getCurrentWindow().minimize();
+    } catch (err) {
+      console.error('Failed to minimize window:', err);
+    }
   };
 
-  const handleMaximize = () => {
+  const handleMaximize = async () => {
     try {
-      getCurrentWindow().toggleMaximize();
-    } catch {}
+      await getCurrentWindow().toggleMaximize();
+    } catch (err) {
+      console.error('Failed to toggle maximize window:', err);
+    }
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     try {
-      getCurrentWindow().close();
-    } catch {}
+      await getCurrentWindow().close();
+    } catch (err) {
+      console.error('Failed to close window:', err);
+    }
   };
 
   return (
@@ -91,18 +97,21 @@ export const TitleBar: React.FC = () => {
         {/* Window controls */}
         <div className="flex items-center ml-2 border-l border-zinc-800 pl-2">
           <button
+            data-testid="window-minimize-btn"
             onClick={handleMinimize}
             className="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 hover:text-zinc-200 rounded text-zinc-400 transition-colors"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
+            data-testid="window-maximize-btn"
             onClick={handleMaximize}
             className="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 hover:text-zinc-200 rounded text-zinc-400 transition-colors"
           >
             <Square className="w-2.5 h-2.5" />
           </button>
           <button
+            data-testid="window-close-btn"
             onClick={handleClose}
             className="w-7 h-7 flex items-center justify-center hover:bg-red-600 hover:text-white rounded text-zinc-400 transition-colors"
           >
