@@ -1,6 +1,7 @@
 use crate::check_installer_version as check_version_lib;
 use crate::downloader::InstallerDownloader;
 use crate::installer::{Component, InstallConfig, Installer, PathValidation};
+#[allow(unused_imports)]
 use crate::payload::get_embedded_payload;
 use crate::shortcuts::ShortcutManager;
 use crate::uninstall::{InstallManifest, Uninstaller};
@@ -244,7 +245,7 @@ pub async fn start_installation(config: InstallConfig, app: AppHandle) -> Result
         let (launcher_url, asset_name) =
             InstallerDownloader::resolve_launcher_asset_url(env!("CARGO_PKG_VERSION"));
 
-        let temp_setup_path = if let Some(embedded) = crate::payload::get_embedded_payload() {
+        let temp_setup_path = if let Some(embedded) = get_embedded_payload() {
             emit_progress(
                 &app,
                 "Распаковка встроенного дистрибутива...",
