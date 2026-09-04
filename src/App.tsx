@@ -26,12 +26,13 @@ export function App() {
 
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
   const { addLog, addLogBatch } = useLogStore();
-  const { setLaunchStatus } = useInstanceStore();
+  const { setLaunchStatus, fetchInstances } = useInstanceStore();
   const { updateChannel } = useSettingsStore();
 
   useEffect(() => {
     fetchAccounts();
-  }, [fetchAccounts]);
+    fetchInstances();
+  }, [fetchAccounts, fetchInstances]);
 
   // Listen to backend events from Tauri
   useEffect(() => {

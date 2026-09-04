@@ -43,6 +43,8 @@ export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknow
       return '5627dd98-e6be-3c21-b8a8-e92344183641';
     case 'get_instances':
       return [];
+    case 'delete_instance':
+      return null;
     case 'get_launch_receipt':
     case 'launch_with_stub_identity':
     case 'launch_with_active_identity':

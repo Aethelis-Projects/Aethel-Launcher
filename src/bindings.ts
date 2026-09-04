@@ -19,6 +19,14 @@ async getInstances() : Promise<Result<Instance[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async deleteInstance(instanceId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_instance", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getLaunchReceipt(gameVersion: string, username: string) : Promise<Result<LaunchReceipt, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_launch_receipt", { gameVersion, username }) };

@@ -27,7 +27,9 @@
     "loader": "Loader",
     "name": "Instance Name",
     "hours": "h",
-    "minutes": "m"
+    "minutes": "m",
+    "delete": "Delete instance",
+    "confirmDelete": "Are you sure you want to delete instance \"{{name}}\"?"
   },
   "stub": {
     "title": "Stub Identity",

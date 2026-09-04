@@ -252,6 +252,18 @@ impl Database {
         Ok(())
     }
 
+    pub fn delete_instance(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM instances WHERE id = ?1;", params![id])
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to delete instance: {e}"),
+                )
+            })?;
+        Ok(())
+    }
+
     pub fn list_instances(&self) -> Result<Vec<Instance>> {
         let mut stmt = self
             .conn

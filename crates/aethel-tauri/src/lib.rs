@@ -14,12 +14,10 @@ use aethel_modding::{
 };
 use aethel_storage::Database;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 pub mod updater;
 pub use updater::*;
-
-static DB: OnceLock<Mutex<Database>> = OnceLock::new();
 
 pub fn get_app_data_dir() -> PathBuf {
     if let Ok(custom) = std::env::var("AETHEL_DATA_DIR") {
@@ -31,17 +29,98 @@ pub fn get_app_data_dir() -> PathBuf {
     }
 }
 
-pub fn get_database() -> Result<std::sync::MutexGuard<'static, Database>, String> {
-    let mutex = DB.get_or_init(|| {
-        let dir = get_app_data_dir();
+static DB_HOLDER: Mutex<Option<(PathBuf, Database)>> = Mutex::new(None);
+
+fn seed_default_instances_if_empty(db: &Database) {
+    if let Ok(instances) = db.list_instances() {
+        if instances.is_empty() {
+            let defaults = vec![
+                Instance {
+                    id: "vanilla-1.20.4".to_string(),
+                    name: "Minecraft 1.20.4 (Vanilla)".to_string(),
+                    game_version: "1.20.4".to_string(),
+                    loader: None,
+                    loader_version: None,
+                    java_path: None,
+                    memory_min_mb: Some(1024),
+                    memory_max_mb: Some(4096),
+                    jvm_args: Some("-XX:+UseG1GC".to_string()),
+                    last_played_at: None,
+                    total_playtime_seconds: 0,
+                    icon_path: None,
+                    banner_path: None,
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+                Instance {
+                    id: "vanilla-1.21.1".to_string(),
+                    name: "Minecraft 1.21.1 (Tricky Trials)".to_string(),
+                    game_version: "1.21.1".to_string(),
+                    loader: None,
+                    loader_version: None,
+                    java_path: None,
+                    memory_min_mb: Some(1024),
+                    memory_max_mb: Some(4096),
+                    jvm_args: Some("-XX:+UseG1GC".to_string()),
+                    last_played_at: None,
+                    total_playtime_seconds: 0,
+                    icon_path: None,
+                    banner_path: None,
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+                Instance {
+                    id: "vanilla-1.7.10".to_string(),
+                    name: "Minecraft 1.7.10 (Legacy)".to_string(),
+                    game_version: "1.7.10".to_string(),
+                    loader: None,
+                    loader_version: None,
+                    java_path: None,
+                    memory_min_mb: Some(512),
+                    memory_max_mb: Some(2048),
+                    jvm_args: None,
+                    last_played_at: None,
+                    total_playtime_seconds: 0,
+                    icon_path: None,
+                    banner_path: None,
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+            ];
+            for inst in defaults {
+                let _ = db.insert_instance(&inst);
+            }
+        }
+    }
+}
+
+pub struct DatabaseGuard<'a> {
+    guard: std::sync::MutexGuard<'a, Option<(PathBuf, Database)>>,
+}
+
+impl<'a> std::ops::Deref for DatabaseGuard<'a> {
+    type Target = Database;
+    fn deref(&self) -> &Self::Target {
+        &self.guard.as_ref().unwrap().1
+    }
+}
+
+pub fn get_database() -> Result<DatabaseGuard<'static>, String> {
+    let mut guard = DB_HOLDER.lock().map_err(|e| e.to_string())?;
+    let dir = get_app_data_dir();
+    let needs_reload = match &*guard {
+        Some((path, _)) => path != &dir,
+        None => true,
+    };
+
+    if needs_reload {
         let _ = std::fs::create_dir_all(&dir);
         let db_path = dir.join("aethel.db");
         let db = Database::open(&db_path).unwrap_or_else(|_| {
             Database::in_memory().expect("Failed to create in-memory database fallback")
         });
-        Mutex::new(db)
-    });
-    mutex.lock().map_err(|e| e.to_string())
+        seed_default_instances_if_empty(&db);
+        *guard = Some((dir, db));
+    }
+
+    Ok(DatabaseGuard { guard })
 }
 
 pub fn get_secure_storage() -> SecureStorage {
@@ -929,12 +1008,26 @@ fn import_instance_backup(file_path: String) -> Result<Instance, String> {
     Ok(inst)
 }
 
+#[tauri::command]
+#[specta::specta]
+fn delete_instance(instance_id: String) -> Result<(), String> {
+    let db = get_database()?;
+    db.delete_instance(&instance_id).map_err(|e| e.to_string())?;
+
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    if instance_dir.exists() {
+        let _ = std::fs::remove_dir_all(instance_dir);
+    }
+    Ok(())
+}
+
 pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
             get_launcher_version,
             get_offline_uuid,
             get_instances,
+            delete_instance,
             get_launch_receipt,
             launch_with_stub_identity,
             launch_with_active_identity,
@@ -1188,6 +1281,12 @@ mod tests {
         )
         .expect("export modpack");
         assert!(exported_mrpack.exists());
+
+        // Test delete_instance
+        delete_instance(inst_id.clone()).expect("delete instance");
+        let db = get_database().unwrap();
+        assert!(db.get_instance(&inst_id).unwrap().is_none());
+        drop(db);
 
         std::env::remove_var("AETHEL_DATA_DIR");
     }

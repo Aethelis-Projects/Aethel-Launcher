@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Instance, LaunchReceipt } from '../bindings';
+import { commands, type Instance, type LaunchReceipt } from '../bindings';
 
 export type InstanceLaunchStatus = 'idle' | 'preparing' | 'downloading' | 'launching' | 'running';
 
@@ -16,6 +16,8 @@ interface InstanceState {
   setLastReceipt: (receipt: LaunchReceipt | null) => void;
   setLastError: (error: string | null) => void;
   updateInstanceLoader: (id: string, loader: string | null, loaderVersion: string | null) => void;
+  fetchInstances: () => Promise<void>;
+  deleteInstance: (id: string) => Promise<void>;
 }
 
 const defaultInstances: Instance[] = [
@@ -95,4 +97,39 @@ export const useInstanceStore = create<InstanceState>((set) => ({
         inst.id === id ? { ...inst, loader, loader_version: loaderVersion } : inst
       ),
     })),
+  fetchInstances: async () => {
+    try {
+      const res = await commands.getInstances();
+      if (res.status === 'ok' && res.data && res.data.length > 0) {
+        set((state) => ({
+          instances: res.data,
+          selectedInstanceId:
+            res.data.some((i) => i.id === state.selectedInstanceId)
+              ? state.selectedInstanceId
+              : res.data[0].id,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch instances:', err);
+    }
+  },
+  deleteInstance: async (id: string) => {
+    try {
+      const res = await commands.deleteInstance(id);
+      if (res.status === 'ok') {
+        set((state) => {
+          const filtered = state.instances.filter((i) => i.id !== id);
+          return {
+            instances: filtered,
+            selectedInstanceId:
+              state.selectedInstanceId === id
+                ? (filtered[0]?.id ?? null)
+                : state.selectedInstanceId,
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Failed to delete instance:', err);
+    }
+  },
 }));

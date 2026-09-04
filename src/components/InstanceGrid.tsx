@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package, Upload, FolderArchive } from 'lucide-react';
+import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package, Upload, FolderArchive, Trash2 } from 'lucide-react';
 import { useInstanceStore } from '../store/instanceStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
@@ -19,6 +19,7 @@ export const InstanceGrid: React.FC = () => {
     instances,
     selectedInstanceId,
     setSelectedInstanceId,
+    deleteInstance,
     launchStatus,
     setLaunchStatus,
     setLastReceipt,
@@ -180,6 +181,20 @@ export const InstanceGrid: React.FC = () => {
                   title={t('modpack.export')}
                 >
                   <FolderArchive className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  data-testid={`delete-instance-${instance.id}`}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (window.confirm(t('instances.confirmDelete', { name: instance.name }))) {
+                      await deleteInstance(instance.id);
+                    }
+                  }}
+                  className="py-2 px-2.5 rounded-lg font-medium text-xs flex items-center justify-center bg-zinc-800/90 hover:bg-red-950/60 text-zinc-400 hover:text-red-400 border border-zinc-700/50 hover:border-red-800/60 transition-colors shadow-sm"
+                  title={t('instances.delete')}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
 
                 <button
