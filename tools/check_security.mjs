@@ -1,4 +1,4 @@
-﻿import { spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 
 console.log('Running npm security audit...');
 const isWindows = process.platform === 'win32';
@@ -9,9 +9,8 @@ const result = spawnSync(
   [
     'audit',
     '--audit-level=high',
-    '--package-lock-only',
-    '--fetch-timeout=15000',
-    '--fetch-retries=0'
+    '--fetch-timeout=30000',
+    '--fetch-retries=1'
   ],
   {
     encoding: 'utf8',
