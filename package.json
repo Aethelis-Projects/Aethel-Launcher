@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
+    "test:e2e": "node e2e/smoke.test.js",
     "audit:licenses": "node tools/check_licenses.mjs",
     "audit:security": "node tools/check_security.mjs",
     "preview": "vite preview"

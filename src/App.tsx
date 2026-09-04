@@ -9,10 +9,12 @@ import { LogViewer } from './components/LogViewer';
 import { StubLaunchButton } from './components/StubLaunchButton';
 import { AccountModal } from './components/AccountModal';
 import { CrashReportModal } from './components/CrashReportModal';
+import { UpdateChecker } from './components/UpdateChecker';
 import { useAccountStore } from './store/accountStore';
 import { useDownloadStore } from './store/downloadStore';
 import { useLogStore } from './store/logStore';
 import { useInstanceStore } from './store/instanceStore';
+import { useSettingsStore } from './store/settingsStore';
 import { events, type CrashReport } from './bindings';
 
 export function App() {
@@ -25,6 +27,7 @@ export function App() {
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
   const { addLog, addLogBatch } = useLogStore();
   const { setLaunchStatus } = useInstanceStore();
+  const { updateChannel } = useSettingsStore();
 
   useEffect(() => {
     fetchAccounts();
@@ -155,6 +158,9 @@ export function App() {
         onClose={() => setActiveCrashReport(null)}
         report={activeCrashReport}
       />
+
+      {/* Auto-Update Notification Banner / Modal */}
+      <UpdateChecker channel={updateChannel} />
     </div>
   );
 }

@@ -218,6 +218,54 @@ async checkModUpdates(instanceId: string) : Promise<Result<ModUpdate[], string>>
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async checkForUpdates(channel: string | null) : Promise<Result<UpdateInfo | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("check_for_updates", { channel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async downloadAndInstallUpdate(channel: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_and_install_update", { channel }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async importModpack(filePath: string, instanceName: string | null) : Promise<Result<Instance, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("import_modpack", { filePath, instanceName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async exportModpack(instanceId: string, outputPath: string, name: string, version: string, summary: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_modpack", { instanceId, outputPath, name, version, summary }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async exportInstanceBackup(instanceId: string, outputPath: string, includeSaves: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_instance_backup", { instanceId, outputPath, includeSaves }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async importInstanceBackup(filePath: string) : Promise<Result<Instance, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("import_instance_backup", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -260,6 +308,7 @@ export type ModVersion = { version_id: string; project_id: string; version_numbe
 export type ModloaderType = "Fabric" | "NeoForge" | "Quilt" | "Forge"
 export type ModloaderVersion = { loader: ModloaderType; version: string; game_version: string; stable: boolean }
 export type ResolutionResult = { to_install: ModVersion[]; optional_suggestions: ModVersion[]; conflicts: DependencyConflict[] }
+export type UpdateInfo = { version: string; date: string; body: string; download_size: number }
 
 /** tauri-specta globals **/
 

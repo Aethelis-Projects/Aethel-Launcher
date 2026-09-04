@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Cpu, HardDrive, RefreshCw } from 'lucide-react';
+import { X, Cpu, HardDrive, RefreshCw, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 import { useSettingsStore, type GcPreset } from '../store/settingsStore';
 import { commands, type JavaInfo } from '../bindings';
 
@@ -11,14 +11,44 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
-  const { minRamMb, maxRamMb, gcPreset, javaPath, setMinRamMb, setMaxRamMb, setGcPreset, setJavaPath } =
-    useSettingsStore();
+  const {
+    minRamMb,
+    maxRamMb,
+    gcPreset,
+    javaPath,
+    updateChannel,
+    setMinRamMb,
+    setMaxRamMb,
+    setGcPreset,
+    setJavaPath,
+    setUpdateChannel,
+  } = useSettingsStore();
 
   const [detectedJavas, setDetectedJavas] = useState<JavaInfo[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectError, setDetectError] = useState<string | null>(null);
 
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+
   if (!isOpen) return null;
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateStatus(null);
+    try {
+      const res = await commands.checkForUpdates(updateChannel);
+      if (res.status === 'ok' && res.data) {
+        setUpdateStatus(`${t('update.available')}: ${res.data.version}`);
+      } else {
+        setUpdateStatus(t('update.upToDate'));
+      }
+    } catch {
+      setUpdateStatus(t('update.upToDate'));
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   const handleDetectJava = async () => {
     setIsDetecting(true);
@@ -174,6 +204,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <option value="Parallel">{t('settings.gcParallel', 'Parallel GC (Low Overhead)')}</option>
               </select>
             </div>
+          </div>
+
+          {/* Application Updates Section */}
+          <div className="space-y-4 pt-4 border-t border-zinc-800/60">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <span>{t('update.title')}</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-zinc-400">{t('update.channel')}</label>
+                <select
+                  value={updateChannel}
+                  onChange={(e) => setUpdateChannel(e.target.value as 'stable' | 'beta')}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="stable">{t('update.stable')}</option>
+                  <option value="beta">{t('update.beta')}</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5 flex flex-col justify-end">
+                <button
+                  type="button"
+                  data-testid="manual-update-check-btn"
+                  onClick={handleCheckForUpdates}
+                  disabled={isCheckingUpdate}
+                  className="w-full py-2 px-3 rounded-lg text-xs font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/60 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isCheckingUpdate ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                      <span>{t('update.checking')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>{t('update.checkForUpdates')}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {updateStatus && (
+              <div
+                data-testid="update-status-msg"
+                className="p-2.5 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs flex items-center gap-2 text-zinc-300"
+              >
+                <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>{updateStatus}</span>
+              </div>
+            )}
           </div>
         </div>
 

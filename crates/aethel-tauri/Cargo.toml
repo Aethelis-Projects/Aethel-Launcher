@@ -19,8 +19,13 @@ specta-typescript = "0.0.9"
 tauri-specta = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
+reqwest = { workspace = true }
+minisign-verify = { workspace = true }
+semver = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -232,5 +232,40 @@
     "apply": "Apply Loader",
     "applying": "Applying...",
     "installed": "Modloader updated successfully"
+  },
+  "update": {
+    "title": "Application Update",
+    "available": "Update Available",
+    "upToDate": "Aethel Launcher is up to date",
+    "version": "Version {{version}}",
+    "releaseNotes": "Release Notes",
+    "download": "Download and Install",
+    "downloading": "Downloading update...",
+    "later": "Later",
+    "channel": "Update Channel",
+    "stable": "Stable",
+    "beta": "Beta (Prerelease)",
+    "checkForUpdates": "Check for Updates",
+    "checking": "Checking for updates..."
+  },
+  "modpack": {
+    "import": "Import Modpack / Backup",
+    "export": "Export Instance",
+    "format": "Export Format",
+    "mrpack": "Modrinth Modpack (.mrpack)",
+    "zip": "Instance Backup Archive (.zip)",
+    "name": "Modpack Name",
+    "version": "Version ID",
+    "summary": "Summary / Description",
+    "includeSaves": "Include Saves (Worlds)",
+    "includeResourcePacks": "Include Resource Packs",
+    "selectFile": "Select a .mrpack or .zip file",
+    "dropFile": "or drag and drop your file here",
+    "importing": "Importing modpack...",
+    "exporting": "Exporting...",
+    "successImport": "Modpack imported successfully!",
+    "successExport": "Exported successfully",
+    "errorImport": "Failed to import modpack",
+    "errorExport": "Failed to export modpack"
   }
 }

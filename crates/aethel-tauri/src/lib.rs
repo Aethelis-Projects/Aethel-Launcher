@@ -7,13 +7,17 @@ use aethel_launch::{
 };
 use aethel_manifest::VersionPackage;
 use aethel_modding::{
-    DependencyResolver, FabricInstaller, ForgeInstaller, InstalledMod, ModManager, ModSearchResult,
-    ModUpdate, ModVersion, ModloaderType, ModloaderVersion, ModrinthClient, NeoForgeInstaller,
-    QuiltInstaller, ResolutionResult,
+    DependencyResolver, ExportOptions, FabricInstaller, ForgeInstaller, InstalledMod,
+    InstanceExporter, InstanceImporter, ModManager, ModSearchResult, ModUpdate, ModVersion,
+    ModloaderType, ModloaderVersion, ModpackExporter, ModpackImporter, ModrinthClient,
+    ModrinthIndex, NeoForgeInstaller, QuiltInstaller, ResolutionResult,
 };
 use aethel_storage::Database;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
+
+pub mod updater;
+pub use updater::*;
 
 static DB: OnceLock<Mutex<Database>> = OnceLock::new();
 
@@ -778,6 +782,153 @@ async fn check_mod_updates(instance_id: String) -> Result<Vec<ModUpdate>, String
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+#[specta::specta]
+async fn check_for_updates(channel: Option<String>) -> Result<Option<UpdateInfo>, String> {
+    check_for_updates_internal(channel, None, env!("CARGO_PKG_VERSION")).await
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn download_and_install_update(_channel: Option<String>) -> Result<(), String> {
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn import_modpack(
+    file_path: String,
+    instance_name: Option<String>,
+) -> Result<Instance, String> {
+    let mrpack_path = std::path::Path::new(&file_path);
+    let index = ModpackImporter::read_index(mrpack_path).map_err(|e| e.to_string())?;
+
+    let inst_id = uuid::Uuid::new_v4().to_string();
+    let name = instance_name.unwrap_or(index.name);
+    let instance_dir = get_app_data_dir().join("instances").join(&inst_id);
+
+    let import_res = ModpackImporter::import(mrpack_path, &instance_dir, &inst_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let inst = Instance {
+        id: inst_id,
+        name,
+        game_version: import_res.game_version,
+        loader: import_res.loader,
+        loader_version: import_res.loader_version,
+        java_path: None,
+        memory_min_mb: Some(1024),
+        memory_max_mb: Some(4096),
+        jvm_args: None,
+        last_played_at: None,
+        total_playtime_seconds: 0,
+        icon_path: None,
+        banner_path: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    let db = get_database()?;
+    db.insert_instance(&inst).map_err(|e| e.to_string())?;
+
+    Ok(inst)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn export_modpack(
+    instance_id: String,
+    output_path: String,
+    name: String,
+    version: String,
+    summary: Option<String>,
+) -> Result<(), String> {
+    let inst = {
+        let db = get_database()?;
+        db.get_instance(&instance_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Instance not found".to_string())?
+    };
+
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+
+    let mut dependencies = std::collections::HashMap::new();
+    dependencies.insert("minecraft".to_string(), inst.game_version);
+    if let (Some(l), Some(lv)) = (inst.loader, inst.loader_version) {
+        let key = match l.as_str() {
+            "fabric" => "fabric-loader",
+            "neoforge" => "neoforge",
+            "quilt" => "quilt-loader",
+            "forge" => "forge",
+            _ => "fabric-loader",
+        };
+        dependencies.insert(key.to_string(), lv);
+    }
+
+    let metadata = ModrinthIndex {
+        format_version: 1,
+        game: "minecraft".to_string(),
+        version_id: version,
+        name,
+        summary,
+        files: vec![],
+        dependencies,
+    };
+
+    ModpackExporter::export(&instance_dir, std::path::Path::new(&output_path), &metadata)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn export_instance_backup(
+    instance_id: String,
+    output_path: String,
+    include_saves: bool,
+) -> Result<(), String> {
+    let inst = {
+        let db = get_database()?;
+        db.get_instance(&instance_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Instance not found".to_string())?
+    };
+
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let options = ExportOptions {
+        include_saves,
+        include_resourcepacks: true,
+        include_shaderpacks: true,
+    };
+
+    InstanceExporter::export(
+        &instance_dir,
+        &inst,
+        std::path::Path::new(&output_path),
+        &options,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn import_instance_backup(file_path: String) -> Result<Instance, String> {
+    let zip_path = std::path::Path::new(&file_path);
+    let orig_inst = InstanceImporter::read_metadata(zip_path).map_err(|e| e.to_string())?;
+
+    let new_id = uuid::Uuid::new_v4().to_string();
+    let target_dir = get_app_data_dir().join("instances").join(&new_id);
+
+    let mut inst = InstanceImporter::import(zip_path, &target_dir).map_err(|e| e.to_string())?;
+    inst.id = new_id;
+    inst.name = orig_inst.name;
+    inst.created_at = chrono::Utc::now().to_rfc3339();
+
+    let db = get_database()?;
+    db.insert_instance(&inst).map_err(|e| e.to_string())?;
+
+    Ok(inst)
+}
+
 pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
@@ -808,7 +959,13 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             list_installed_mods,
             toggle_mod,
             delete_mod,
-            check_mod_updates
+            check_mod_updates,
+            check_for_updates,
+            download_and_install_update,
+            import_modpack,
+            export_modpack,
+            export_instance_backup,
+            import_instance_backup
         ])
         .events(tauri_specta::collect_events![BackendEvent])
 }
@@ -1008,6 +1165,29 @@ mod tests {
         // Delete
         delete_mod(inst_id.clone(), "sample-mod.jar".into()).unwrap();
         assert!(!jar_path.exists());
+
+        // Test export_instance_backup & import_instance_backup
+        let backup_zip = temp.path().join("instance_backup.zip");
+        export_instance_backup(inst_id.clone(), backup_zip.to_str().unwrap().into(), true)
+            .expect("export instance backup");
+        assert!(backup_zip.exists());
+
+        let imported = import_instance_backup(backup_zip.to_str().unwrap().into())
+            .expect("import instance backup");
+        assert_eq!(imported.name, "Mod Test Instance");
+        assert_ne!(imported.id, inst_id);
+
+        // Test export_modpack
+        let exported_mrpack = temp.path().join("exported.mrpack");
+        export_modpack(
+            inst_id.clone(),
+            exported_mrpack.to_str().unwrap().into(),
+            "Exported Pack".into(),
+            "1.0.0".into(),
+            Some("Summary".into()),
+        )
+        .expect("export modpack");
+        assert!(exported_mrpack.exists());
 
         std::env::remove_var("AETHEL_DATA_DIR");
     }

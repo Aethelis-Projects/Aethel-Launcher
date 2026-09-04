@@ -7,10 +7,12 @@ interface SettingsState {
   maxRamMb: number;
   gcPreset: GcPreset;
   javaPath: string;
+  updateChannel: 'stable' | 'beta';
   setMinRamMb: (mb: number) => void;
   setMaxRamMb: (mb: number) => void;
   setGcPreset: (preset: GcPreset) => void;
   setJavaPath: (path: string) => void;
+  setUpdateChannel: (channel: 'stable' | 'beta') => void;
 }
 
 const getStoredInt = (key: string, defaultVal: number) => {
@@ -29,6 +31,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   maxRamMb: getStoredInt('aethel_max_ram', 4096),
   gcPreset: getStoredString('aethel_gc_preset', 'G1GC') as GcPreset,
   javaPath: getStoredString('aethel_java_path', 'javaw.exe'),
+  updateChannel: (getStoredString('aethel_update_channel', 'stable') as 'stable' | 'beta') || 'stable',
 
   setMinRamMb: (mb: number) => {
     localStorage.setItem('aethel_min_ram', mb.toString());
@@ -45,5 +48,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setJavaPath: (path: string) => {
     localStorage.setItem('aethel_java_path', path);
     set({ javaPath: path });
+  },
+  setUpdateChannel: (channel: 'stable' | 'beta') => {
+    localStorage.setItem('aethel_update_channel', channel);
+    set({ updateChannel: channel });
   },
 }));

@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package } from 'lucide-react';
+import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package, Upload, FolderArchive } from 'lucide-react';
 import { useInstanceStore } from '../store/instanceStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
 import { commands, type Instance } from '../bindings';
 import { localizeError } from '../utils/errors';
 import { ModManagerModal } from './ModManagerModal';
+import { ModpackImportModal } from './ModpackImportModal';
+import { ModpackExportModal } from './ModpackExportModal';
 
 export const InstanceGrid: React.FC = () => {
   const { t } = useTranslation();
   const [activeModManagerInstance, setActiveModManagerInstance] = useState<Instance | null>(null);
+  const [activeExportInstance, setActiveExportInstance] = useState<Instance | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const {
     instances,
     selectedInstanceId,
@@ -60,6 +64,14 @@ export const InstanceGrid: React.FC = () => {
           <h2 className="text-xl font-bold text-zinc-100">{t('instances.title')}</h2>
           <p className="text-xs text-zinc-400 mt-1">{t('instances.createFirst')}</p>
         </div>
+        <button
+          data-testid="import-modpack-btn"
+          onClick={() => setIsImportModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:text-white transition-all shadow-sm"
+        >
+          <Upload className="w-3.5 h-3.5 text-cyan-400" />
+          <span>{t('modpack.import')}</span>
+        </button>
       </div>
 
       {lastError && (
@@ -159,6 +171,18 @@ export const InstanceGrid: React.FC = () => {
                 </button>
 
                 <button
+                  data-testid={`export-instance-${instance.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveExportInstance(instance);
+                  }}
+                  className="py-2 px-2.5 rounded-lg font-medium text-xs flex items-center justify-center bg-zinc-800/90 hover:bg-zinc-700/90 text-zinc-400 hover:text-indigo-400 border border-zinc-700/50 hover:border-indigo-500/50 transition-colors shadow-sm"
+                  title={t('modpack.export')}
+                >
+                  <FolderArchive className="w-3.5 h-3.5" />
+                </button>
+
+                <button
                   disabled={isLaunching}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -206,6 +230,19 @@ export const InstanceGrid: React.FC = () => {
           loaderVersion={activeModManagerInstance.loader_version}
         />
       )}
+
+      {activeExportInstance && (
+        <ModpackExportModal
+          isOpen={activeExportInstance !== null}
+          onClose={() => setActiveExportInstance(null)}
+          instance={activeExportInstance}
+        />
+      )}
+
+      <ModpackImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      />
     </div>
   );
 };

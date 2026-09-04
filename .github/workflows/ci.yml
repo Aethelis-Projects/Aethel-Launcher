@@ -126,3 +126,6 @@ jobs:
 
       - name: Run frontend tests
         run: npm test
+
+      - name: Run E2E smoke tests
+        run: npm run test:e2e
