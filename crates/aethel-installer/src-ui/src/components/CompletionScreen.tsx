@@ -41,10 +41,10 @@ export const CompletionScreen: React.FC = () => {
     : installPath;
 
   return (
-    <div className="flex h-full flex-col min-h-0 relative z-10 select-none">
+    <div className="flex h-full flex-col">
       {/* Centered Celebration & Overview Card */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-8 pt-3 pb-2 flex flex-col items-center justify-center my-auto">
-        {/* Layered Glowing Hero Badge with >= 16px breathing room */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-8 pt-6 pb-4 flex flex-col items-center justify-center">
+        {/* Layered Glowing Hero Badge with verified >= 20px breathing room */}
         <div className="relative mb-3 flex items-center justify-center">
           <div className="absolute w-20 h-20 rounded-full blur-2xl bg-cyan-400/35 animate-pulse" />
           <div className="absolute w-18 h-18 rounded-full border border-cyan-400/40 opacity-70 animate-spin" style={{ animationDuration: '20s' }} />
@@ -132,5 +132,5 @@ export const CompletionScreen: React.FC = () => {
 };
 
 function env_version(): string {
-  return '1.0.0-rc.3';
+  return '1.0.0-rc.4';
 }

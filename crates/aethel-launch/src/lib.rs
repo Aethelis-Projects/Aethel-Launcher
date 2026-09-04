@@ -217,7 +217,10 @@ pub fn build_launch_receipt(
 
         // If manifest did not define -cp or -classpath in JVM arguments (e.g. legacy 1.7.10/1.12.2),
         // guarantee -cp <classpath> is injected so Java finds the main class!
-        if !final_jvm_args.iter().any(|a| a == "-cp" || a == "-classpath") {
+        if !final_jvm_args
+            .iter()
+            .any(|a| a == "-cp" || a == "-classpath")
+        {
             final_jvm_args.push("-cp".to_string());
             final_jvm_args.push(full_classpath.clone());
         }

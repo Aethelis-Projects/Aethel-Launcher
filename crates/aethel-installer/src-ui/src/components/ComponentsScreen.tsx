@@ -14,9 +14,9 @@ export const ComponentsScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full flex-col min-h-0 relative z-10 select-none">
+    <div className="flex h-full flex-col">
       {/* Content Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-8 pt-5 pb-3 flex flex-col justify-between">
+      <div className="flex-1 min-h-0 overflow-y-auto px-8 pt-6 pb-4 flex flex-col justify-between">
         {/* Header */}
         <div className="shrink-0 mb-2">
           <div className="flex items-center gap-2 mb-1">

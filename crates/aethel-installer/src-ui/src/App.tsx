@@ -60,8 +60,8 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#07090e] text-slate-100 overflow-hidden font-sans border border-slate-800/80 rounded-lg shadow-2xl relative select-none">
-      {/* Frameless window titlebar */}
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[#07090e] text-slate-100 font-sans relative select-none">
+      {/* Frameless window titlebar: 36px, shrink-0, always visible */}
       <TitleBar />
 
       {/* Particle Canvas Background */}
@@ -78,7 +78,7 @@ export const App: React.FC = () => {
       />
 
       {/* Active Screen View */}
-      <div className="flex-1 min-h-0 overflow-hidden relative z-10 flex flex-col">
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden">
         {renderScreen()}
       </div>
     </div>

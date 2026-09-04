@@ -15,9 +15,9 @@ export const WelcomeScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full flex-col min-h-0 relative z-10 select-none">
+    <div className="flex h-full flex-col">
       {/* Content Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-8 pt-4 pb-2 flex flex-col items-center justify-between">
+      <div className="flex-1 min-h-0 overflow-y-auto px-8 pt-6 pb-4 flex flex-col items-center justify-between">
         {/* Top bar with language switcher */}
         <div className="w-full flex justify-end items-center shrink-0">
           <button
@@ -44,7 +44,7 @@ export const WelcomeScreen: React.FC = () => {
 
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/25 text-cyan-300 text-[11px] font-mono shadow-sm">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-            <span>v1.0.0-rc.3 • Production Ready</span>
+            <span>v1.0.0-rc.4 • Production Ready</span>
           </div>
 
           {/* Update alert banner if newer installer version found */}
@@ -64,7 +64,7 @@ export const WelcomeScreen: React.FC = () => {
 
       {/* Pinned 3-tier Footer */}
       <div className="shrink-0 border-t border-slate-800/80 px-8 py-3 flex items-center justify-between bg-slate-950/50">
-        <span className="text-[11px] font-mono text-slate-500">v1.0.0-rc.3</span>
+        <span className="text-[11px] font-mono text-slate-500">v1.0.0-rc.4</span>
         <button
           onClick={() => setScreen('license')}
           className="group flex items-center gap-2 px-6 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-[0_0_18px_rgba(0,245,212,0.35)] hover:shadow-[0_0_24px_rgba(0,245,212,0.55)] transition-all transform active:scale-95 cursor-pointer"

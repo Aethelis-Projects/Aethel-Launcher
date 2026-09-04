@@ -60,8 +60,14 @@ export const COMPONENT_SIZES: Record<keyof SelectedComponents, number> = {
 };
 
 export const useInstallerStore = create<InstallerState>((set, get) => ({
-  currentScreen: 'welcome',
-  installPath: '',
+  currentScreen:
+    (typeof window !== 'undefined' &&
+      (new URLSearchParams(window.location.search).get('screen') as ScreenId)) ||
+    'welcome',
+  installPath:
+    (typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('path')) ||
+    'C:\\Aethel Launcher',
   autoCreateFolder: true,
   freeSpaceBytes: 100 * 1024 * 1024 * 1024,
   licenseAccepted: false,

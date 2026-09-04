@@ -244,7 +244,10 @@ impl Installer {
     }
 
     /// Extracts a macOS .tar.gz archive containing `Aethel Launcher.app` into `target_dir`.
-    pub fn extract_macos_archive(archive_path: &Path, target_dir: &Path) -> Result<PathBuf, String> {
+    pub fn extract_macos_archive(
+        archive_path: &Path,
+        target_dir: &Path,
+    ) -> Result<PathBuf, String> {
         std::fs::create_dir_all(target_dir).map_err(|e| e.to_string())?;
 
         let output = std::process::Command::new("tar")
@@ -342,6 +345,157 @@ impl Installer {
         std::fs::write(target_desktop_file, content).map_err(|e| e.to_string())?;
         Ok(())
     }
+
+    /// Extracts a Windows zip payload containing application files into `target_dir` with Zip-Slip protection.
+    /// Returns the list of extracted relative file paths.
+    pub fn extract_windows_payload(
+        payload_bytes: &[u8],
+        target_dir: &Path,
+    ) -> Result<Vec<PathBuf>, String> {
+        std::fs::create_dir_all(target_dir).map_err(|e| e.to_string())?;
+
+        let cursor = std::io::Cursor::new(payload_bytes);
+        let mut archive =
+            zip::ZipArchive::new(cursor).map_err(|e| format!("Invalid zip archive: {e}"))?;
+        let mut extracted_files = Vec::new();
+
+        for i in 0..archive.len() {
+            let mut entry = archive
+                .by_index(i)
+                .map_err(|e| format!("Failed to read entry {i}: {e}"))?;
+            let raw_name = entry.name().to_string();
+
+            if !is_safe_relative_path(&raw_name) {
+                return Err(format!("Zip-Slip attempt detected: {raw_name}"));
+            }
+
+            let out_path = target_dir.join(&raw_name);
+            if entry.is_dir() {
+                std::fs::create_dir_all(&out_path).map_err(|e| e.to_string())?;
+            } else {
+                if let Some(parent) = out_path.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                let mut out_file = std::fs::File::create(&out_path)
+                    .map_err(|e| format!("Failed to create {}: {e}", out_path.display()))?;
+                std::io::copy(&mut entry, &mut out_file)
+                    .map_err(|e| format!("Failed to write {}: {e}", out_path.display()))?;
+                extracted_files.push(PathBuf::from(raw_name));
+            }
+        }
+
+        // Guarantee both "aethel-launcher-bin.exe" and "Aethel Launcher.exe" exist for compatibility
+        let bin_target = target_dir.join("aethel-launcher-bin.exe");
+        let friendly_target = target_dir.join("Aethel Launcher.exe");
+        if bin_target.exists() && !friendly_target.exists() {
+            let _ = std::fs::copy(&bin_target, &friendly_target);
+            extracted_files.push(PathBuf::from("Aethel Launcher.exe"));
+        } else if friendly_target.exists() && !bin_target.exists() {
+            let _ = std::fs::copy(&friendly_target, &bin_target);
+            extracted_files.push(PathBuf::from("aethel-launcher-bin.exe"));
+        }
+
+        Ok(extracted_files)
+    }
+
+    /// Verifies that the launcher binary was correctly installed and has valid size (> 1 MB).
+    pub fn verify_installed_binary(install_path: &Path) -> Result<PathBuf, String> {
+        const MIN_EXE_SIZE: u64 = 1_048_576; // 1 MB
+
+        #[cfg(target_os = "windows")]
+        {
+            let candidates = [
+                install_path.join("Aethel Launcher.exe"),
+                install_path.join("aethel-launcher-bin.exe"),
+            ];
+
+            for candidate in &candidates {
+                if candidate.exists() && candidate.is_file() {
+                    let meta = std::fs::metadata(candidate).map_err(|e| e.to_string())?;
+                    if meta.len() >= MIN_EXE_SIZE {
+                        return Ok(candidate.clone());
+                    } else {
+                        return Err(format!(
+                            "Launcher binary {} is too small ({} bytes, expected >= 1MB). Installation corrupt.",
+                            candidate.display(),
+                            meta.len()
+                        ));
+                    }
+                }
+            }
+
+            Err(format!(
+                "Launcher binary not found in {}. Expected 'Aethel Launcher.exe' or 'aethel-launcher-bin.exe'.",
+                install_path.display()
+            ))
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let app_dir = install_path.join("Aethel Launcher.app");
+            let macos_dir = app_dir.join("Contents").join("MacOS");
+            if macos_dir.exists() {
+                if let Ok(entries) = std::fs::read_dir(&macos_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_file() {
+                            let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+                            if meta.len() >= MIN_EXE_SIZE {
+                                return Ok(path);
+                            }
+                        }
+                    }
+                }
+            }
+            Err(format!(
+                "Launcher binary not found in macOS bundle at {}",
+                macos_dir.display()
+            ))
+        }
+
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        {
+            let candidates = [
+                install_path.join("Aethel-Launcher.AppImage"),
+                install_path.join("aethel-launcher"),
+                install_path.join("aethel-launcher-bin"),
+            ];
+
+            for candidate in &candidates {
+                if candidate.exists() && candidate.is_file() {
+                    let meta = std::fs::metadata(candidate).map_err(|e| e.to_string())?;
+                    if meta.len() >= MIN_EXE_SIZE {
+                        return Ok(candidate.clone());
+                    } else {
+                        return Err(format!(
+                            "AppImage binary is too small ({} bytes, expected >= 1MB).",
+                            meta.len()
+                        ));
+                    }
+                }
+            }
+
+            Err(format!(
+                "Launcher binary not found in {}.",
+                install_path.display()
+            ))
+        }
+    }
+}
+
+/// Helper to verify that a relative path from an archive does not escape the destination directory.
+pub fn is_safe_relative_path(path_str: &str) -> bool {
+    let p = Path::new(path_str);
+    if p.is_absolute() {
+        return false;
+    }
+    for component in p.components() {
+        match component {
+            std::path::Component::Normal(_) => {}
+            _ => return false,
+        }
+    }
+    true
 }
 
 #[cfg(test)]
@@ -449,19 +603,131 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(&app_path)
-                .unwrap()
-                .permissions()
-                .mode();
+            let mode = std::fs::metadata(&app_path).unwrap().permissions().mode();
             assert_eq!(mode & 0o777, 0o755);
         }
 
-        let desktop_file = temp.path().join("share/applications/aethel-launcher.desktop");
+        let desktop_file = temp
+            .path()
+            .join("share/applications/aethel-launcher.desktop");
         Installer::create_linux_desktop_entry(&app_path, &desktop_file).expect("create desktop");
         assert!(desktop_file.exists());
         let content = std::fs::read_to_string(&desktop_file).expect("read desktop");
         assert!(content.contains("[Desktop Entry]"));
         assert!(content.contains("Name=Aethel Launcher"));
         assert!(content.contains(&app_path.display().to_string()));
+    }
+
+    #[test]
+    fn test_windows_payload_extraction_creates_exe() {
+        use std::io::Write;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let target_dir = temp.path().join("installed");
+
+        // Build a mock zip with 1.2 MB executable
+        let mut zip_buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(std::io::Cursor::new(&mut zip_buffer));
+            let options = zip::write::SimpleFileOptions::default();
+            writer
+                .start_file("aethel-launcher-bin.exe", options)
+                .expect("start file");
+            let dummy_exe = vec![0x90u8; 1_200_000]; // 1.2 MB
+            writer.write_all(&dummy_exe).expect("write exe");
+            writer
+                .start_file("WebView2Loader.dll", options)
+                .expect("start dll");
+            writer.write_all(b"dummy-dll").expect("write dll");
+            writer.finish().expect("finish zip");
+        }
+
+        let extracted =
+            Installer::extract_windows_payload(&zip_buffer, &target_dir).expect("extract");
+        assert!(extracted.len() >= 2);
+        assert!(target_dir.join("aethel-launcher-bin.exe").exists());
+        assert!(target_dir.join("Aethel Launcher.exe").exists());
+        assert!(target_dir.join("WebView2Loader.dll").exists());
+
+        #[cfg(target_os = "windows")]
+        {
+            let verified = Installer::verify_installed_binary(&target_dir).expect("verify binary");
+            assert!(verified.exists());
+        }
+    }
+
+    #[test]
+    fn test_verify_installed_binary_rejects_missing_or_small() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let target_dir = temp.path().join("empty_dir");
+        std::fs::create_dir_all(&target_dir).expect("create dir");
+
+        #[cfg(target_os = "windows")]
+        {
+            // Empty dir: must fail
+            let err_empty = Installer::verify_installed_binary(&target_dir);
+            assert!(err_empty.is_err());
+            assert!(err_empty.unwrap_err().contains("not found"));
+
+            // Too small: 100 bytes < 1MB
+            let small_file = target_dir.join("aethel-launcher-bin.exe");
+            std::fs::write(&small_file, vec![0u8; 100]).expect("write small");
+            let err_small = Installer::verify_installed_binary(&target_dir);
+            assert!(err_small.is_err());
+            assert!(err_small.unwrap_err().contains("too small"));
+        }
+    }
+
+    #[test]
+    fn test_windows_payload_extraction_with_spaces_and_cyrillic() {
+        use std::io::Write;
+        let temp = tempfile::tempdir().expect("tempdir");
+
+        let mut zip_buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(std::io::Cursor::new(&mut zip_buffer));
+            let options = zip::write::SimpleFileOptions::default();
+            writer
+                .start_file("aethel-launcher-bin.exe", options)
+                .expect("start file");
+            let dummy_exe = vec![0x4Du8; 1_100_000];
+            writer.write_all(&dummy_exe).expect("write exe");
+            writer.finish().expect("finish zip");
+        }
+
+        // 1. Path with spaces
+        let space_dir = temp.path().join("Aethel Launcher Space");
+        let ext_space =
+            Installer::extract_windows_payload(&zip_buffer, &space_dir).expect("extract spaces");
+        assert!(!ext_space.is_empty());
+        assert!(space_dir.join("aethel-launcher-bin.exe").exists());
+
+        // 2. Path with Cyrillic
+        let cyrillic_dir = temp.path().join("Игры").join("Aethel Launcher");
+        let ext_cyrillic = Installer::extract_windows_payload(&zip_buffer, &cyrillic_dir)
+            .expect("extract cyrillic");
+        assert!(!ext_cyrillic.is_empty());
+        assert!(cyrillic_dir.join("aethel-launcher-bin.exe").exists());
+    }
+
+    #[test]
+    fn test_windows_payload_zip_slip_rejected() {
+        use std::io::Write;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let target_dir = temp.path().join("slip_target");
+
+        let mut zip_buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(std::io::Cursor::new(&mut zip_buffer));
+            let options = zip::write::SimpleFileOptions::default();
+            writer
+                .start_file("../../evil.exe", options)
+                .expect("start file");
+            writer.write_all(b"malicious").expect("write evil");
+            writer.finish().expect("finish zip");
+        }
+
+        let res = Installer::extract_windows_payload(&zip_buffer, &target_dir);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Zip-Slip"));
     }
 }
