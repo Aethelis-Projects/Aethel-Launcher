@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "aethel-modding"
 version.workspace = true
 edition.workspace = true

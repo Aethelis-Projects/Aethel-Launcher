@@ -1,1 +1,1 @@
-﻿pub fn placeholder() {}
+pub fn placeholder() {}
