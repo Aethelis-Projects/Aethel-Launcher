@@ -32,3 +32,8 @@ tools/out.txt
 .env.*
 !.env.example
 release-artifacts/
+
+# Excluded documentation & internal assets
+assets/
+docs/
+
