@@ -9,6 +9,12 @@ pub struct InstallerDownloader {
     pub pubkey: String,
 }
 
+impl Default for InstallerDownloader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InstallerDownloader {
     pub fn new() -> Self {
         Self {

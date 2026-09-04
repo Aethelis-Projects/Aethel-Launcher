@@ -138,6 +138,12 @@ pub struct CurseForgeClient {
     client: reqwest::Client,
 }
 
+impl Default for CurseForgeClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CurseForgeClient {
     pub fn new() -> Self {
         let api_key = std::env::var("CURSEFORGE_API_KEY")
