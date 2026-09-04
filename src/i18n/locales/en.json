@@ -1,0 +1,130 @@
+{
+  "app": {
+    "title": "Aethel Launcher",
+    "subtitle": "High-Performance Modular Minecraft Launcher",
+    "version": "v{{version}}"
+  },
+  "nav": {
+    "instances": "Instances",
+    "downloads": "Downloads",
+    "logs": "Log Console",
+    "settings": "Settings",
+    "profile": "Profile"
+  },
+  "instances": {
+    "title": "Your Instances",
+    "createNew": "Create Instance",
+    "launch": "Play",
+    "launching": "Launching...",
+    "downloading": "Downloading...",
+    "running": "Playing",
+    "playtime": "Playtime",
+    "lastPlayed": "Last played",
+    "never": "Never",
+    "noInstances": "No instances created yet",
+    "createFirst": "Create your first instance to start playing",
+    "version": "Version",
+    "loader": "Loader",
+    "name": "Instance Name",
+    "hours": "h",
+    "minutes": "m"
+  },
+  "stub": {
+    "title": "Stub Identity",
+    "account": "Offline Player",
+    "description": "Playing in offline mode with standard mock identity",
+    "playerName": "Username",
+    "uuid": "UUID",
+    "token": "Access Token",
+    "userType": "User Type",
+    "dryRunSuccess": "Launch synthesized successfully!"
+  },
+  "downloads": {
+    "title": "Download Queue",
+    "active": "Active",
+    "noDownloads": "No active downloads in queue",
+    "idle": "Download engine is idle",
+    "speed": "Speed",
+    "verifying": "Verifying checksums...",
+    "completed": "Completed",
+    "failed": "Failed",
+    "task": "Task {{id}}"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "java": "Java & Runtime",
+    "javaPath": "Java Executable Path",
+    "javaPathPlaceholder": "Path to javaw.exe or java binary",
+    "memory": "Memory Allocation (RAM)",
+    "minRam": "Initial Heap (-Xms)",
+    "maxRam": "Maximum Heap (-Xmx)",
+    "mb": "MB",
+    "gb": "GB",
+    "gcPreset": "Garbage Collector Preset",
+    "gcG1GC": "G1GC (Recommended)",
+    "gcZGC": "ZGC (Low Latency, Java 15+)",
+    "gcParallel": "Parallel GC",
+    "language": "Language",
+    "close": "Done"
+  },
+  "logs": {
+    "title": "Instance Logs",
+    "filterAll": "ALL",
+    "filterInfo": "INFO",
+    "filterWarn": "WARN",
+    "filterError": "ERROR",
+    "search": "Search in logs...",
+    "autoScroll": "Auto-scroll",
+    "clear": "Clear",
+    "copy": "Copy All",
+    "copied": "Copied!",
+    "empty": "No log output available yet. Launch an instance to view live output."
+  },
+  "errors": {
+    "NO_DISK_SPACE": {
+      "title": "Insufficient Disk Space",
+      "message": "Free up storage on your installation drive before continuing download."
+    },
+    "NETWORK_ERROR": {
+      "title": "Network Connection Error",
+      "message": "Check your internet connection, proxy settings, or DNS configuration."
+    },
+    "HASH_MISMATCH": {
+      "title": "Cryptographic Hash Mismatch",
+      "message": "The downloaded file was corrupted during transit. Retrying download."
+    },
+    "JAVA_NOT_FOUND": {
+      "title": "Java Runtime Not Found",
+      "message": "Verify the Java path in Settings or install a supported OpenJDK."
+    },
+    "JAVA_INCOMPATIBLE": {
+      "title": "Java Version Incompatible",
+      "message": "The selected Java version cannot run this Minecraft release."
+    },
+    "CLASSPATH_TOO_LONG": {
+      "title": "Classpath Limit Exceeded",
+      "message": "Command line length exceeds operating system limits. Relocate directory closer to drive root."
+    },
+    "INVALID_MANIFEST": {
+      "title": "Invalid Version Manifest",
+      "message": "Corrupted metadata file or schema validation failure."
+    },
+    "ZIP_SLIP_DETECTED": {
+      "title": "Security Hazard: Zip Slip Detected",
+      "message": "Archive extraction blocked due to illegal directory traversal sequence."
+    },
+    "AUTH_FAILED": {
+      "title": "Authentication Failed",
+      "message": "Could not authenticate profile. Please re-login."
+    },
+    "INSTANCE_NOT_FOUND": {
+      "title": "Instance Not Found",
+      "message": "The specified instance record does not exist in local storage."
+    },
+    "INTERNAL_ERROR": {
+      "title": "Internal Error",
+      "message": "An unexpected error occurred. Review the log console for stack trace details."
+    }
+  }
+}
