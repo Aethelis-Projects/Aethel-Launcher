@@ -44,6 +44,8 @@ describe('Phase M6 UI Components', () => {
     total_playtime_seconds: 0,
     icon_path: null,
     banner_path: null,
+    last_mclo_gs_url: null,
+    last_mclo_gs_at: null,
     created_at: '2026-09-04T12:00:00Z',
   };
 

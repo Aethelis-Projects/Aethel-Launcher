@@ -1,11 +1,13 @@
 pub mod commands;
 pub mod downloader;
 pub mod installer;
+pub mod payload;
 pub mod shortcuts;
 pub mod uninstall;
 
 pub use downloader::*;
 pub use installer::*;
+pub use payload::*;
 pub use shortcuts::*;
 pub use uninstall::*;
 

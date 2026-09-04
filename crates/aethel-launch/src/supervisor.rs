@@ -220,10 +220,15 @@ impl ProcessSupervisor {
         let mut cmd = Command::new(&receipt.java_path);
         cmd.current_dir(&receipt.working_dir);
         cmd.args(&receipt.arguments);
+        cmd.envs(&receipt.environment);
 
-        for (k, v) in &receipt.environment {
-            cmd.env(k, v);
-        }
+        tracing::info!(
+            "Spawning Minecraft: {:?} {:?}, env: {:?}, workdir: {:?}",
+            receipt.java_path,
+            receipt.arguments,
+            receipt.environment,
+            receipt.working_dir
+        );
 
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());

@@ -22,6 +22,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'instances' | 'logs'>('instances');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeCrashReport, setActiveCrashReport] = useState<CrashReport | null>(null);
+  const [activeCrashInstanceId, setActiveCrashInstanceId] = useState<string | null>(null);
   const { isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
 
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
@@ -56,10 +57,10 @@ export function App() {
               failTask(e.data.task_id, e.data.message);
               break;
             case 'ProcessLog':
-              addLog(e.data.line, e.data.is_stderr);
+              addLog(e.data.line, e.data.is_stderr, e.data.instance_id);
               break;
             case 'ProcessLogBatch':
-              addLogBatch(e.data.lines, false);
+              addLogBatch(e.data.lines, false, e.data.instance_id);
               break;
             case 'ProcessStarted':
               setLaunchStatus(e.data.instance_id, 'running');
@@ -69,6 +70,7 @@ export function App() {
               break;
             case 'ProcessCrashed':
               setActiveCrashReport(e.data.report);
+              setActiveCrashInstanceId(e.data.instance_id);
               break;
             default:
               break;
@@ -156,8 +158,12 @@ export function App() {
       {/* Crash Report Modal */}
       <CrashReportModal
         isOpen={activeCrashReport !== null}
-        onClose={() => setActiveCrashReport(null)}
+        onClose={() => {
+          setActiveCrashReport(null);
+          setActiveCrashInstanceId(null);
+        }}
         report={activeCrashReport}
+        instanceId={activeCrashInstanceId ?? undefined}
       />
 
       {/* Auto-Update Notification Banner / Modal */}

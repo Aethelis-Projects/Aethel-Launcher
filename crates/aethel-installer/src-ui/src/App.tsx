@@ -60,7 +60,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#07090e] text-slate-100 overflow-hidden font-sans border border-slate-800/80 rounded-lg shadow-2xl relative">
+    <div className="flex flex-col h-full w-full bg-[#07090e] text-slate-100 overflow-hidden font-sans border border-slate-800/80 rounded-lg shadow-2xl relative select-none">
       {/* Frameless window titlebar */}
       <TitleBar />
 
@@ -78,7 +78,7 @@ export const App: React.FC = () => {
       />
 
       {/* Active Screen View */}
-      <div className="flex-1 overflow-hidden relative z-10">
+      <div className="flex-1 min-h-0 overflow-hidden relative z-10 flex flex-col">
         {renderScreen()}
       </div>
     </div>

@@ -242,6 +242,106 @@ impl Installer {
         }
         total_bytes
     }
+
+    /// Extracts a macOS .tar.gz archive containing `Aethel Launcher.app` into `target_dir`.
+    pub fn extract_macos_archive(archive_path: &Path, target_dir: &Path) -> Result<PathBuf, String> {
+        std::fs::create_dir_all(target_dir).map_err(|e| e.to_string())?;
+
+        let output = std::process::Command::new("tar")
+            .args([
+                "-xzf",
+                archive_path.to_str().ok_or("Invalid archive path")?,
+                "-C",
+                target_dir.to_str().ok_or("Invalid target dir")?,
+            ])
+            .output()
+            .map_err(|e| format!("Failed to execute tar: {e}"))?;
+
+        if !output.status.success() {
+            return Err(format!(
+                "Failed to extract tar archive: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        let app_path = target_dir.join("Aethel Launcher.app");
+        if app_path.exists() {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let macos_bin_dir = app_path.join("Contents").join("MacOS");
+                if let Ok(entries) = std::fs::read_dir(&macos_bin_dir) {
+                    for entry in entries.flatten() {
+                        if let Ok(meta) = entry.metadata() {
+                            let mut perms = meta.permissions();
+                            perms.set_mode(0o755);
+                            let _ = std::fs::set_permissions(entry.path(), perms);
+                        }
+                    }
+                }
+            }
+            Ok(app_path)
+        } else {
+            // Search in target_dir for any .app
+            if let Ok(entries) = std::fs::read_dir(target_dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.extension().map(|ext| ext == "app").unwrap_or(false) {
+                        return Ok(p);
+                    }
+                }
+            }
+            Err(format!(
+                "Aethel Launcher.app not found in target dir {}",
+                target_dir.display()
+            ))
+        }
+    }
+
+    /// Installs a Linux AppImage binary to the target directory and sets 0o755 executable permissions.
+    pub fn install_linux_appimage(
+        appimage_bytes: &[u8],
+        target_dir: &Path,
+    ) -> Result<PathBuf, String> {
+        std::fs::create_dir_all(target_dir).map_err(|e| e.to_string())?;
+        let app_path = target_dir.join("Aethel-Launcher.AppImage");
+        std::fs::write(&app_path, appimage_bytes).map_err(|e| e.to_string())?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&app_path)
+                .map_err(|e| e.to_string())?
+                .permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&app_path, perms).map_err(|e| e.to_string())?;
+        }
+
+        Ok(app_path)
+    }
+
+    /// Creates a standard FreeDesktop .desktop entry pointing to the installed binary.
+    pub fn create_linux_desktop_entry(
+        app_path: &Path,
+        target_desktop_file: &Path,
+    ) -> Result<(), String> {
+        if let Some(parent) = target_desktop_file.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let content = format!(
+            "[Desktop Entry]\n\
+             Name=Aethel Launcher\n\
+             Comment=Modern Minecraft Launcher\n\
+             Exec=\"{}\"\n\
+             Icon=aethel-launcher\n\
+             Terminal=false\n\
+             Type=Application\n\
+             Categories=Game;\n",
+            app_path.display()
+        );
+        std::fs::write(target_desktop_file, content).map_err(|e| e.to_string())?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -295,5 +395,73 @@ mod tests {
         let comps = vec![Component::Launcher, Component::Java21];
         let size = Installer::calculate_components_size(&comps);
         assert_eq!(size, (120 + 190) * 1024 * 1024);
+    }
+
+    #[test]
+    fn test_macos_payload_extraction_moves_app() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let src_dir = temp.path().join("src");
+        let app_dir = src_dir.join("Aethel Launcher.app");
+        let macos_dir = app_dir.join("Contents").join("MacOS");
+        std::fs::create_dir_all(&macos_dir).expect("create app dir");
+        std::fs::write(macos_dir.join("aethel-launcher"), b"mock-executable-binary")
+            .expect("write bin");
+
+        // Archive into tar.gz
+        let archive_path = temp.path().join("payload.tar.gz");
+        let out = std::process::Command::new("tar")
+            .args([
+                "-czf",
+                archive_path.to_str().unwrap(),
+                "-C",
+                src_dir.to_str().unwrap(),
+                "Aethel Launcher.app",
+            ])
+            .output()
+            .expect("tar create");
+        assert!(out.status.success(), "tar failed: {:?}", out);
+
+        let target_dir = temp.path().join("Applications");
+        let extracted_app =
+            Installer::extract_macos_archive(&archive_path, &target_dir).expect("extract macos");
+
+        assert!(extracted_app.exists());
+        assert_eq!(extracted_app.file_name().unwrap(), "Aethel Launcher.app");
+        assert!(extracted_app
+            .join("Contents")
+            .join("MacOS")
+            .join("aethel-launcher")
+            .exists());
+    }
+
+    #[test]
+    fn test_linux_payload_extraction_chmod() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let target_dir = temp.path().join("bin");
+        let payload = b"#!/bin/sh\necho 'Starting Aethel Launcher'\n";
+
+        let app_path =
+            Installer::install_linux_appimage(payload, &target_dir).expect("install appimage");
+        assert!(app_path.exists());
+        let read_back = std::fs::read(&app_path).expect("read appimage");
+        assert_eq!(read_back, payload);
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&app_path)
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o755);
+        }
+
+        let desktop_file = temp.path().join("share/applications/aethel-launcher.desktop");
+        Installer::create_linux_desktop_entry(&app_path, &desktop_file).expect("create desktop");
+        assert!(desktop_file.exists());
+        let content = std::fs::read_to_string(&desktop_file).expect("read desktop");
+        assert!(content.contains("[Desktop Entry]"));
+        assert!(content.contains("Name=Aethel Launcher"));
+        assert!(content.contains(&app_path.display().to_string()));
     }
 }

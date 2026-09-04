@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-auth"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aes-gcm",
  "aethel-core",
@@ -74,7 +74,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-core"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "chrono",
  "serde",
@@ -89,7 +89,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-download"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-core",
  "futures-util",
@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-installer"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -118,6 +118,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
@@ -129,7 +130,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-java"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -150,7 +151,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-launch"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-core",
  "aethel-manifest",
@@ -168,7 +169,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-launcher-bin"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-auth",
  "aethel-core",
@@ -187,7 +188,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-manifest"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-core",
  "serde",
@@ -197,7 +198,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-modding"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -220,7 +221,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-storage"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-core",
  "chrono",
@@ -232,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-tauri"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "aethel-auth",
  "aethel-core",

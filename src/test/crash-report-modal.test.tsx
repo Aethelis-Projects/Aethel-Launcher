@@ -69,9 +69,33 @@ describe('CrashReportModal Component Suite', () => {
     fireEvent.click(uploadBtn);
 
     await waitFor(() => {
-      expect(uploadSpy).toHaveBeenCalledWith(mockReport.full_log);
+      expect(uploadSpy).toHaveBeenCalledWith(null, mockReport.full_log);
       expect(screen.getByText('https://mclo.gs/test1234')).toBeDefined();
       expect(screen.getByText(/Copy Link/i)).toBeDefined();
+    });
+  });
+
+  it('passes instanceId to uploadCrashToMclogs and persists to logStore', async () => {
+    const uploadSpy = vi.spyOn(commands, 'uploadCrashToMclogs').mockResolvedValue({
+      status: 'ok',
+      data: 'https://mclo.gs/instance999',
+    });
+
+    render(
+      <CrashReportModal
+        isOpen={true}
+        onClose={vi.fn()}
+        report={mockReport}
+        instanceId="inst-crash-test"
+      />
+    );
+
+    const uploadBtn = screen.getByText(/Upload log to mclo\.gs/i);
+    fireEvent.click(uploadBtn);
+
+    await waitFor(() => {
+      expect(uploadSpy).toHaveBeenCalledWith('inst-crash-test', mockReport.full_log);
+      expect(screen.getByText('https://mclo.gs/instance999')).toBeDefined();
     });
   });
 

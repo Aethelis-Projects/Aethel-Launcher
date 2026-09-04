@@ -100,6 +100,32 @@ describe('Zustand Stores Suite', () => {
       setSearchQuery('OpenGL');
       expect(useLogStore.getState().searchQuery).toBe('OpenGL');
     });
+
+    it('manages per-instance logs and mclogs URLs', () => {
+      const { addLog, addLogBatch, setActiveInstance, getLogs, setMclogsUrl, getMclogsUrl, clearLogs } =
+        useLogStore.getState();
+
+      addLog('Instance 1 log 1', false, 'inst-1');
+      addLogBatch(['Instance 1 log 2', 'Instance 1 log 3'], false, 'inst-1');
+      addLog('Instance 2 log 1', false, 'inst-2');
+
+      expect(getLogs('inst-1')).toHaveLength(3);
+      expect(getLogs('inst-2')).toHaveLength(1);
+
+      setActiveInstance('inst-1');
+      expect(useLogStore.getState().lines).toHaveLength(3);
+
+      setActiveInstance('inst-2');
+      expect(useLogStore.getState().lines).toHaveLength(1);
+
+      setMclogsUrl('inst-1', 'https://mclo.gs/abc1234');
+      expect(getMclogsUrl('inst-1')).toBe('https://mclo.gs/abc1234');
+      expect(getMclogsUrl('inst-2')).toBeUndefined();
+
+      clearLogs('inst-1');
+      expect(getLogs('inst-1')).toHaveLength(0);
+      expect(getLogs('inst-2')).toHaveLength(1);
+    });
   });
 
   describe('InstanceStore', () => {

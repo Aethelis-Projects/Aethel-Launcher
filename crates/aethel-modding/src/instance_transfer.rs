@@ -301,6 +301,8 @@ mod tests {
             icon_path: None,
             banner_path: None,
             created_at: "2026-09-04T12:00:00Z".to_string(),
+            last_mclo_gs_url: None,
+            last_mclo_gs_at: None,
         }
     }
 

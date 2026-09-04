@@ -3,7 +3,7 @@ use rusqlite::{params, Connection};
 use std::path::Path;
 use tracing::info;
 
-pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+pub const CURRENT_SCHEMA_VERSION: u32 = 2;
 
 pub struct Database {
     conn: Connection,
@@ -127,6 +127,25 @@ impl Database {
                     )
                 })?;
         }
+
+        if current_version < 2 {
+            info!("Migrating database schema from v{} to v2", current_version);
+            self.conn
+                .execute_batch(
+                    "BEGIN TRANSACTION;
+                     ALTER TABLE instances ADD COLUMN last_mclo_gs_url TEXT;
+                     ALTER TABLE instances ADD COLUMN last_mclo_gs_at TEXT;
+                     PRAGMA user_version = 2;
+                     COMMIT;",
+                )
+                .map_err(|e| {
+                    AppError::new(
+                        AppErrorCode::InternalError,
+                        format!("Migration to v2 failed: {}", e),
+                    )
+                })?;
+        }
+
         Ok(())
     }
 
@@ -136,8 +155,9 @@ impl Database {
                 "INSERT INTO instances (
                     id, name, game_version, loader, loader_version, java_path,
                     memory_min_mb, memory_max_mb, jvm_args, last_played_at,
-                    total_playtime_seconds, icon_path, banner_path, created_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14);",
+                    total_playtime_seconds, icon_path, banner_path, created_at,
+                    last_mclo_gs_url, last_mclo_gs_at
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16);",
                 params![
                     instance.id,
                     instance.name,
@@ -153,6 +173,8 @@ impl Database {
                     instance.icon_path,
                     instance.banner_path,
                     instance.created_at,
+                    instance.last_mclo_gs_url,
+                    instance.last_mclo_gs_at,
                 ],
             )
             .map_err(|e| {
@@ -170,7 +192,8 @@ impl Database {
             .prepare(
                 "SELECT id, name, game_version, loader, loader_version, java_path,
                         memory_min_mb, memory_max_mb, jvm_args, last_played_at,
-                        total_playtime_seconds, icon_path, banner_path, created_at
+                        total_playtime_seconds, icon_path, banner_path, created_at,
+                        last_mclo_gs_url, last_mclo_gs_at
                  FROM instances WHERE id = ?1;",
             )
             .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
@@ -226,6 +249,12 @@ impl Database {
                 created_at: row
                     .get(13)
                     .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                last_mclo_gs_url: row
+                    .get(14)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                last_mclo_gs_at: row
+                    .get(15)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
             }))
         } else {
             Ok(None)
@@ -252,6 +281,26 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_instance_mclogs(
+        &self,
+        id: &str,
+        url: Option<&str>,
+        uploaded_at: Option<&str>,
+    ) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE instances SET last_mclo_gs_url = ?1, last_mclo_gs_at = ?2 WHERE id = ?3;",
+                params![url, uploaded_at, id],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to update instance mclo.gs info: {e}"),
+                )
+            })?;
+        Ok(())
+    }
+
     pub fn delete_instance(&self, id: &str) -> Result<()> {
         self.conn
             .execute("DELETE FROM instances WHERE id = ?1;", params![id])
@@ -270,7 +319,8 @@ impl Database {
             .prepare(
                 "SELECT id, name, game_version, loader, loader_version, java_path,
                         memory_min_mb, memory_max_mb, jvm_args, last_played_at,
-                        total_playtime_seconds, icon_path, banner_path, created_at
+                        total_playtime_seconds, icon_path, banner_path, created_at,
+                        last_mclo_gs_url, last_mclo_gs_at
                  FROM instances ORDER BY created_at DESC;",
             )
             .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
@@ -292,6 +342,8 @@ impl Database {
                     icon_path: row.get(11)?,
                     banner_path: row.get(12)?,
                     created_at: row.get(13)?,
+                    last_mclo_gs_url: row.get(14)?,
+                    last_mclo_gs_at: row.get(15)?,
                 })
             })
             .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
@@ -585,6 +637,8 @@ mod tests {
             icon_path: None,
             banner_path: None,
             created_at: "2026-09-04T00:00:00Z".into(),
+            last_mclo_gs_url: None,
+            last_mclo_gs_at: None,
         };
 
         db.insert_instance(&inst).expect("insert");
@@ -600,6 +654,79 @@ mod tests {
 
         let all = db.list_instances().expect("list");
         assert_eq!(all.len(), 1);
+    }
+
+    #[test]
+    fn test_migration_v1_to_v2_preserves_data() {
+        let conn = Connection::open_in_memory().unwrap();
+        // Setup initial v1 database manually
+        conn.execute_batch(
+            "CREATE TABLE instances (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                game_version TEXT NOT NULL,
+                loader TEXT,
+                loader_version TEXT,
+                java_path TEXT,
+                memory_min_mb INTEGER,
+                memory_max_mb INTEGER,
+                jvm_args TEXT,
+                last_played_at TEXT,
+                total_playtime_seconds INTEGER NOT NULL DEFAULT 0,
+                icon_path TEXT,
+                banner_path TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE accounts_metadata (
+                uuid TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                skin_url TEXT,
+                cape_url TEXT,
+                server_url TEXT,
+                last_used_at TEXT NOT NULL
+            );
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            PRAGMA user_version = 1;",
+        )
+        .unwrap();
+
+        // Insert an instance in v1 schema
+        conn.execute(
+            "INSERT INTO instances (id, name, game_version, created_at) VALUES ('v1-inst', 'V1 Test', '1.20.1', '2026-09-01T00:00:00Z');",
+            [],
+        )
+        .unwrap();
+
+        // Wrap into Database struct and trigger migrate()
+        let mut db = Database { conn };
+        db.migrate().expect("migrate to v2");
+
+        assert_eq!(db.schema_version().unwrap(), 2);
+
+        let fetched = db.get_instance("v1-inst").expect("get").expect("exists");
+        assert_eq!(fetched.name, "V1 Test");
+        assert_eq!(fetched.game_version, "1.20.1");
+        assert_eq!(fetched.last_mclo_gs_url, None);
+        assert_eq!(fetched.last_mclo_gs_at, None);
+
+        // Update mclo.gs fields
+        db.update_instance_mclogs(
+            "v1-inst",
+            Some("https://mclo.gs/abc1234"),
+            Some("2026-09-05T01:00:00Z"),
+        )
+        .expect("update mclogs");
+
+        let updated = db.get_instance("v1-inst").expect("get updated").unwrap();
+        assert_eq!(
+            updated.last_mclo_gs_url.as_deref(),
+            Some("https://mclo.gs/abc1234")
+        );
+        assert_eq!(
+            updated.last_mclo_gs_at.as_deref(),
+            Some("2026-09-05T01:00:00Z")
+        );
     }
 
     #[test]

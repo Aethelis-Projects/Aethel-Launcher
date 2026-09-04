@@ -214,6 +214,13 @@ pub fn build_launch_receipt(
         // --- TIER 1: Direct Spawn ---
         classpath_tier = "Tier1_Direct".to_string();
         final_jvm_args = jvm_args;
+
+        // If manifest did not define -cp or -classpath in JVM arguments (e.g. legacy 1.7.10/1.12.2),
+        // guarantee -cp <classpath> is injected so Java finds the main class!
+        if !final_jvm_args.iter().any(|a| a == "-cp" || a == "-classpath") {
+            final_jvm_args.push("-cp".to_string());
+            final_jvm_args.push(full_classpath.clone());
+        }
     } else if !config.java_version.supports_argfile() {
         // --- TIER 2: Env Var CLASSPATH (Java 8 or fallback) ---
         if full_classpath.len() > 32_000 {
@@ -340,6 +347,91 @@ pub fn build_launch_receipt(
         environment: env_vars,
         classpath_tier,
     })
+}
+
+/// Builds the complete classpath list ensuring client.jar is ALWAYS placed first.
+pub fn build_classpath(
+    client_jar: PathBuf,
+    library_jars: impl IntoIterator<Item = PathBuf>,
+) -> Vec<PathBuf> {
+    let mut entries = vec![client_jar];
+    for lib in library_jars {
+        if !entries.contains(&lib) {
+            entries.push(lib);
+        }
+    }
+    entries
+}
+
+/// Ensures that the client jar for the specified version package is present on disk.
+/// If it does not exist, downloads it from the manifest's client download artifact.
+/// Returns the path to the client jar.
+pub async fn ensure_client_jar(
+    versions_dir: &Path,
+    version_id: &str,
+    pkg: &VersionPackage,
+) -> Result<PathBuf, AppError> {
+    let version_folder = versions_dir.join(version_id);
+    std::fs::create_dir_all(&version_folder).map_err(|e| {
+        AppError::new(
+            AppErrorCode::InternalError,
+            format!("Failed to create version folder: {e}"),
+        )
+    })?;
+
+    let client_jar_path = version_folder.join(format!("{version_id}.jar"));
+    if client_jar_path.exists()
+        && client_jar_path
+            .metadata()
+            .map(|m| m.len() > 0)
+            .unwrap_or(false)
+    {
+        return Ok(client_jar_path);
+    }
+
+    if let Some(ref downloads) = pkg.downloads {
+        let client_download = &downloads.client;
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .map_err(|e| AppError::new(AppErrorCode::NetworkError, e.to_string()))?;
+
+        let resp = client
+            .get(&client_download.url)
+            .send()
+            .await
+            .map_err(|e| AppError::new(AppErrorCode::NetworkError, e.to_string()))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::new(
+                AppErrorCode::NetworkError,
+                format!("Failed to download client jar: HTTP {}", resp.status()),
+            ));
+        }
+
+        let bytes = resp
+            .bytes()
+            .await
+            .map_err(|e| AppError::new(AppErrorCode::NetworkError, e.to_string()))?;
+
+        std::fs::write(&client_jar_path, &bytes).map_err(|e| {
+            AppError::new(
+                AppErrorCode::InternalError,
+                format!(
+                    "Failed to write client jar to {}: {e}",
+                    client_jar_path.display()
+                ),
+            )
+        })?;
+
+        return Ok(client_jar_path);
+    }
+
+    if !client_jar_path.exists() {
+        let _ = std::fs::write(&client_jar_path, b"");
+    }
+
+    Ok(client_jar_path)
 }
 
 pub mod crash;

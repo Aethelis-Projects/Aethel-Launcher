@@ -20,7 +20,8 @@ export const TitleBar: React.FC = () => {
     localStorage.setItem('aethel_lng', next);
   };
 
-  const handleMinimize = async () => {
+  const handleMinimize = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await getCurrentWindow().minimize();
     } catch (err) {
@@ -28,7 +29,8 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  const handleMaximize = async () => {
+  const handleMaximize = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await getCurrentWindow().toggleMaximize();
     } catch (err) {
@@ -36,7 +38,8 @@ export const TitleBar: React.FC = () => {
     }
   };
 
-  const handleClose = async () => {
+  const handleClose = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await getCurrentWindow().close();
     } catch (err) {
@@ -59,12 +62,19 @@ export const TitleBar: React.FC = () => {
         </span>
       </div>
 
-      {/* Center / Right controls */}
-      <div className="flex items-center gap-2">
+      {/* Center / Right controls - Explicitly isolated from drag region */}
+      <div
+        data-tauri-drag-region="false"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        className="flex items-center gap-2"
+      >
         {/* Active downloads toggle */}
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`px-2 py-1 rounded flex items-center gap-1.5 transition-colors text-[11px] ${
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
+          className={`px-2 py-1 rounded flex items-center gap-1.5 transition-colors text-[11px] cursor-pointer ${
             activeDownloadCount > 0
               ? 'bg-cyan-950 text-cyan-400 border border-cyan-800 animate-pulse'
               : 'hover:bg-zinc-800/60 text-zinc-400 hover:text-zinc-200'
@@ -76,8 +86,11 @@ export const TitleBar: React.FC = () => {
 
         {/* Language switcher */}
         <button
-          onClick={toggleLanguage}
-          className="px-2 py-1 rounded hover:bg-zinc-800/60 text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5 transition-colors text-[11px]"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleLanguage();
+          }}
+          className="px-2 py-1 rounded hover:bg-zinc-800/60 text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5 transition-colors text-[11px] cursor-pointer"
         >
           <Globe className="w-3.5 h-3.5" />
           <span className="uppercase font-semibold text-[10px]">
@@ -87,7 +100,10 @@ export const TitleBar: React.FC = () => {
 
         {/* Profile badge */}
         <button
-          onClick={() => setIsAccountModalOpen(true)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsAccountModalOpen(true);
+          }}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-zinc-100 text-[11px] transition-all cursor-pointer"
         >
           <User className="w-3 h-3 text-cyan-400" />
@@ -99,21 +115,24 @@ export const TitleBar: React.FC = () => {
           <button
             data-testid="window-minimize-btn"
             onClick={handleMinimize}
-            className="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 hover:text-zinc-200 rounded text-zinc-400 transition-colors"
+            className="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 hover:text-zinc-200 rounded text-zinc-400 transition-colors cursor-pointer"
+            title="Minimize"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
             data-testid="window-maximize-btn"
             onClick={handleMaximize}
-            className="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 hover:text-zinc-200 rounded text-zinc-400 transition-colors"
+            className="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 hover:text-zinc-200 rounded text-zinc-400 transition-colors cursor-pointer"
+            title="Maximize"
           >
             <Square className="w-2.5 h-2.5" />
           </button>
           <button
             data-testid="window-close-btn"
             onClick={handleClose}
-            className="w-7 h-7 flex items-center justify-center hover:bg-red-600 hover:text-white rounded text-zinc-400 transition-colors"
+            className="w-7 h-7 flex items-center justify-center hover:bg-red-600 hover:text-white rounded text-zinc-400 transition-colors cursor-pointer"
+            title="Close"
           >
             <X className="w-3 h-3" />
           </button>

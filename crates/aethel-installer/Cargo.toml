@@ -28,6 +28,7 @@ windows-sys = { version = "0.59", features = ["Win32_Security", "Win32_System_Th
 
 [build-dependencies]
 tauri-build = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

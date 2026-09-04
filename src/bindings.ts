@@ -110,9 +110,9 @@ async resolveJavaForInstance(gameVersion: string, manualPath: string | null, pro
     else return { status: "error", error: e  as any };
 }
 },
-async uploadCrashToMclogs(logContent: string) : Promise<Result<string, string>> {
+async uploadCrashToMclogs(instanceId: string | null, logContent: string) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("upload_crash_to_mclogs", { logContent }) };
+    return { status: "ok", data: await TAURI_INVOKE("upload_crash_to_mclogs", { instanceId, logContent }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -337,7 +337,7 @@ export type DependencyType = "Required" | "Optional" | "Incompatible" | "Embedde
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
 export type InstalledMod = { id: string; name: string; version: string; file_name: string; enabled: boolean; description: string | null; authors: string[]; project_id: string | null }
 export type InstalledRuntime = { major: number; path: string; provider: string; version_str: string }
-export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string }
+export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string; last_mclo_gs_url: string | null; last_mclo_gs_at: string | null }
 export type JavaInfo = { path: string; version: string; major: number; arch: string; vendor: string | null; is_system: boolean }
 /**
  * Structured receipt representing synthesized launch parameters.

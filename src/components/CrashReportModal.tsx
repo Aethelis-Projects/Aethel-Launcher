@@ -13,12 +13,14 @@ import {
   Upload,
 } from 'lucide-react';
 import { commands, type CrashReport } from '../bindings';
+import { useLogStore } from '../store/logStore';
 
 interface CrashReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   report: CrashReport | null;
   instanceName?: string;
+  instanceId?: string;
 }
 
 export const CrashReportModal: React.FC<CrashReportModalProps> = ({
@@ -26,6 +28,7 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
   onClose,
   report,
   instanceName,
+  instanceId,
 }) => {
   const { t } = useTranslation();
   const [showFullLog, setShowFullLog] = useState(false);
@@ -41,9 +44,12 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
     setIsUploading(true);
     setUploadError(null);
     try {
-      const res = await commands.uploadCrashToMclogs(report.full_log);
+      const res = await commands.uploadCrashToMclogs(instanceId ?? null, report.full_log);
       if (res.status === 'ok') {
         setUploadUrl(res.data);
+        if (instanceId) {
+          useLogStore.getState().setMclogsUrl(instanceId, res.data);
+        }
       } else {
         setUploadError(res.error);
       }

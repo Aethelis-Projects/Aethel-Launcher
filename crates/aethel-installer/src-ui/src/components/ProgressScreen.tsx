@@ -155,72 +155,78 @@ export const ProgressScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col justify-between h-full p-8 relative z-10 select-none">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <DownloadCloud className="w-5 h-5 text-cyan-400 animate-pulse" />
-          <h2 className="text-xl font-bold text-slate-100">{t('progress.title')}</h2>
-        </div>
-        <p className="text-xs text-slate-400">{t('progress.subtitle')}</p>
-      </div>
-
-      {/* Main Progress Area */}
-      <div className="my-auto space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="font-semibold text-slate-200 truncate max-w-sm">{progress.stage}</span>
-            <span className="font-mono font-bold text-cyan-400 text-sm">{Math.round(progress.percent)}%</span>
+    <div className="flex h-full flex-col min-h-0 relative z-10 select-none">
+      {/* Content Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-8 pt-5 pb-3 flex flex-col justify-between">
+        {/* Header */}
+        <div className="shrink-0 mb-2">
+          <div className="flex items-center gap-2 mb-1">
+            <DownloadCloud className="w-5 h-5 text-cyan-400 animate-pulse" />
+            <h2 className="text-xl font-bold text-slate-100">{t('progress.title')}</h2>
           </div>
-
-          <ShimmerProgress percent={progress.percent} height={12} />
-
-          <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
-            <span>{t('progress.speed')}: <strong className="text-slate-300">{progress.speed}</strong></span>
-            <span>{t('progress.eta')}: <strong className="text-slate-300">{progress.eta}</strong></span>
-          </div>
+          <p className="text-xs text-slate-400">{t('progress.subtitle')}</p>
         </div>
 
-        {/* Error Alert */}
-        {progress.error && (
-          <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{progress.error}</span>
+        {/* Main Progress Area */}
+        <div className="my-auto space-y-3.5 py-1">
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-semibold text-slate-200 truncate max-w-sm">{progress.stage}</span>
+              <span className="font-mono font-bold text-cyan-400 text-sm">{Math.round(progress.percent)}%</span>
+            </div>
+
+            <ShimmerProgress percent={progress.percent} height={10} />
+
+            <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono">
+              <span>{t('progress.speed')}: <strong className="text-slate-300">{progress.speed}</strong></span>
+              <span>{t('progress.eta')}: <strong className="text-slate-300">{progress.eta}</strong></span>
+            </div>
           </div>
-        )}
 
-        {/* Terminal Log Box */}
-        <div className="rounded-xl bg-slate-950/90 border border-slate-800/80 overflow-hidden shadow-inner">
-          <button
-            onClick={() => setShowLog(!showLog)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-slate-900/60 border-b border-slate-800 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer"
-          >
-            <span className="flex items-center gap-1.5 font-mono">
-              <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-              {showLog ? t('progress.hideLog') : t('progress.showLog')}
-            </span>
-            {showLog ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-
-          {showLog && (
-            <div className="p-3 h-32 overflow-y-auto font-mono text-[10px] text-slate-400 space-y-1 scrollbar-thin">
-              {progress.logs.map((log, index) => (
-                <div key={index} className="leading-tight break-all">
-                  {log}
-                </div>
-              ))}
-              <div ref={logEndRef} />
+          {/* Error Alert */}
+          {progress.error && (
+            <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{progress.error}</span>
             </div>
           )}
+
+          {/* Terminal Log Box */}
+          <div className="rounded-xl bg-slate-950/90 border border-slate-800/80 overflow-hidden shadow-inner">
+            <button
+              onClick={() => setShowLog(!showLog)}
+              className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-900/60 border-b border-slate-800 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5 font-mono">
+                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                {showLog ? t('progress.hideLog') : t('progress.showLog')}
+              </span>
+              {showLog ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+
+            {showLog && (
+              <div className="p-2.5 h-28 overflow-y-auto font-mono text-[10px] text-slate-400 space-y-1 scrollbar-thin">
+                {progress.logs.map((log, index) => (
+                  <div key={index} className="leading-tight break-all">
+                    {log}
+                  </div>
+                ))}
+                <div ref={logEndRef} />
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Spacer */}
+        <div className="shrink-0 h-1" />
       </div>
 
-      {/* Footer / Cancel */}
-      <div className="w-full flex justify-end items-center pt-2 border-t border-slate-800/60">
+      {/* Pinned 3-tier Footer */}
+      <div className="shrink-0 border-t border-slate-800/80 px-8 py-3 flex items-center justify-end bg-slate-950/50">
         <button
           onClick={handleCancel}
           disabled={progress.isComplete}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
         >
           <X className="w-3.5 h-3.5" />
           <span>{t('common.cancel')}</span>

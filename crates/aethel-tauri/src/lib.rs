@@ -4,8 +4,8 @@ use aethel_java::{
     detect_system_java as scan_system_java, GCPreset, InstalledRuntime, JavaProvider, JavaResolver,
 };
 use aethel_launch::{
-    build_launch_receipt, upload_to_mclogs, CrashAnalyzer, JavaVersion, LaunchConfiguration,
-    LaunchReceipt, ProcessSupervisor,
+    build_classpath, build_launch_receipt, ensure_client_jar, upload_to_mclogs, CrashAnalyzer,
+    JavaVersion, LaunchConfiguration, LaunchReceipt, ProcessSupervisor,
 };
 use aethel_manifest::VersionPackage;
 use aethel_modding::{
@@ -53,6 +53,8 @@ fn seed_default_instances_if_empty(db: &Database) {
                     icon_path: None,
                     banner_path: None,
                     created_at: chrono::Utc::now().to_rfc3339(),
+                    last_mclo_gs_url: None,
+                    last_mclo_gs_at: None,
                 },
                 Instance {
                     id: "vanilla-1.21.1".to_string(),
@@ -69,6 +71,8 @@ fn seed_default_instances_if_empty(db: &Database) {
                     icon_path: None,
                     banner_path: None,
                     created_at: chrono::Utc::now().to_rfc3339(),
+                    last_mclo_gs_url: None,
+                    last_mclo_gs_at: None,
                 },
                 Instance {
                     id: "vanilla-1.7.10".to_string(),
@@ -85,6 +89,8 @@ fn seed_default_instances_if_empty(db: &Database) {
                     icon_path: None,
                     banner_path: None,
                     created_at: chrono::Utc::now().to_rfc3339(),
+                    last_mclo_gs_url: None,
+                    last_mclo_gs_at: None,
                 },
             ];
             for inst in defaults {
@@ -151,12 +157,47 @@ fn get_instances() -> Result<Vec<Instance>, String> {
     db.list_instances().map_err(|e| e.to_string())
 }
 
+pub fn resolve_instance_classpath(
+    app_data_dir: &std::path::Path,
+    version: &str,
+    pkg: &VersionPackage,
+) -> Vec<PathBuf> {
+    let client_jar = app_data_dir
+        .join("versions")
+        .join(version)
+        .join(format!("{version}.jar"));
+
+    let libraries_dir = app_data_dir.join("libraries");
+    let ctx = aethel_manifest::OsContext::current();
+    let mut lib_paths = Vec::new();
+    for lib in &pkg.libraries {
+        if lib.is_applicable(&ctx) {
+            if let Some(art) = lib.get_artifact() {
+                if let Some(ref p_str) = art.path {
+                    let p = libraries_dir.join(p_str);
+                    if p.exists() {
+                        lib_paths.push(p);
+                    }
+                }
+            }
+        }
+    }
+
+    if lib_paths.is_empty() {
+        lib_paths.push(libraries_dir.join("lwjgl.jar"));
+    }
+
+    build_classpath(client_jar, lib_paths)
+}
+
 #[tauri::command]
 #[specta::specta]
 fn get_launch_receipt(game_version: String, username: String) -> Result<LaunchReceipt, String> {
     let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
     let pkg = VersionPackage::parse(fixture).map_err(|e| e.to_string())?;
     let offline_uuid = generate_offline_uuid(&username).to_string();
+
+    let classpath_entries = resolve_instance_classpath(&get_app_data_dir(), &game_version, &pkg);
 
     let config = LaunchConfiguration {
         java_path: PathBuf::from("javaw.exe"),
@@ -165,10 +206,7 @@ fn get_launch_receipt(game_version: String, username: String) -> Result<LaunchRe
         assets_dir: PathBuf::from("assets"),
         natives_dir: PathBuf::from(format!("instances/{game_version}/natives")),
         version_package: pkg,
-        classpath_entries: vec![
-            PathBuf::from("libraries/client.jar"),
-            PathBuf::from("libraries/lwjgl.jar"),
-        ],
+        classpath_entries,
         player_name: username,
         player_uuid: offline_uuid,
         auth_access_token: "offline-token".to_string(),
@@ -235,6 +273,8 @@ fn launch_with_stub_identity(
 
     let resolved_java = resolve_best_existing_java(&version, java_path.as_deref());
 
+    let classpath_entries = resolve_instance_classpath(&get_app_data_dir(), &version, &pkg);
+
     let config = LaunchConfiguration {
         java_path: resolved_java,
         java_version: major_to_launch_version(req_major),
@@ -242,10 +282,7 @@ fn launch_with_stub_identity(
         assets_dir: PathBuf::from("assets"),
         natives_dir: PathBuf::from(format!("instances/{version}/natives")),
         version_package: pkg,
-        classpath_entries: vec![
-            PathBuf::from("libraries/client.jar"),
-            PathBuf::from("libraries/lwjgl.jar"),
-        ],
+        classpath_entries,
         player_name: "Player".to_string(),
         player_uuid: "00000000-0000-0000-0000-000000000000".to_string(),
         auth_access_token: "0".to_string(),
@@ -464,6 +501,8 @@ fn launch_with_active_identity(
 
     let resolved_java = resolve_best_existing_java(&version, java_path.as_deref());
 
+    let classpath_entries = resolve_instance_classpath(&get_app_data_dir(), &version, &pkg);
+
     let config = LaunchConfiguration {
         java_path: resolved_java,
         java_version: major_to_launch_version(req_major),
@@ -471,10 +510,7 @@ fn launch_with_active_identity(
         assets_dir: PathBuf::from("assets"),
         natives_dir: PathBuf::from(format!("instances/{version}/natives")),
         version_package: pkg,
-        classpath_entries: vec![
-            PathBuf::from("libraries/client.jar"),
-            PathBuf::from("libraries/lwjgl.jar"),
-        ],
+        classpath_entries,
         player_name,
         player_uuid,
         auth_access_token,
@@ -590,10 +626,22 @@ async fn resolve_java_for_instance(
 
 #[tauri::command]
 #[specta::specta]
-async fn upload_crash_to_mclogs(log_content: String) -> Result<String, String> {
-    upload_to_mclogs(&log_content)
+async fn upload_crash_to_mclogs(
+    instance_id: Option<String>,
+    log_content: String,
+) -> Result<String, String> {
+    let url = upload_to_mclogs(&log_content)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    if let Some(ref inst_id) = instance_id {
+        if let Ok(db) = get_database() {
+            let now = chrono::Utc::now().to_rfc3339();
+            let _ = db.update_instance_mclogs(inst_id, Some(&url), Some(&now));
+        }
+    }
+
+    Ok(url)
 }
 
 #[tauri::command]
@@ -613,6 +661,13 @@ async fn launch_instance(
     java_path: Option<String>,
     gc_preset: Option<String>,
 ) -> Result<u32, String> {
+    let version_str = game_version.clone().unwrap_or_else(|| "1.20.4".to_string());
+    let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
+    if let Ok(pkg) = VersionPackage::parse(fixture) {
+        let versions_dir = get_app_data_dir().join("versions");
+        let _ = ensure_client_jar(&versions_dir, &version_str, &pkg).await;
+    }
+
     let mut receipt =
         launch_with_active_identity(game_version, memory_max_mb, java_path, gc_preset)?;
     let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
@@ -1139,6 +1194,8 @@ async fn import_modpack(
         icon_path: None,
         banner_path: None,
         created_at: chrono::Utc::now().to_rfc3339(),
+        last_mclo_gs_url: None,
+        last_mclo_gs_at: None,
     };
 
     let db = get_database()?;
@@ -1452,6 +1509,8 @@ mod tests {
             icon_path: None,
             banner_path: None,
             created_at: chrono::Utc::now().to_rfc3339(),
+            last_mclo_gs_url: None,
+            last_mclo_gs_at: None,
         };
         db.insert_instance(&inst).unwrap();
         drop(db);

@@ -17,6 +17,8 @@ pub struct Instance {
     pub icon_path: Option<String>,
     pub banner_path: Option<String>,
     pub created_at: String,
+    pub last_mclo_gs_url: Option<String>,
+    pub last_mclo_gs_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]

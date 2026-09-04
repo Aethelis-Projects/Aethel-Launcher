@@ -122,7 +122,7 @@ export const LogViewer: React.FC = () => {
 
           {/* Clear */}
           <button
-            onClick={clearLogs}
+            onClick={() => clearLogs()}
             className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition-colors"
             title={t('logs.clear')}
           >

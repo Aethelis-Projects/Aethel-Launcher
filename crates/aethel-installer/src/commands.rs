@@ -216,26 +216,56 @@ pub async fn start_installation(config: InstallConfig, app: AppHandle) -> Result
             return;
         }
 
-        // Step 2: Resolve and Download Launcher Binary
+        // Step 2: Resolve and Download Launcher Binary (prefer compile-time embedded payload)
         let (launcher_url, asset_name) =
             InstallerDownloader::resolve_launcher_asset_url(env!("CARGO_PKG_VERSION"));
 
-        emit_progress(
-            &app,
-            "Загрузка Aethel Launcher...",
-            20.0,
-            "...",
-            "...",
-            &format!("[INFO] Resolving release binary from GitHub Releases ({asset_name})..."),
-        );
-
-        // Check if installer package already exists locally (e.g. downloaded alongside installer)
-        let local_payload = std::env::current_exe()
+        let temp_setup_path = if let Some(embedded) = crate::payload::get_embedded_payload() {
+            emit_progress(
+                &app,
+                "Распаковка встроенного дистрибутива...",
+                50.0,
+                "Offline",
+                "0s",
+                &format!(
+                    "[INFO] Using embedded offline payload ({} bytes). No network download required.",
+                    embedded.len()
+                ),
+            );
+            let ext = if cfg!(windows) {
+                "exe"
+            } else if cfg!(target_os = "macos") {
+                "tar.gz"
+            } else {
+                "AppImage"
+            };
+            let temp_dest =
+                std::env::temp_dir().join(format!("aethel_embedded_{}.{ext}", uuid::Uuid::new_v4()));
+            if let Err(e) = std::fs::write(&temp_dest, embedded) {
+                let err_msg = format!("Не удалось распаковать встроенный дистрибутив: {e}");
+                emit_progress(
+                    &app,
+                    "Ошибка распаковки",
+                    50.0,
+                    "0 MB/s",
+                    "--",
+                    &format!("[ERROR] {err_msg}"),
+                );
+                let _ = app.emit(
+                    "install-finished",
+                    FinishEventPayload {
+                        success: false,
+                        error: Some(err_msg),
+                    },
+                );
+                return;
+            }
+            Some(temp_dest)
+        } else if let Some(local_path) = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(|dir| dir.join(&asset_name)))
-            .filter(|p| p.exists());
-
-        let temp_setup_path = if let Some(local_path) = local_payload {
+            .filter(|p| p.exists())
+        {
             emit_progress(
                 &app,
                 "Обнаружен локальный дистрибутив",
@@ -250,6 +280,14 @@ pub async fn start_installation(config: InstallConfig, app: AppHandle) -> Result
             Some(local_path)
         } else {
             // Download from GitHub Releases
+            emit_progress(
+                &app,
+                "Загрузка Aethel Launcher...",
+                20.0,
+                "...",
+                "...",
+                &format!("[INFO] Resolving release binary from GitHub Releases ({asset_name})..."),
+            );
             let temp_dest =
                 std::env::temp_dir().join(format!("aethel_setup_{}.exe", uuid::Uuid::new_v4()));
             let client = reqwest::Client::builder()
@@ -371,8 +409,14 @@ pub async fn start_installation(config: InstallConfig, app: AppHandle) -> Result
 
         #[cfg(windows)]
         let target_exe = install_path.join("Aethel Launcher.exe");
-        #[cfg(not(windows))]
-        let target_exe = install_path.join("aethel-launcher");
+        #[cfg(target_os = "macos")]
+        let target_exe = install_path
+            .join("Aethel Launcher.app")
+            .join("Contents")
+            .join("MacOS")
+            .join("aethel-launcher");
+        #[cfg(not(any(windows, target_os = "macos")))]
+        let target_exe = install_path.join("Aethel-Launcher.AppImage");
 
         #[cfg(windows)]
         {
@@ -417,6 +461,44 @@ pub async fn start_installation(config: InstallConfig, app: AppHandle) -> Result
                     let d_friendly = def_p.join("Aethel Launcher.exe");
                     if d_bin.exists() && !d_friendly.exists() {
                         let _ = std::fs::copy(&d_bin, &d_friendly);
+                    }
+                }
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(setup_archive) = &temp_setup_path {
+                emit_progress(
+                    &app,
+                    "Установка ядра приложения...",
+                    72.0,
+                    "0 MB/s",
+                    "1s",
+                    "[INFO] Extracting macOS application bundle into destination...",
+                );
+                let _ = Installer::extract_macos_archive(setup_archive, &install_path);
+            }
+        }
+
+        #[cfg(not(any(windows, target_os = "macos")))]
+        {
+            if let Some(setup_file) = &temp_setup_path {
+                emit_progress(
+                    &app,
+                    "Установка ядра приложения...",
+                    72.0,
+                    "0 MB/s",
+                    "1s",
+                    "[INFO] Installing Linux AppImage and desktop shortcut...",
+                );
+                if let Ok(bytes) = std::fs::read(setup_file) {
+                    if let Ok(app_path) = Installer::install_linux_appimage(&bytes, &install_path) {
+                        if let Some(data_dir) = dirs::data_local_dir() {
+                            let desktop_file =
+                                data_dir.join("applications").join("aethel-launcher.desktop");
+                            let _ = Installer::create_linux_desktop_entry(&app_path, &desktop_file);
+                        }
                     }
                 }
             }
