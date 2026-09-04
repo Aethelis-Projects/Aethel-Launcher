@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use aethel_core::{AppError, AppErrorCode};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
