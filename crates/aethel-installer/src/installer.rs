@@ -129,7 +129,14 @@ impl Installer {
         }
 
         let path = Path::new(trimmed);
-        if !path.is_absolute() {
+        let is_abs = path.is_absolute()
+            || trimmed.starts_with('/')
+            || (trimmed.len() >= 3
+                && trimmed.as_bytes()[0].is_ascii_alphabetic()
+                && trimmed.as_bytes()[1] == b':'
+                && (trimmed.as_bytes()[2] == b'\\' || trimmed.as_bytes()[2] == b'/'));
+
+        if !is_abs {
             return PathValidation {
                 is_valid: false,
                 error_message: Some("Installation path must be an absolute path".to_string()),
@@ -243,9 +250,13 @@ mod tests {
 
     #[test]
     fn test_install_path_validation_valid() {
-        let res = Installer::validate_install_path(r"C:\AethelLauncher");
-        assert!(res.is_valid);
-        assert!(res.error_message.is_none());
+        let res_win = Installer::validate_install_path(r"C:\AethelLauncher");
+        assert!(res_win.is_valid);
+        assert!(res_win.error_message.is_none());
+
+        let res_unix = Installer::validate_install_path("/opt/AethelLauncher");
+        assert!(res_unix.is_valid);
+        assert!(res_unix.error_message.is_none());
     }
 
     #[test]
@@ -270,9 +281,13 @@ mod tests {
 
     #[test]
     fn test_install_path_validation_non_ascii_warning() {
-        let res = Installer::validate_install_path(r"C:\Игры\Aethel");
-        assert!(res.is_valid);
-        assert!(res.warning_message.is_some());
+        let res_win = Installer::validate_install_path(r"C:\Игры\Aethel");
+        assert!(res_win.is_valid);
+        assert!(res_win.warning_message.is_some());
+
+        let res_unix = Installer::validate_install_path("/opt/Игры/Aethel");
+        assert!(res_unix.is_valid);
+        assert!(res_unix.warning_message.is_some());
     }
 
     #[test]
