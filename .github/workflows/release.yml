@@ -97,10 +97,22 @@ jobs:
         run: |
           TAG_NAME="${GITHUB_REF#refs/tags/}"
           if [[ "$TAG_NAME" =~ -(alpha|beta|rc) ]]; then
-            echo "Pre-release detected ($TAG_NAME): building bundles nsis,appimage,deb,dmg"
-            cargo tauri build --target ${{ matrix.target }} --bundles nsis,appimage,deb,dmg
+            case "${{ runner.os }}" in
+              Windows)
+                echo "Pre-release on Windows: building NSIS (excluding WiX MSI)"
+                cargo tauri build --target ${{ matrix.target }} --bundles nsis
+                ;;
+              Linux)
+                echo "Pre-release on Linux: building AppImage and DEB"
+                cargo tauri build --target ${{ matrix.target }} --bundles appimage,deb
+                ;;
+              macOS)
+                echo "Pre-release on macOS: building DMG"
+                cargo tauri build --target ${{ matrix.target }} --bundles dmg
+                ;;
+            esac
           else
-            echo "Stable release ($TAG_NAME): building all targets"
+            echo "Stable release: building all targets"
             cargo tauri build --target ${{ matrix.target }}
           fi
 
