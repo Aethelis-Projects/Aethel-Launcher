@@ -17,6 +17,16 @@ export const PathSelectionScreen: React.FC = () => {
 
   const [pathError, setPathError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!installPath) {
+      import('@tauri-apps/api/core').then(({ invoke }) => {
+        invoke<string>('get_default_install_path').then((p) => {
+          if (p) setInstallPath(p);
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+  }, [installPath, setInstallPath]);
+
   const requiredBytes = Math.max(500 * 1024 * 1024, getTotalDownloadSizeBytes() * 2); // 500MB min or 2x download for extraction
   const freeGB = (freeSpaceBytes / (1024 * 1024 * 1024)).toFixed(1);
   const requiredMB = (requiredBytes / (1024 * 1024)).toFixed(0);

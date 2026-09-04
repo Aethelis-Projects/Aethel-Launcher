@@ -69,23 +69,27 @@ impl InstallerDownloader {
         };
 
         let base =
-            format!("https://github.com/Aethelis-Projects/aethel-launcher/releases/download/{tag}");
+            format!("https://github.com/Aethelis-Projects/Aethel-Launcher/releases/download/{tag}");
 
         #[cfg(target_os = "windows")]
         {
-            let asset_name = format!("AethelLauncher_{version}_x64-setup.exe");
+            let asset_name = format!("Aethel.Launcher_{version}_x64-setup.exe");
             (format!("{base}/{asset_name}"), asset_name)
         }
 
         #[cfg(target_os = "macos")]
         {
-            let asset_name = format!("AethelLauncher_{version}_universal.dmg");
+            let asset_name = if cfg!(target_arch = "aarch64") {
+                format!("Aethel.Launcher_{version}_aarch64.dmg")
+            } else {
+                format!("Aethel.Launcher_{version}_x64.dmg")
+            };
             (format!("{base}/{asset_name}"), asset_name)
         }
 
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         {
-            let asset_name = format!("AethelLauncher_{version}_amd64.AppImage");
+            let asset_name = format!("Aethel.Launcher_{version}_amd64.AppImage");
             (format!("{base}/{asset_name}"), asset_name)
         }
     }

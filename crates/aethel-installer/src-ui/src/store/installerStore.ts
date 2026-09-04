@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 
 export type ScreenId = 'welcome' | 'license' | 'path' | 'components' | 'progress' | 'completion';
 
@@ -61,7 +61,7 @@ export const COMPONENT_SIZES: Record<keyof SelectedComponents, number> = {
 
 export const useInstallerStore = create<InstallerState>((set, get) => ({
   currentScreen: 'welcome',
-  installPath: 'C:\\Users\\Default\\AppData\\Local\\Programs\\Aethel Launcher',
+  installPath: '',
   autoCreateFolder: true,
   freeSpaceBytes: 100 * 1024 * 1024 * 1024,
   licenseAccepted: false,

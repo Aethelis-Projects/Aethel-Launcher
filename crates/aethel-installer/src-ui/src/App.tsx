@@ -10,23 +10,27 @@ import { CompletionScreen } from './components/CompletionScreen';
 import { useInstallerStore } from './store/installerStore';
 
 export const App: React.FC = () => {
-  const { currentScreen, setUpdateAvailable, setFreeSpaceBytes } = useInstallerStore();
+  const { currentScreen, setUpdateAvailable, setFreeSpaceBytes, setInstallPath } = useInstallerStore();
 
   useEffect(() => {
-    // Check for newer installer release and disk space on start
+    // Check for newer installer release and default install path on start
     const initBackend = async () => {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
+        const defaultPath = await invoke<string>('get_default_install_path');
+        if (defaultPath) {
+          setInstallPath(defaultPath);
+          const spaceInfo = await invoke<{ freeBytes: number }>('check_disk_space', {
+            path: defaultPath,
+          });
+          if (spaceInfo && spaceInfo.freeBytes) {
+            setFreeSpaceBytes(spaceInfo.freeBytes);
+          }
+        }
+
         const latestVer = await invoke<string | null>('check_installer_version');
         if (latestVer) {
           setUpdateAvailable(latestVer);
-        }
-
-        const spaceInfo = await invoke<{ freeBytes: number }>('check_disk_space', {
-          path: 'C:\\',
-        });
-        if (spaceInfo && spaceInfo.freeBytes) {
-          setFreeSpaceBytes(spaceInfo.freeBytes);
         }
       } catch {
         // Fallback in web / test mode
@@ -34,7 +38,7 @@ export const App: React.FC = () => {
     };
 
     initBackend();
-  }, []);
+  }, [setFreeSpaceBytes, setInstallPath, setUpdateAvailable]);
 
   const renderScreen = () => {
     switch (currentScreen) {

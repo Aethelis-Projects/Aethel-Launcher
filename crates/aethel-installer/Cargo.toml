@@ -21,6 +21,7 @@ uuid = { workspace = true }
 tauri = { workspace = true }
 tauri-plugin-opener = { workspace = true }
 open = { workspace = true }
+futures-util = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Security", "Win32_System_Threading", "Win32_Storage_FileSystem"] }

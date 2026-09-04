@@ -1,85 +1,16 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Check, Layers, Cpu, Monitor, DownloadCloud } from 'lucide-react';
-import { useInstallerStore, COMPONENT_SIZES, type SelectedComponents } from '../store/installerStore';
+import { ArrowLeft, Layers, Cpu, Monitor, DownloadCloud } from 'lucide-react';
+import { useInstallerStore, type SelectedComponents } from '../store/installerStore';
 
 export const ComponentsScreen: React.FC = () => {
   const { t } = useTranslation();
-  const { setScreen, components, toggleComponent, getTotalDownloadSizeBytes, setProgress, addLog, installPath } = useInstallerStore();
+  const { setScreen, components, toggleComponent, getTotalDownloadSizeBytes } = useInstallerStore();
 
   const totalMB = (getTotalDownloadSizeBytes() / (1024 * 1024)).toFixed(0);
 
-  const handleStartInstall = async () => {
+  const handleStartInstall = () => {
     setScreen('progress');
-    setProgress({
-      stage: 'Подготовка к установке...',
-      percent: 5,
-      speed: '0 MB/s',
-      eta: '...',
-      isComplete: false,
-      error: null,
-    });
-    addLog(`[INFO] Target install path: ${installPath}`);
-    addLog(`[INFO] Selected components: ${Object.keys(components).filter((k) => components[k as keyof SelectedComponents]).join(', ')}`);
-
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('start_installation', {
-        config: {
-          installPath,
-          components: Object.keys(components).filter((k) => components[k as keyof SelectedComponents]),
-          createDesktopShortcut: components.desktopShortcut,
-          createStartMenuShortcut: components.startMenuShortcut,
-          autoStart: false,
-          registerFileAssociations: components.fileAssociations,
-        },
-      });
-    } catch (e) {
-      // In web dev environment or test environment, simulate smooth installation
-      simulateDevInstallation();
-    }
-  };
-
-  const simulateDevInstallation = () => {
-    let p = 5;
-    const steps = [
-      'Проверка свободного места на диске...',
-      'Загрузка Aethel Launcher v1.0.0-rc.2...',
-      'Верификация криптографической подписи Minisign...',
-      'Распаковка файлов приложения...',
-      'Загрузка Java 21 Runtime (Adoptium Temurin)...',
-      'Настройка реестра и переменных окружения...',
-      'Создание системных ярлыков...',
-      'Финализация манифеста установки...',
-    ];
-    let stepIndex = 0;
-
-    const interval = setInterval(() => {
-      p += 12;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
-        setProgress({
-          stage: 'Установка завершена',
-          percent: 100,
-          speed: '0 MB/s',
-          eta: '0s',
-          isComplete: true,
-        });
-        addLog('[INFO] Installation completed successfully.');
-        setTimeout(() => setScreen('completion'), 1000);
-      } else {
-        const stage = steps[stepIndex % steps.length];
-        stepIndex++;
-        setProgress({
-          stage,
-          percent: p,
-          speed: '24.5 MB/s',
-          eta: `${Math.max(1, Math.round((100 - p) / 10))}s`,
-        });
-        addLog(`[INFO] ${stage}`);
-      }
-    }, 450);
   };
 
   return (

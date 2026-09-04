@@ -111,6 +111,7 @@ dependencies = [
  "aethel-download",
  "chrono",
  "dirs",
+ "futures-util",
  "minisign-verify",
  "open",
  "reqwest 0.12.28",
