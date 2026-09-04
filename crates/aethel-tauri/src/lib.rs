@@ -1012,7 +1012,8 @@ fn import_instance_backup(file_path: String) -> Result<Instance, String> {
 #[specta::specta]
 fn delete_instance(instance_id: String) -> Result<(), String> {
     let db = get_database()?;
-    db.delete_instance(&instance_id).map_err(|e| e.to_string())?;
+    db.delete_instance(&instance_id)
+        .map_err(|e| e.to_string())?;
 
     let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
     if instance_dir.exists() {
