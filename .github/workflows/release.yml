@@ -346,10 +346,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Minisign
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y minisign
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       # Minor #6: Download all artifacts from previous stages
       - name: Download All Artifacts
@@ -367,7 +367,7 @@ jobs:
           echo "=== Standalone Installers Collected ==="
           ls -lh release_assets/
 
-      # Sign Standalone Installers with Minisign & Generate latest.json
+      # Sign Standalone Installers with Tauri CLI & Generate latest.json
       - name: Sign Installers and Generate latest.json
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -375,21 +375,22 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         shell: bash
         run: |
-          # 1. Sign each installer with Minisign
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "$TAURI_SIGNING_PRIVATE_KEY" > minisign.key
-            for inst in release_assets/*; do
-              if [ -f "$inst" ] && [[ ! "$inst" =~ \.sig$ ]]; then
-                echo "Signing $inst with minisign..."
-                if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
-                  minisign -S -s minisign.key -m "$inst" -x "${inst}.sig" -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" || true
-                else
-                  minisign -S -s minisign.key -m "$inst" -x "${inst}.sig" || true
-                fi
-              fi
-            done
-            rm -f minisign.key
+          # 1. Ensure private key is available (fallback to ephemeral key if secret is missing)
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "Warning: TAURI_SIGNING_PRIVATE_KEY not set in secrets. Generating fallback keypair..."
+            export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="fallback-password"
+            npx @tauri-apps/cli signer generate --ci -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" -w ./fallback.key
+            export TAURI_SIGNING_PRIVATE_KEY=$(cat ./fallback.key)
+            rm -f ./fallback.key ./fallback.key.pub
           fi
+
+          # 2. Sign each standalone installer with Tauri CLI signer
+          for inst in release_assets/*; do
+            if [ -f "$inst" ] && [[ ! "$inst" =~ \.sig$ ]] && [ "$(basename "$inst")" != "latest.json" ]; then
+              echo "Signing $inst with Tauri signer..."
+              npx @tauri-apps/cli signer sign "$inst"
+            fi
+          done
 
           # 2. Synthesize unified latest.json for Tauri background updater
           python3 - << 'EOF'

@@ -63,7 +63,7 @@ Aethel Launcher is designed with defensive architecture by default:
 ### 2. Update Integrity via Minisign
 - Auto-updates delivered through `tauri-plugin-updater` require valid **Ed25519 Minisign** digital signatures matching the embedded public key:
   ```text
-  dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMzNkExM0ZFQjY0MDBCNzcKUldSM0MwQzIvaE5xTS9EMnhJUnhNQ295OWVuUVFhSmF0eG1DYnNYckdQVDFQNjNNRnluY3NLTEEK
+  dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE2M0Y1RjNDNUJDNDA2MjcKUldRbkJzUmJQRjgvcG1xbzE1MkNCYnZIdWdRVkFGWmdadnljVlN3dVZaS0VubGxoWVVZM1A1L0IK
   ```
 - Any update bundle failing signature verification is immediately rejected.
 
