@@ -11,9 +11,19 @@
     "settings": "Настройки",
     "profile": "Профиль"
   },
+  "common": {
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "delete": "Удалить",
+    "save": "Сохранить",
+    "today": "Сегодня",
+    "yesterday": "Вчера"
+  },
   "instances": {
     "title": "Ваши сборки и инстансы",
     "createNew": "Создать инстанс",
+    "manage": "Управление",
+    "deleteTitle": "Удалить инстанс",
     "launch": "Играть",
     "launching": "Запуск...",
     "downloading": "Загрузка...",

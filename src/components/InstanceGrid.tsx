@@ -8,12 +8,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Upload,
-  FolderArchive,
-  Trash2,
   Sliders,
   Sparkles,
-  MoreVertical,
-  FolderOpen,
   Plus,
 } from 'lucide-react';
 import { useInstanceStore } from '../store/instanceStore';
@@ -22,9 +18,11 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
 import { commands, type Instance } from '../bindings';
 import { localizeError } from '../utils/errors';
+import { formatLastPlayed, formatPlaytime } from '../utils/formatLastPlayed';
+import { ConfirmDialog } from './ConfirmDialog';
 import { ModpackImportModal } from './ModpackImportModal';
 import { ModpackExportModal } from './ModpackExportModal';
-import { ModpackInstallModal } from './ModpackInstallModal';
+import { ModpackBrowserModal } from './ModpackBrowserModal';
 import { InstanceManagerModal } from './InstanceManagerModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import { CreateInstanceModal } from './CreateInstanceModal';
@@ -37,7 +35,8 @@ export const InstanceGrid: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [openMenuInstanceId, setOpenMenuInstanceId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Instance | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     instances,
@@ -108,10 +107,7 @@ export const InstanceGrid: React.FC = () => {
   };
 
   return (
-    <div
-      className="flex-1 overflow-y-auto p-6 space-y-6"
-      onClick={() => setOpenMenuInstanceId(null)}
-    >
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
       {/* Main Toolbar */}
       <div className="flex items-center justify-between">
         <div>
@@ -163,7 +159,6 @@ export const InstanceGrid: React.FC = () => {
           const status = launchStatus[instance.id] || 'idle';
           const isLaunching = status === 'launching' || status === 'downloading';
           const isRunning = status === 'running';
-          const isMenuOpen = openMenuInstanceId === instance.id;
 
           return (
             <div
@@ -201,115 +196,41 @@ export const InstanceGrid: React.FC = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* 3-Dots Menu Trigger */}
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenMenuInstanceId(isMenuOpen ? null : instance.id);
-                      }}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 transition-colors"
-                      title="More options"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {isMenuOpen && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-0 top-8 z-30 w-44 rounded-xl bg-zinc-950 border border-zinc-800 shadow-2xl py-1 text-xs animate-in fade-in duration-150"
-                      >
-                        <button
-                          onClick={() => {
-                            setOpenMenuInstanceId(null);
-                            setActiveManagerInstance(instance);
-                          }}
-                          className="w-full px-3 py-2 text-left text-zinc-300 hover:text-white hover:bg-zinc-900 flex items-center gap-2"
-                        >
-                          <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Manage Instance</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setOpenMenuInstanceId(null);
-                            commands.openInstanceFolder(instance.id, null);
-                          }}
-                          className="w-full px-3 py-2 text-left text-zinc-300 hover:text-white hover:bg-zinc-900 flex items-center gap-2"
-                        >
-                          <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Open Folder</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setOpenMenuInstanceId(null);
-                            setActiveExportInstance(instance);
-                          }}
-                          className="w-full px-3 py-2 text-left text-zinc-300 hover:text-white hover:bg-zinc-900 flex items-center gap-2"
-                        >
-                          <FolderArchive className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>{t('modpack.export')}</span>
-                        </button>
-
-                        <div className="h-px bg-zinc-800/80 my-1" />
-
-                        <button
-                          onClick={async () => {
-                            setOpenMenuInstanceId(null);
-                            if (window.confirm(t('instances.confirmDelete', { name: instance.name }))) {
-                              await deleteInstance(instance.id);
-                            }
-                          }}
-                          className="w-full px-3 py-2 text-left text-red-400 hover:text-red-300 hover:bg-red-950/40 flex items-center gap-2"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>{t('instances.delete')}</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 
               {/* Meta information: Playtime and Last Played */}
-              <div className="px-4 py-3 border-t border-zinc-800/50 bg-zinc-950/30 space-y-1 text-[11px] text-zinc-400">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-zinc-500">
-                    <Clock className="w-3.5 h-3.5" />
-                    {t('instances.playtime')}
-                  </span>
+              <div className="px-4 py-2.5 border-t border-zinc-800/50 bg-zinc-950/30 flex items-center justify-between text-[11px] text-zinc-400">
+                <div className="flex items-center gap-1.5 text-zinc-400" title={t('instances.playtime')}>
+                  <Clock className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                   <span className="font-mono text-zinc-300">
-                    {Math.floor(instance.total_playtime_seconds / 3600)} {t('instances.hours')}{' '}
-                    {Math.floor((instance.total_playtime_seconds % 3600) / 60)} {t('instances.minutes')}
+                    {formatPlaytime(instance.total_playtime_seconds, t)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-zinc-500">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {t('instances.lastPlayed')}
-                  </span>
-                  <span>{instance.last_played_at || t('instances.never')}</span>
+                <div className="flex items-center gap-1.5 text-zinc-400" title={t('instances.lastPlayed')}>
+                  <Calendar className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                  <span>{formatLastPlayed(instance.last_played_at, t)}</span>
                 </div>
               </div>
 
-              {/* Action Bar: Large Play Button + Quick Settings */}
+              {/* Action Bar: Large Play Button + Manage Button */}
               <div className="p-3 bg-zinc-950/60 border-t border-zinc-800/60 flex items-center gap-2">
                 <button
-                  data-testid={`settings-instance-${instance.id}`}
+                  type="button"
+                  data-testid={`manage-instance-${instance.id}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setActiveSettingsInstance(instance);
+                    setActiveManagerInstance(instance);
                   }}
-                  className="py-2.5 px-3 rounded-xl font-medium text-xs flex items-center justify-center bg-zinc-800/90 hover:bg-zinc-700/90 text-zinc-400 hover:text-cyan-400 border border-zinc-700/50 hover:border-cyan-500/50 transition-colors shadow-sm shrink-0"
-                  title="Instance Settings"
+                  className="py-2.5 px-3.5 rounded-xl font-medium text-xs flex items-center justify-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-colors shadow-sm shrink-0"
+                  title={t('instances.manage', 'Manage')}
                 >
-                  <Sliders className="w-3.5 h-3.5" />
+                  <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{t('instances.manage', 'Manage')}</span>
                 </button>
 
                 <button
+                  type="button"
                   disabled={isLaunching}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -353,12 +274,7 @@ export const InstanceGrid: React.FC = () => {
           onClose={() => setActiveManagerInstance(null)}
           instance={activeManagerInstance}
           onExport={(inst) => setActiveExportInstance(inst)}
-          onDelete={async (id) => {
-            if (window.confirm(t('instances.confirmDelete', { name: activeManagerInstance.name }))) {
-              await deleteInstance(id);
-              setActiveManagerInstance(null);
-            }
-          }}
+          onDelete={() => setDeleteTarget(activeManagerInstance)}
         />
       )}
 
@@ -388,8 +304,8 @@ export const InstanceGrid: React.FC = () => {
         onClose={() => setIsImportModalOpen(false)}
       />
 
-      {/* Modpack Install Modal */}
-      <ModpackInstallModal
+      {/* Modpack Browser Modal */}
+      <ModpackBrowserModal
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
       />
@@ -398,6 +314,28 @@ export const InstanceGrid: React.FC = () => {
       <CreateInstanceModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      {/* Confirm Dialog for Instance Deletion */}
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title={t('instances.deleteTitle', 'Delete Instance')}
+        message={t('instances.confirmDelete', { name: deleteTarget?.name || '' })}
+        confirmText={t('common.delete', 'Delete')}
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setIsDeleting(true);
+          try {
+            await deleteInstance(deleteTarget.id);
+            setDeleteTarget(null);
+            setActiveManagerInstance(null);
+          } finally {
+            setIsDeleting(false);
+          }
+        }}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

@@ -28,9 +28,10 @@ pub struct InstallConfig {
 
 impl Default for InstallConfig {
     fn default() -> Self {
-        let default_path = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("Aethel Launcher");
+        #[cfg(target_os = "macos")]
+        let default_path = PathBuf::from("/Applications/Aethel Launcher.app");
+        #[cfg(not(target_os = "macos"))]
+        let default_path = aethel_core::paths::app_dir();
 
         Self {
             install_path: default_path,

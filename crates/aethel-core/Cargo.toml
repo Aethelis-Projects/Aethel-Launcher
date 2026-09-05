@@ -16,3 +16,7 @@ specta = { workspace = true }
 tauri-specta = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "rt"] }
+dirs = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

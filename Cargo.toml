@@ -15,7 +15,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 edition = "2021"
 authors = ["Aethelis Projects <contact@aethelis.org>"]
 license = "MIT OR Apache-2.0"

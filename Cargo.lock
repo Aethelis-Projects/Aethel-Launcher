@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-auth"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aes-gcm",
  "aethel-core",
@@ -74,13 +74,15 @@ dependencies = [
 
 [[package]]
 name = "aethel-core"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "chrono",
+ "dirs",
  "serde",
  "serde_json",
  "specta",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
@@ -89,7 +91,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-download"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-core",
  "futures-util",
@@ -105,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-installer"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -131,7 +133,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-java"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-core",
  "aethel-download",
@@ -152,7 +154,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-launch"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-core",
  "aethel-java",
@@ -173,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-launcher-bin"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-auth",
  "aethel-core",
@@ -192,7 +194,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-manifest"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-core",
  "serde",
@@ -202,11 +204,12 @@ dependencies = [
 
 [[package]]
 name = "aethel-modding"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-core",
  "aethel-download",
  "aethel-manifest",
+ "base64 0.22.1",
  "chrono",
  "reqwest 0.12.28",
  "serde",
@@ -225,7 +228,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-storage"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-core",
  "chrono",
@@ -238,7 +241,7 @@ dependencies = [
 
 [[package]]
 name = "aethel-tauri"
-version = "1.0.0-rc.9"
+version = "1.0.0-rc.10"
 dependencies = [
  "aethel-auth",
  "aethel-core",

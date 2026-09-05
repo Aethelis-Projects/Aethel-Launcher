@@ -92,6 +92,11 @@ fn main() {
         )
         .expect("Failed to export TypeScript bindings");
 
+    // WS-23: Migrate legacy paths (Aethel Launcher -> aethel) before any DB/state initialization
+    if let Err(e) = aethel_core::paths::migrate_legacy_paths() {
+        eprintln!("Legacy paths migration warning: {e}");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {

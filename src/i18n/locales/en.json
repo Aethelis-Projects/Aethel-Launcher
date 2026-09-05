@@ -11,9 +11,19 @@
     "settings": "Settings",
     "profile": "Profile"
   },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "save": "Save",
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
   "instances": {
     "title": "Your Instances",
     "createNew": "Create Instance",
+    "manage": "Manage",
+    "deleteTitle": "Delete Instance",
     "launch": "Play",
     "launching": "Launching...",
     "downloading": "Downloading...",

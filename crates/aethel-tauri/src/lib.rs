@@ -46,13 +46,7 @@ pub fn get_discord_rpc() -> &'static DiscordRpcService {
 }
 
 pub fn get_app_data_dir() -> PathBuf {
-    if let Ok(custom) = std::env::var("AETHEL_DATA_DIR") {
-        PathBuf::from(custom)
-    } else {
-        dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("aethel")
-    }
+    aethel_core::paths::data_root()
 }
 
 static DB_HOLDER: Mutex<Option<(PathBuf, Database)>> = Mutex::new(None);
@@ -1361,10 +1355,11 @@ async fn install_mod(instance_id: String, version_id: String) -> Result<Resoluti
                 .or_else(|| mod_ver.files.first());
 
             if let Some(file) = primary_file {
+                let target = mods_dir.join(&file.filename);
                 client
-                    .download_mod_file(file, &mods_dir)
+                    .download_mod_file(file, &target)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|e| format!("Failed to download {}: {e}", file.filename))?;
             }
         }
     }
@@ -1555,6 +1550,82 @@ fn delete_mod(instance_id: String, file_name: String) -> Result<(), String> {
     let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
     let manager = ModManager::new(instance_dir);
     manager.delete_mod(&file_name).map_err(|e| e.to_string())
+}
+
+struct ModIconCache {
+    capacity: usize,
+    order: std::collections::VecDeque<String>,
+    map: std::collections::HashMap<String, Option<String>>,
+}
+
+impl ModIconCache {
+    fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            order: std::collections::VecDeque::with_capacity(capacity),
+            map: std::collections::HashMap::with_capacity(capacity),
+        }
+    }
+
+    fn get(&mut self, key: &str) -> Option<Option<String>> {
+        if let Some(val) = self.map.get(key).cloned() {
+            if let Some(pos) = self.order.iter().position(|k| k == key) {
+                self.order.remove(pos);
+            }
+            self.order.push_back(key.to_string());
+            Some(val)
+        } else {
+            None
+        }
+    }
+
+    fn insert(&mut self, key: String, val: Option<String>) {
+        if self.map.contains_key(&key) {
+            if let Some(pos) = self.order.iter().position(|k| k == &key) {
+                self.order.remove(pos);
+            }
+        } else if self.map.len() >= self.capacity {
+            if let Some(oldest) = self.order.pop_front() {
+                self.map.remove(&oldest);
+            }
+        }
+        self.order.push_back(key.clone());
+        self.map.insert(key, val);
+    }
+}
+
+static MOD_ICON_CACHE: std::sync::OnceLock<std::sync::Mutex<ModIconCache>> =
+    std::sync::OnceLock::new();
+
+fn get_mod_icon_cache() -> &'static std::sync::Mutex<ModIconCache> {
+    MOD_ICON_CACHE.get_or_init(|| std::sync::Mutex::new(ModIconCache::new(200)))
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_mod_icon(instance_id: String, file_name: String) -> Result<Option<String>, String> {
+    let key = format!("{}:{}", instance_id, file_name);
+    {
+        if let Ok(mut cache) = get_mod_icon_cache().lock() {
+            if let Some(cached) = cache.get(&key) {
+                return Ok(cached);
+            }
+        }
+    }
+
+    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let jar_path = instance_dir.join("mods").join(&file_name);
+    let icon = if jar_path.exists() {
+        aethel_modding::extract_mod_icon(&jar_path)
+    } else {
+        None
+    };
+
+    if let Ok(mut cache) = get_mod_icon_cache().lock() {
+        cache.insert(key, icon.clone());
+    }
+
+    Ok(icon)
 }
 
 #[tauri::command]
@@ -2481,6 +2552,7 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             list_installed_mods,
             toggle_mod,
             delete_mod,
+            get_mod_icon,
             check_mod_updates,
             check_for_updates,
             download_and_install_update,

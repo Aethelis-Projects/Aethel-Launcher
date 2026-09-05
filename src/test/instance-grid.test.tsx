@@ -30,7 +30,7 @@ describe('InstanceGrid Smoke Component Suite', () => {
     });
   });
 
-  it('opens InstanceSettingsModal, toggles overrides, and saves settings', async () => {
+  it('opens InstanceManagerModal, toggles overrides, and saves settings', async () => {
     const updateSpy = vi.spyOn(commands, 'updateInstanceSettings').mockResolvedValue({
       status: 'ok',
       data: null,
@@ -38,15 +38,19 @@ describe('InstanceGrid Smoke Component Suite', () => {
 
     render(<InstanceGrid />);
 
-    // Find settings button for default instance (id: 'inst-1' from mock store)
-    const settingsBtns = screen.getAllByRole('button').filter((b) =>
-      b.getAttribute('data-testid')?.startsWith('settings-instance-')
+    // Find manage button for default instance (id: 'inst-1' from mock store)
+    const manageBtns = screen.getAllByRole('button').filter((b) =>
+      b.getAttribute('data-testid')?.startsWith('manage-instance-')
     );
-    expect(settingsBtns.length).toBeGreaterThan(0);
+    expect(manageBtns.length).toBeGreaterThan(0);
 
-    fireEvent.click(settingsBtns[0]);
+    fireEvent.click(manageBtns[0]);
 
-    // Modal should be open
+    // Modal should be open; switch to settings tab
+    const settingsTab = await screen.findByRole('button', { name: /settings|настройки/i });
+    fireEvent.click(settingsTab);
+
+    // Settings tab should have toggle
     await waitFor(() => {
       expect(screen.getByTestId('override-memory-toggle')).toBeInTheDocument();
     });

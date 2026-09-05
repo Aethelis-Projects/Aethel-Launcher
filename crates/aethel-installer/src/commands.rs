@@ -161,14 +161,7 @@ pub fn launch_application(target_path: String) -> Result<(), String> {
 pub fn get_default_install_path() -> String {
     #[cfg(windows)]
     {
-        if let Some(local_appdata) = dirs::data_local_dir() {
-            local_appdata
-                .join("Aethel Launcher")
-                .to_string_lossy()
-                .to_string()
-        } else {
-            r"C:\Program Files\Aethel Launcher".to_string()
-        }
+        aethel_core::paths::app_dir().to_string_lossy().to_string()
     }
     #[cfg(target_os = "macos")]
     {
@@ -176,14 +169,7 @@ pub fn get_default_install_path() -> String {
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     {
-        if let Some(local_share) = dirs::data_local_dir() {
-            local_share
-                .join("aethel-launcher")
-                .to_string_lossy()
-                .to_string()
-        } else {
-            "~/.local/share/aethel-launcher".to_string()
-        }
+        aethel_core::paths::app_dir().to_string_lossy().to_string()
     }
 }
 

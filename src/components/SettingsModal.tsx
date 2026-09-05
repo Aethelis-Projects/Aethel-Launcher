@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import {
   useSettingsStore,
-  type GcPreset,
   type PreferredJavaProvider,
   type Theme,
 } from '../store/settingsStore';
@@ -29,22 +28,18 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { t, i18n } = useTranslation();
   const {
-    gcPreset,
     javaPath,
     javaMode,
     preferredProvider,
     updateChannel,
     theme,
     discordRpcEnabled,
-    defaultJvmArgs,
-    setGcPreset,
     setJavaPath,
     setJavaMode,
     setPreferredProvider,
     setUpdateChannel,
     setTheme,
     setDiscordRpcEnabled,
-    setDefaultJvmArgs,
   } = useSettingsStore();
 
   const { checkForUpdates } = useUpdateStore();
@@ -385,35 +380,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </div>
               </div>
             )}
-
-            {/* GC Preset */}
-            <div className="space-y-1.5 pt-2">
-              <label className="text-xs text-zinc-400">{t('settings.gcPreset')}</label>
-              <select
-                value={gcPreset}
-                onChange={(e) => setGcPreset(e.target.value as GcPreset)}
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
-              >
-                <option value="G1GC">{t('settings.gcG1GC', 'G1GC (Recommended, Stable)')}</option>
-                <option value="ZGC">{t('settings.gcZGC', 'ZGC (Ultra Low Pause, Java 15+)')}</option>
-                <option value="GenerationalZGC">
-                  {t('settings.gcGenerationalZGC', 'Generational ZGC (High Throughput, Java 21+)')}
-                </option>
-                <option value="Parallel">{t('settings.gcParallel', 'Parallel GC (Low Overhead)')}</option>
-              </select>
-            </div>
-
-            {/* Custom JVM Arguments */}
-            <div className="space-y-1.5 pt-2">
-              <label className="text-xs text-zinc-400">{t('settings.jvmArgs', 'Custom JVM Arguments')}</label>
-              <input
-                type="text"
-                value={defaultJvmArgs}
-                onChange={(e) => setDefaultJvmArgs(e.target.value)}
-                placeholder={t('settings.jvmArgsPlaceholder', 'e.g. -XX:+UseStringDeduplication')}
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 font-mono placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
           </div>
 
           {/* Appearance & Integrations Section */}

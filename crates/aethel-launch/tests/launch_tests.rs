@@ -473,3 +473,117 @@ fn test_chain_deduplicates_libraries() {
     assert_eq!(paths.len(), unique.len());
     assert_eq!(paths.len(), 3); // 1.20.4.jar + guava.jar + fabric-loader.jar
 }
+
+#[test]
+fn test_ws19_maven_name_to_path() {
+    use aethel_launch::maven_name_to_path;
+    assert_eq!(
+        maven_name_to_path("net.fabricmc:fabric-loader:0.17.0"),
+        Some("net/fabricmc/fabric-loader/0.17.0/fabric-loader-0.17.0.jar".to_string())
+    );
+    assert_eq!(
+        maven_name_to_path("org.ow2.asm:asm:9.6"),
+        Some("org/ow2/asm/asm/9.6/asm-9.6.jar".to_string())
+    );
+    assert_eq!(
+        maven_name_to_path("net.neoforged:neoforge:21.1.65"),
+        Some("net/neoforged/neoforge/21.1.65/neoforge-21.1.65.jar".to_string())
+    );
+}
+
+#[tokio::test]
+async fn test_ws19_provision_fails_loudly_on_missing_artifact() {
+    use aethel_core::AppErrorCode;
+    use aethel_launch::provision_instance;
+    use aethel_manifest::{OsContext, VersionPackage};
+
+    let temp = tempfile::tempdir().unwrap();
+    let app_data = temp.path();
+    let inst_dir = app_data.join("instances").join("missing-artifact-test");
+    let ctx = OsContext::current();
+
+    let json = serde_json::json!({
+        "id": "test-missing-loader",
+        "inheritsFrom": "1.20.4",
+        "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient",
+        "type": "release",
+        "libraries": [
+            {
+                "name": "net.fabricmc:fabric-loader:99.99.99"
+            }
+        ]
+    });
+    let pkg = VersionPackage::parse(&json.to_string()).unwrap();
+
+    let res = provision_instance(
+        &[pkg],
+        &ctx,
+        "1.20.4",
+        &inst_dir,
+        app_data,
+        None,
+        false,
+        false, // downloads disabled
+    )
+    .await;
+
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    assert_eq!(err.code(), AppErrorCode::LaunchProvisionFailed);
+    let msg = err.to_string();
+    assert!(msg.contains("Pre-flight classpath check failed"));
+    assert!(msg.contains("fabric-loader-99.99.99.jar"));
+}
+
+#[tokio::test]
+async fn test_ws19_fabric_classpath_contains_fabric_loader_jar() {
+    use aethel_launch::provision_instance;
+    use aethel_manifest::{OsContext, VersionPackage};
+
+    let temp = tempfile::tempdir().unwrap();
+    let app_data = temp.path();
+    let inst_dir = app_data.join("instances").join("fabric-loader-test");
+    let ctx = OsContext::current();
+
+    let loader_path = app_data
+        .join("libraries")
+        .join("net/fabricmc/fabric-loader/0.15.7/fabric-loader-0.15.7.jar");
+    std::fs::create_dir_all(loader_path.parent().unwrap()).unwrap();
+    std::fs::write(&loader_path, b"mock-fabric-loader-jar").unwrap();
+
+    let mixin_path = app_data
+        .join("libraries")
+        .join("net/fabricmc/sponge-mixin/0.12.5+mixin.0.8.5/sponge-mixin-0.12.5+mixin.0.8.5.jar");
+    std::fs::create_dir_all(mixin_path.parent().unwrap()).unwrap();
+    std::fs::write(&mixin_path, b"mock-sponge-mixin-jar").unwrap();
+
+    let client_jar = app_data.join("versions/1.20.4/1.20.4.jar");
+    std::fs::create_dir_all(client_jar.parent().unwrap()).unwrap();
+    std::fs::write(&client_jar, b"mock-client-jar").unwrap();
+
+    let fabric_fixture =
+        include_str!("../../../crates/aethel-manifest/tests/fixtures/1.20.4-fabric-0.15.7.json");
+    let fabric_pkg = VersionPackage::parse(fabric_fixture).unwrap();
+
+    let report = provision_instance(
+        &[fabric_pkg],
+        &ctx,
+        "1.20.4",
+        &inst_dir,
+        app_data,
+        None,
+        false,
+        false,
+    )
+    .await
+    .expect("provision instance succeeds when loader jar is pre-cached");
+
+    let has_loader = report
+        .classpath
+        .iter()
+        .any(|p| p.to_string_lossy().contains("fabric-loader-0.15.7.jar"));
+    assert!(
+        has_loader,
+        "Classpath must include fabric-loader-0.15.7.jar"
+    );
+}

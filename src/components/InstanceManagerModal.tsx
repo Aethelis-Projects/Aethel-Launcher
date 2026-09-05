@@ -38,6 +38,7 @@ import { useSettingsStore, type GcPreset } from '../store/settingsStore';
 import { useInstanceStore } from '../store/instanceStore';
 import { ModBrowserModal } from './ModBrowserModal';
 import { ModloaderSelector } from './ModloaderSelector';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export type InstanceTab = 'overview' | 'mods' | 'resourcepacks' | 'shaders' | 'worlds' | 'settings';
 
@@ -78,6 +79,12 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [, setModUpdates] = useState<ModUpdate[]>([]);
   const [, setModsError] = useState<string | null>(null);
+  const [modIcons, setModIcons] = useState<Record<string, string | null>>({});
+
+  // Confirm dialog states
+  const [modToDelete, setModToDelete] = useState<string | null>(null);
+  const [isDeletingMod, setIsDeletingMod] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Resourcepacks states
   const [resourcePacks, setResourcePacks] = useState<ResourcePackEntry[]>([]);
@@ -121,6 +128,14 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
       const res = await commands.listInstalledMods(instance.id);
       if (res.status === 'ok') {
         setMods(res.data);
+        res.data.forEach(async (mod) => {
+          try {
+            const iconRes = await commands.getModIcon(instance.id, mod.file_name);
+            if (iconRes.status === 'ok' && iconRes.data) {
+              setModIcons((prev) => ({ ...prev, [mod.file_name]: iconRes.data }));
+            }
+          } catch {}
+        });
       } else {
         setModsError(res.error);
       }
@@ -300,15 +315,23 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
     }
   };
 
-  const handleDeleteMod = async (fileName: string) => {
-    if (!window.confirm(`Delete ${fileName}?`)) return;
+  const handleDeleteMod = (fileName: string) => {
+    setModToDelete(fileName);
+  };
+
+  const executeDeleteMod = async () => {
+    if (!modToDelete) return;
+    setIsDeletingMod(true);
     try {
-      const res = await commands.deleteMod(instance.id, fileName);
+      const res = await commands.deleteMod(instance.id, modToDelete);
       if (res.status === 'ok') {
         await loadMods();
       }
+      setModToDelete(null);
     } catch (e) {
       setModsError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsDeletingMod(false);
     }
   };
 
@@ -360,10 +383,11 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
     }
   };
 
-  const handleResetSettings = async () => {
-    if (!window.confirm(t('settings.resetConfirm', 'Reset all instance overrides to global defaults?'))) {
-      return;
-    }
+  const handleResetSettings = () => {
+    setShowResetConfirm(true);
+  };
+
+  const executeResetSettings = async () => {
     setSettingsSaving(true);
     try {
       const resetSettings: InstanceSettings = {
@@ -376,6 +400,7 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
       await commands.updateInstanceSettings(instance.id, resetSettings);
       await fetchInstances();
       await loadSettings();
+      setShowResetConfirm(false);
     } finally {
       setSettingsSaving(false);
     }
@@ -731,8 +756,16 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400">
-                          <Package className="w-4 h-4 text-cyan-400" />
+                        <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/50 flex items-center justify-center overflow-hidden shrink-0">
+                          {modIcons[mod.file_name] ? (
+                            <img
+                              src={modIcons[mod.file_name]!}
+                              alt={mod.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="w-4 h-4 text-cyan-400" />
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -1234,6 +1267,30 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
           onModInstalled={loadMods}
         />
       )}
+
+      {/* Confirm Dialog for Mod Deletion */}
+      <ConfirmDialog
+        isOpen={modToDelete !== null}
+        title={t('common.delete', 'Delete')}
+        message={`Delete ${modToDelete}?`}
+        confirmText={t('common.delete', 'Delete')}
+        variant="danger"
+        isLoading={isDeletingMod}
+        onConfirm={executeDeleteMod}
+        onCancel={() => setModToDelete(null)}
+      />
+
+      {/* Confirm Dialog for Reset Settings */}
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        title={t('settings.resetToDefaults', 'Reset to Defaults')}
+        message={t('settings.resetConfirm', 'Reset all instance overrides to global defaults?')}
+        confirmText={t('settings.reset', 'Reset')}
+        variant="warning"
+        isLoading={settingsSaving}
+        onConfirm={executeResetSettings}
+        onCancel={() => setShowResetConfirm(false)}
+      />
     </div>
   );
 };

@@ -470,7 +470,13 @@ impl ModrinthClient {
 
         Self::verify_file_bytes(&bytes, &file.hashes, &file.filename)?;
 
-        if let Some(parent) = target_path.parent() {
+        let final_dest = if target_path.is_dir() {
+            target_path.join(&file.filename)
+        } else {
+            target_path.to_path_buf()
+        };
+
+        if let Some(parent) = final_dest.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
                 AppError::new(
                     AppErrorCode::InternalError,
@@ -479,10 +485,10 @@ impl ModrinthClient {
             })?;
         }
 
-        std::fs::write(target_path, &bytes).map_err(|e| {
+        std::fs::write(&final_dest, &bytes).map_err(|e| {
             AppError::new(
                 AppErrorCode::InternalError,
-                format!("Failed to write mod file {}: {e}", target_path.display()),
+                format!("Failed to write mod file {}: {e}", final_dest.display()),
             )
         })?;
 

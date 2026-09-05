@@ -316,6 +316,122 @@ impl ModManager {
     }
 }
 
+/// Extracts the mod icon from a jar file and returns it as a base64 Data URI
+/// (e.g. `data:image/png;base64,...`).
+pub fn extract_mod_icon(jar_path: &Path) -> Option<String> {
+    use base64::Engine;
+
+    let file = File::open(jar_path).ok()?;
+    let mut archive = ZipArchive::new(file).ok()?;
+
+    let mut icon_path: Option<String> = None;
+
+    // 1. Try fabric.mod.json
+    if let Ok(mut zip_file) = archive.by_name("fabric.mod.json") {
+        let mut content = String::new();
+        if zip_file.read_to_string(&mut content).is_ok() {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(icon_str) = val["icon"].as_str() {
+                    icon_path = Some(icon_str.to_string());
+                } else if let Some(icon_obj) = val["icon"].as_object() {
+                    let mut sizes: Vec<_> = icon_obj.iter().collect();
+                    sizes.sort_by(|(k1, _), (k2, _)| {
+                        let s1: u32 = k1.parse().unwrap_or(0);
+                        let s2: u32 = k2.parse().unwrap_or(0);
+                        s2.cmp(&s1)
+                    });
+                    if let Some((_, v)) = sizes.first() {
+                        if let Some(s) = v.as_str() {
+                            icon_path = Some(s.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Try quilt.mod.json
+    if icon_path.is_none() {
+        if let Ok(mut zip_file) = archive.by_name("quilt.mod.json") {
+            let mut content = String::new();
+            if zip_file.read_to_string(&mut content).is_ok() {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    let icon_val = &val["quilt_loader"]["metadata"]["icon"];
+                    if let Some(s) = icon_val.as_str() {
+                        icon_path = Some(s.to_string());
+                    } else if let Some(obj) = icon_val.as_object() {
+                        let mut sizes: Vec<_> = obj.iter().collect();
+                        sizes.sort_by(|(k1, _), (k2, _)| {
+                            let s1: u32 = k1.parse().unwrap_or(0);
+                            let s2: u32 = k2.parse().unwrap_or(0);
+                            s2.cmp(&s1)
+                        });
+                        if let Some((_, v)) = sizes.first() {
+                            if let Some(s) = v.as_str() {
+                                icon_path = Some(s.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Try META-INF/mods.toml (Forge / NeoForge)
+    if icon_path.is_none() {
+        if let Ok(mut zip_file) = archive.by_name("META-INF/mods.toml") {
+            let mut content = String::new();
+            if zip_file.read_to_string(&mut content).is_ok() {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("logoFile") {
+                        if let Some((_, val)) = trimmed.split_once('=') {
+                            let clean = val.trim().trim_matches('"').trim_matches('\'').trim();
+                            if !clean.is_empty() {
+                                icon_path = Some(clean.to_string());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Default candidates if not found in manifests
+    let candidates = if let Some(p) = icon_path {
+        vec![p.clone(), p.trim_start_matches('/').to_string()]
+    } else {
+        vec![
+            "icon.png".to_string(),
+            "pack.png".to_string(),
+            "assets/icon.png".to_string(),
+        ]
+    };
+
+    for candidate in candidates {
+        let clean = candidate.trim_start_matches('/');
+        if let Ok(mut zip_file) = archive.by_name(clean) {
+            let mut bytes = Vec::new();
+            if zip_file.read_to_end(&mut bytes).is_ok() && !bytes.is_empty() {
+                let mime = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+                    "image/png"
+                } else if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
+                    "image/jpeg"
+                } else if bytes.starts_with(b"GIF8") {
+                    "image/gif"
+                } else {
+                    "image/png"
+                };
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                return Some(format!("data:{mime};base64,{b64}"));
+            }
+        }
+    }
+
+    None
+}
+
 #[derive(Default, Debug)]
 pub struct ExtractedModMeta {
     pub id: Option<String>,
@@ -387,5 +503,34 @@ mod tests {
         manager.delete_mod("sodium-0.5.8.jar").expect("delete");
         let empty_list = manager.list_installed().expect("list mods");
         assert!(empty_list.is_empty());
+    }
+
+    #[test]
+    fn test_extract_mod_icon() {
+        let dir = tempdir().unwrap();
+        let jar_path = dir.path().join("icon-test.jar");
+        let file = File::create(&jar_path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
+        let fabric_json = r#"{
+            "id": "iconmod",
+            "name": "Icon Mod",
+            "version": "1.0.0",
+            "icon": "assets/iconmod/icon.png"
+        }"#;
+        zip.start_file("fabric.mod.json", options).unwrap();
+        zip.write_all(fabric_json.as_bytes()).unwrap();
+
+        // 8-byte fake PNG header
+        let png_bytes = b"\x89PNG\r\n\x1a\nfakeimagebytes";
+        zip.start_file("assets/iconmod/icon.png", options).unwrap();
+        zip.write_all(png_bytes).unwrap();
+
+        zip.finish().unwrap();
+
+        let icon_data = extract_mod_icon(&jar_path).expect("icon should be extracted");
+        assert!(icon_data.starts_with("data:image/png;base64,"));
     }
 }

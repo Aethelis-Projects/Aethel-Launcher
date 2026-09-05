@@ -41,7 +41,8 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ModSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   // Selected mod for versions view
   const [selectedMod, setSelectedMod] = useState<ModSearchResult | null>(null);
@@ -55,16 +56,16 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
 
   const performSearch = useCallback(async (searchQuery: string) => {
     setIsLoading(true);
-    setError(null);
+    setSearchError(null);
     try {
       const res = await commands.searchMods(searchQuery, gameVersion, loader);
       if (res.status === 'ok') {
         setResults(res.data);
       } else {
-        setError(res.error);
+        setSearchError(res.error);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setSearchError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +78,8 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
       setSelectedMod(null);
       setVersions([]);
       setResolutionResult(null);
+      setSearchError(null);
+      setInstallError(null);
       return;
     }
 
@@ -102,16 +105,17 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
     setVersions([]);
     setIsLoadingVersions(true);
     setResolutionResult(null);
+    setInstallError(null);
 
     try {
       const res = await commands.getModVersions(mod.project_id, gameVersion, loader);
       if (res.status === 'ok') {
         setVersions(res.data);
       } else {
-        setError(res.error);
+        setInstallError(res.error);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setInstallError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoadingVersions(false);
     }
@@ -120,6 +124,7 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
   const handleInstallVersion = async (versionId: string) => {
     setInstallingVersionId(versionId);
     setResolutionResult(null);
+    setInstallError(null);
 
     try {
       const res = await commands.installMod(instanceId, versionId);
@@ -130,10 +135,10 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
           onModInstalled?.();
         }
       } else {
-        setError(res.error);
+        setInstallError(res.error);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setInstallError(err instanceof Error ? err.message : String(err));
     } finally {
       setInstallingVersionId(null);
     }
@@ -237,10 +242,11 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
                 <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
                 <span className="text-xs">Searching Modrinth...</span>
               </div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center h-48 space-y-3 text-red-400">
+            ) : searchError ? (
+              <div className="flex flex-col items-center justify-center h-48 space-y-3 text-red-400 p-4 text-center">
                 <AlertTriangle className="w-6 h-6" />
-                <span className="text-xs">{t('mods.errorLoading')}</span>
+                <span className="text-xs font-semibold">{t('mods.errorLoading')}</span>
+                <p className="text-[11px] text-zinc-400 max-w-sm">{searchError}</p>
                 <button
                   onClick={() => performSearch(query)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-200 text-xs hover:bg-zinc-700"
@@ -320,6 +326,21 @@ export const ModBrowserModal: React.FC<ModBrowserModalProps> = ({
                     {t('mods.author', { author: selectedMod.author })}
                   </span>
                 </div>
+
+                {installError && (
+                  <div className="p-2.5 rounded-lg bg-red-950/60 border border-red-800/80 text-red-200 text-xs flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-1.5">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-red-400 mt-0.5" />
+                      <span className="text-[11px] leading-relaxed break-words">{installError}</span>
+                    </div>
+                    <button
+                      onClick={() => setInstallError(null)}
+                      className="text-zinc-400 hover:text-zinc-200 shrink-0 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
                 <div className="border-t border-zinc-800/60 pt-3">
                   <h4 className="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider mb-2">

@@ -262,6 +262,14 @@ async deleteMod(instanceId: string, fileName: string) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+async getModIcon(instanceId: string, fileName: string) : Promise<Result<string | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_mod_icon", { instanceId, fileName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async checkModUpdates(instanceId: string) : Promise<Result<ModUpdate[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("check_mod_updates", { instanceId }) };

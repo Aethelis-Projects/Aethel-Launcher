@@ -23,6 +23,7 @@ use aethel_core::{AppError, AppErrorCode};
 use aethel_java::{detect_system_java, JavaProvider, JavaResolver};
 use aethel_manifest::{AssetDownloadTask, AssetIndex, AssetIndexRef, OsContext, VersionPackage};
 
+use crate::maven::{download_maven_artifact, maven_name_to_path};
 use crate::{build_classpath, JavaVersion};
 
 /// Summary report of all prepared artifacts required to launch an instance.
@@ -509,6 +510,30 @@ pub async fn provision_instance(
         }
     }
 
+    let loader = chain
+        .iter()
+        .find_map(|pkg| {
+            let lower_id = pkg.id.to_lowercase();
+            let lower_main = pkg.main_class.to_lowercase();
+            if lower_id.contains("fabric") || lower_main.contains("knot") {
+                Some("Fabric")
+            } else if lower_id.contains("quilt") || lower_main.contains("quilt") {
+                Some("Quilt")
+            } else if lower_id.contains("neoforge") || lower_main.contains("neoforge") {
+                Some("NeoForge")
+            } else if lower_id.contains("forge") || lower_main.contains("forge") {
+                Some("Forge")
+            } else {
+                None
+            }
+        })
+        .unwrap_or("Vanilla");
+
+    let http_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .ok();
+
     let mut library_jars = Vec::new();
     let mut seen_paths = HashSet::new();
 
@@ -518,48 +543,95 @@ pub async fn provision_instance(
                 continue;
             }
 
+            let art_opt = lib.get_artifact();
+            let native_art_opt = lib.get_native_classifier(ctx);
+
             // Standard artifact
-            if let Some(art) = lib.get_artifact() {
-                let rel_path = match art.path {
-                    Some(ref p) => PathBuf::from(p),
-                    None => maven_coordinate_to_path(&lib.name),
+            if native_art_opt.is_none() || art_opt.is_some() {
+                let rel_path = match art_opt.and_then(|a| a.path.as_deref()) {
+                    Some(p) => PathBuf::from(p),
+                    None => match maven_name_to_path(&lib.name) {
+                        Some(p) => PathBuf::from(p),
+                        None => maven_coordinate_to_path(&lib.name),
+                    },
                 };
                 let full_path = libraries_dir.join(&rel_path);
 
                 let mut ready = full_path.exists()
                     && full_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
-                if ready && !art.sha1.is_empty() && !verify_sha1(&full_path, &art.sha1) {
+
+                let sha1_opt = art_opt.map(|a| a.sha1.as_str()).filter(|s| !s.is_empty());
+                if ready && sha1_opt.is_some() && !verify_sha1(&full_path, sha1_opt.unwrap()) {
                     ready = false;
                 }
 
-                if !ready && allow_downloads && !art.url.is_empty() {
-                    if let Some(parent) = full_path.parent() {
-                        let _ = std::fs::create_dir_all(parent);
-                    }
-                    if let Ok(client) = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_secs(30))
-                        .build()
-                    {
-                        if let Ok(resp) = client.get(&art.url).send().await {
-                            if resp.status().is_success() {
-                                if let Ok(bytes) = resp.bytes().await {
-                                    let _ = std::fs::write(&full_path, &bytes);
+                if !ready && allow_downloads {
+                    let mut downloaded = false;
+                    if let Some(art) = art_opt {
+                        if !art.url.is_empty() {
+                            if let Some(parent) = full_path.parent() {
+                                let _ = std::fs::create_dir_all(parent);
+                            }
+                            if let Some(ref client) = http_client {
+                                if let Ok(resp) = client.get(&art.url).send().await {
+                                    if resp.status().is_success() {
+                                        if let Ok(bytes) = resp.bytes().await {
+                                            if !bytes.is_empty() {
+                                                let mut ok_hash = true;
+                                                if let Some(exp) = sha1_opt {
+                                                    let mut hasher = Sha1::new();
+                                                    hasher.update(&bytes);
+                                                    let actual = format!("{:x}", hasher.finalize());
+                                                    if !actual.eq_ignore_ascii_case(exp) {
+                                                        ok_hash = false;
+                                                    }
+                                                }
+                                                if ok_hash
+                                                    && std::fs::write(&full_path, &bytes).is_ok()
+                                                {
+                                                    downloaded = true;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
+
+                    if !downloaded {
+                        if let Some(ref client) = http_client {
+                            if let Ok(p) = download_maven_artifact(
+                                &lib.name,
+                                loader,
+                                &libraries_dir,
+                                sha1_opt,
+                                client,
+                            )
+                            .await
+                            {
+                                if p.exists() {
+                                    downloaded = true;
+                                }
+                            }
+                        }
+                    }
+                    let _ = downloaded;
                 }
 
-                if full_path.exists() && seen_paths.insert(full_path.clone()) {
+                if seen_paths.insert(full_path.clone()) {
                     library_jars.push(full_path);
                 }
             }
 
             // Native classifier artifact
-            if let Some(native_art) = lib.get_native_classifier(ctx) {
+            if let Some(native_art) = native_art_opt {
                 let rel_path = match native_art.path {
                     Some(ref p) => PathBuf::from(p),
-                    None => maven_coordinate_to_path(&format!("{}:natives", lib.name)),
+                    None => match maven_name_to_path(&format!("{}:natives", lib.name)) {
+                        Some(p) => PathBuf::from(p),
+                        None => maven_coordinate_to_path(&format!("{}:natives", lib.name)),
+                    },
                 };
                 let full_native_path = libraries_dir.join(&rel_path);
 
@@ -579,10 +651,7 @@ pub async fn provision_instance(
                     if let Some(parent) = full_native_path.parent() {
                         let _ = std::fs::create_dir_all(parent);
                     }
-                    if let Ok(client) = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_secs(30))
-                        .build()
-                    {
+                    if let Some(ref client) = http_client {
                         if let Ok(resp) = client.get(&native_art.url).send().await {
                             if resp.status().is_success() {
                                 if let Ok(bytes) = resp.bytes().await {

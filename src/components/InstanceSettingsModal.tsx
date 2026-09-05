@@ -14,6 +14,7 @@ import {
 import { useSettingsStore, type GcPreset } from '../store/settingsStore';
 import { useInstanceStore } from '../store/instanceStore';
 import { commands, type InstanceSettings, type JavaInfo } from '../bindings';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface InstanceSettingsModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({
 
   const [detectedJavas, setDetectedJavas] = useState<JavaInfo[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const loadSettings = useCallback(async () => {
     if (!instanceId) return;
@@ -118,10 +120,11 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({
     }
   };
 
-  const handleResetToDefaults = async () => {
-    if (!window.confirm(t('settings.resetConfirm', 'Reset all instance overrides to global defaults?'))) {
-      return;
-    }
+  const handleResetToDefaults = () => {
+    setShowResetConfirm(true);
+  };
+
+  const executeResetToDefaults = async () => {
     setSaving(true);
     try {
       const resetSettings: InstanceSettings = {
@@ -133,6 +136,7 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({
       };
       await commands.updateInstanceSettings(instanceId, resetSettings);
       await fetchInstances();
+      setShowResetConfirm(false);
       onClose();
     } catch {
     } finally {
@@ -485,6 +489,17 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        title={t('settings.resetToDefaults', 'Reset to Defaults')}
+        message={t('settings.resetConfirm', 'Reset all instance overrides to global defaults?')}
+        confirmText={t('settings.reset', 'Reset')}
+        variant="warning"
+        isLoading={saving}
+        onConfirm={executeResetToDefaults}
+        onCancel={() => setShowResetConfirm(false)}
+      />
     </div>
   );
 };
