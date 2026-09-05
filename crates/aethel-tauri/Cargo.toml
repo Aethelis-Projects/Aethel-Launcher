@@ -26,6 +26,8 @@ reqwest = { workspace = true }
 minisign-verify = { workspace = true }
 semver = { workspace = true }
 uuid = { workspace = true }
+discord-rpc-client = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

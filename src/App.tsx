@@ -17,7 +17,7 @@ import { useSettingsStore } from './store/settingsStore';
 import { events, type CrashReport } from './bindings';
 
 export function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<'instances' | 'logs'>('instances');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeCrashReport, setActiveCrashReport] = useState<CrashReport | null>(null);
@@ -27,7 +27,7 @@ export function App() {
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
   const { addLog, addLogBatch } = useLogStore();
   const { instances, setLaunchStatus, fetchInstances } = useInstanceStore();
-  const { updateChannel } = useSettingsStore();
+  const { updateChannel, initGlobalSettings } = useSettingsStore();
 
   const [toast, setToast] = useState<{
     id: string;
@@ -48,7 +48,8 @@ export function App() {
   useEffect(() => {
     fetchAccounts();
     fetchInstances();
-  }, [fetchAccounts, fetchInstances]);
+    initGlobalSettings(i18n.language);
+  }, [fetchAccounts, fetchInstances, initGlobalSettings, i18n.language]);
 
   // Listen to backend events from Tauri
   useEffect(() => {

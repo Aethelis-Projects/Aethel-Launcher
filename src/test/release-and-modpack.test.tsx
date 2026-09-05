@@ -47,6 +47,7 @@ describe('Phase M6 UI Components', () => {
     last_mclo_gs_url: null,
     last_mclo_gs_at: null,
     created_at: '2026-09-04T12:00:00Z',
+    settings_json: null,
   };
 
   beforeEach(() => {

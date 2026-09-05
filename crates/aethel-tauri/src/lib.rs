@@ -1,5 +1,8 @@
 use aethel_auth::{generate_offline_uuid, storage::SecureStorage};
-use aethel_core::{AccountMetadata, BackendEvent, CrashReport, Instance, JavaInfo};
+use aethel_core::{
+    AccountMetadata, BackendEvent, CrashReport, EffectiveInstanceSettings, GlobalSettings,
+    Instance, InstanceSettings, JavaInfo,
+};
 use aethel_java::{
     detect_system_java as scan_system_java, GCPreset, InstalledRuntime, JavaProvider, JavaResolver,
 };
@@ -22,6 +25,15 @@ use std::sync::{Arc, Mutex};
 
 pub mod updater;
 pub use updater::*;
+
+pub mod discord_rpc;
+pub use discord_rpc::*;
+
+static DISCORD_RPC: std::sync::OnceLock<DiscordRpcService> = std::sync::OnceLock::new();
+
+pub fn get_discord_rpc() -> &'static DiscordRpcService {
+    DISCORD_RPC.get_or_init(DiscordRpcService::new)
+}
 
 pub fn get_app_data_dir() -> PathBuf {
     if let Ok(custom) = std::env::var("AETHEL_DATA_DIR") {
@@ -56,6 +68,7 @@ fn seed_default_instances_if_empty(db: &Database) {
                     created_at: chrono::Utc::now().to_rfc3339(),
                     last_mclo_gs_url: None,
                     last_mclo_gs_at: None,
+                    settings_json: None,
                 },
                 Instance {
                     id: "vanilla-1.21.1".to_string(),
@@ -74,6 +87,7 @@ fn seed_default_instances_if_empty(db: &Database) {
                     created_at: chrono::Utc::now().to_rfc3339(),
                     last_mclo_gs_url: None,
                     last_mclo_gs_at: None,
+                    settings_json: None,
                 },
                 Instance {
                     id: "vanilla-1.7.10".to_string(),
@@ -92,6 +106,7 @@ fn seed_default_instances_if_empty(db: &Database) {
                     created_at: chrono::Utc::now().to_rfc3339(),
                     last_mclo_gs_url: None,
                     last_mclo_gs_at: None,
+                    settings_json: None,
                 },
             ];
             for inst in defaults {
@@ -624,11 +639,12 @@ async fn launch_instance(
     gc_preset: Option<String>,
 ) -> Result<u32, String> {
     let app_data = get_app_data_dir();
-    let (maybe_instance, active) = {
+    let (maybe_instance, active, global_settings) = {
         let db = get_database()?;
         (
             db.get_instance(&instance_id).map_err(|e| e.to_string())?,
             db.get_active_account().map_err(|e| e.to_string())?,
+            db.get_global_settings().map_err(|e| e.to_string())?,
         )
     };
 
@@ -636,19 +652,17 @@ async fn launch_instance(
         .or_else(|| maybe_instance.as_ref().map(|i| i.game_version.clone()))
         .unwrap_or_else(|| "1.20.4".to_string());
 
-    let eff_memory_max = memory_max_mb
-        .or_else(|| maybe_instance.as_ref().and_then(|i| i.memory_max_mb))
-        .unwrap_or(4096);
-
-    let eff_memory_min = maybe_instance
+    let inst_settings = maybe_instance
         .as_ref()
-        .and_then(|i| i.memory_min_mb)
-        .unwrap_or(1024);
+        .map(|i| i.settings())
+        .unwrap_or_default();
+    let effective = inst_settings.resolve(&global_settings);
 
-    let eff_java_path =
-        java_path.or_else(|| maybe_instance.as_ref().and_then(|i| i.java_path.clone()));
-
-    let eff_jvm_args = maybe_instance.as_ref().and_then(|i| i.jvm_args.clone());
+    let eff_memory_max = memory_max_mb.unwrap_or(effective.memory_max_mb);
+    let eff_memory_min = effective.memory_min_mb;
+    let eff_java_path = java_path.or(effective.java_path);
+    let eff_jvm_args = effective.jvm_args;
+    let eff_gc_preset = gc_preset.unwrap_or(effective.gc_preset);
 
     let instance_dir = app_data.join("instances").join(&instance_id);
     let dirs = [
@@ -688,10 +702,10 @@ async fn launch_instance(
     .await
     .map_err(|e| e.to_string())?;
     let req_major = report.java_version.major();
-    let preset = match gc_preset.as_deref() {
-        Some("ZGC") => GCPreset::ZGC,
-        Some("GenerationalZGC") => GCPreset::GenerationalZGC,
-        Some("Parallel") => GCPreset::Parallel,
+    let preset = match eff_gc_preset.as_str() {
+        "ZGC" => GCPreset::ZGC,
+        "GenerationalZGC" => GCPreset::GenerationalZGC,
+        "Parallel" => GCPreset::Parallel,
         _ => GCPreset::G1GC,
     };
     let mut base_jvm_args = preset.to_jvm_args(req_major);
@@ -768,11 +782,21 @@ async fn launch_instance(
     let mut receipt = build_launch_receipt(&config, None).map_err(|e| e.to_string())?;
     receipt.working_dir = instance_dir;
 
-    if let Some(mut inst) = maybe_instance {
+    if let Some(mut inst) = maybe_instance.as_ref().cloned() {
         inst.last_played_at = Some(chrono::Utc::now().to_rfc3339());
         if let Ok(db) = get_database() {
             let _ = db.insert_instance(&inst);
         }
+    }
+
+    let rpc_enabled = global_settings.discord_rpc_enabled;
+    if rpc_enabled {
+        let inst_name = maybe_instance
+            .as_ref()
+            .map(|i| i.name.as_str())
+            .unwrap_or("Minecraft");
+        let loader_name = maybe_instance.as_ref().and_then(|i| i.loader.as_deref());
+        get_discord_rpc().set_playing_game(inst_name, &version_str, loader_name, "ru");
     }
 
     use tauri_specta::Event;
@@ -792,9 +816,15 @@ async fn launch_instance(
         .emit(&app_log);
     });
 
-    let mut proc = ProcessSupervisor::spawn(&receipt, Some(log_cb))
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut proc = match ProcessSupervisor::spawn(&receipt, Some(log_cb)).await {
+        Ok(p) => p,
+        Err(e) => {
+            if rpc_enabled {
+                get_discord_rpc().set_in_launcher("ru");
+            }
+            return Err(e.to_string());
+        }
+    };
 
     let pid = proc.pid();
 
@@ -838,6 +868,9 @@ async fn launch_instance(
                 }
                 .emit(&app_exit);
             }
+        }
+        if rpc_enabled {
+            get_discord_rpc().set_in_launcher("ru");
         }
     });
 
@@ -1273,6 +1306,7 @@ async fn import_modpack(
         created_at: chrono::Utc::now().to_rfc3339(),
         last_mclo_gs_url: None,
         last_mclo_gs_at: None,
+        settings_json: None,
     };
 
     let db = get_database()?;
@@ -1390,6 +1424,92 @@ fn delete_instance(instance_id: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+fn get_global_settings() -> Result<GlobalSettings, String> {
+    let db = get_database()?;
+    db.get_global_settings().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn update_global_settings(settings: GlobalSettings) -> Result<(), String> {
+    let db = get_database()?;
+    db.set_global_settings(&settings)
+        .map_err(|e| e.to_string())?;
+    let rpc = get_discord_rpc();
+    rpc.set_enabled(settings.discord_rpc_enabled);
+    if settings.discord_rpc_enabled {
+        rpc.set_in_launcher("ru");
+    } else {
+        rpc.clear();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_instance_settings(instance_id: String) -> Result<InstanceSettings, String> {
+    let db = get_database()?;
+    let inst = db
+        .get_instance(&instance_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Instance {instance_id} not found"))?;
+    Ok(inst.settings())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn update_instance_settings(instance_id: String, settings: InstanceSettings) -> Result<(), String> {
+    let db = get_database()?;
+    db.update_instance_settings(&instance_id, &settings)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_effective_instance_settings(
+    instance_id: String,
+) -> Result<EffectiveInstanceSettings, String> {
+    let db = get_database()?;
+    let global = db.get_global_settings().map_err(|e| e.to_string())?;
+    let inst = db
+        .get_instance(&instance_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Instance {instance_id} not found"))?;
+    Ok(inst.settings().resolve(&global))
+}
+
+#[tauri::command]
+#[specta::specta]
+fn set_discord_rpc_enabled(enabled: bool, locale: Option<String>) -> Result<(), String> {
+    let db = get_database()?;
+    let mut global = db.get_global_settings().map_err(|e| e.to_string())?;
+    global.discord_rpc_enabled = enabled;
+    db.set_global_settings(&global).map_err(|e| e.to_string())?;
+
+    let rpc = get_discord_rpc();
+    rpc.set_enabled(enabled);
+    if enabled {
+        let loc = locale.unwrap_or_else(|| "ru".to_string());
+        rpc.set_in_launcher(&loc);
+    } else {
+        rpc.clear();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn set_discord_rpc_activity(locale: String) -> Result<(), String> {
+    let db = get_database()?;
+    let global = db.get_global_settings().map_err(|e| e.to_string())?;
+    if global.discord_rpc_enabled {
+        get_discord_rpc().set_in_launcher(&locale);
+    }
+    Ok(())
+}
+
 pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
@@ -1431,7 +1551,14 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             import_modpack,
             export_modpack,
             export_instance_backup,
-            import_instance_backup
+            import_instance_backup,
+            get_global_settings,
+            update_global_settings,
+            get_instance_settings,
+            update_instance_settings,
+            get_effective_instance_settings,
+            set_discord_rpc_enabled,
+            set_discord_rpc_activity
         ])
         .events(tauri_specta::collect_events![BackendEvent])
 }
@@ -1582,6 +1709,7 @@ mod tests {
             created_at: chrono::Utc::now().to_rfc3339(),
             last_mclo_gs_url: None,
             last_mclo_gs_at: None,
+            settings_json: None,
         };
         db.insert_instance(&inst).unwrap();
         drop(db);
@@ -1715,6 +1843,92 @@ mod tests {
         delete_runtime(17).expect("delete runtime");
         let list_after_del = get_installed_runtimes().expect("list runtimes after delete");
         assert!(list_after_del.is_empty());
+
+        std::env::remove_var("AETHEL_DATA_DIR");
+    }
+
+    #[test]
+    fn test_two_level_settings_and_discord_rpc_commands() {
+        let _lock = TEST_LOCK.blocking_lock();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("AETHEL_DATA_DIR", temp.path().to_str().unwrap());
+
+        // 1. Test get_global_settings defaults
+        let global = get_global_settings().expect("get global settings");
+        assert_eq!(global.theme, "dark");
+        assert!(!global.discord_rpc_enabled);
+        assert_eq!(global.default_memory_max_mb, 4096);
+
+        // 2. Test update_global_settings
+        let updated_global = GlobalSettings {
+            theme: "light".to_string(),
+            discord_rpc_enabled: true,
+            update_channel: "beta".to_string(),
+            default_java_path: Some("C:/custom/javaw.exe".to_string()),
+            default_java_mode: "manual".to_string(),
+            default_java_provider: "Adoptium".to_string(),
+            default_memory_min_mb: 2048,
+            default_memory_max_mb: 6144,
+            default_gc_preset: "ZGC".to_string(),
+            default_jvm_args: Some("-XX:+UseZGC".to_string()),
+        };
+        update_global_settings(updated_global).expect("update global settings");
+
+        let fetched_global = get_global_settings().expect("fetch global");
+        assert_eq!(fetched_global.theme, "light");
+        assert!(fetched_global.discord_rpc_enabled);
+        assert_eq!(fetched_global.default_memory_max_mb, 6144);
+
+        // 3. Test instance settings inheritance
+        let instances = get_instances().expect("get instances");
+        assert!(!instances.is_empty());
+        let target_id = instances[0].id.clone();
+
+        // First, reset instance to global defaults (all None)
+        update_instance_settings(target_id.clone(), InstanceSettings::default())
+            .expect("reset instance settings to defaults");
+
+        // Effective settings must inherit from global (6144 MB, ZGC)
+        let effective_inherited =
+            get_effective_instance_settings(target_id.clone()).expect("get effective settings");
+        assert_eq!(effective_inherited.memory_max_mb, 6144);
+        assert_eq!(effective_inherited.gc_preset, "ZGC");
+        assert_eq!(
+            effective_inherited.java_path.as_deref(),
+            Some("C:/custom/javaw.exe")
+        );
+        assert!(!effective_inherited.has_overrides);
+
+        // Now set per-instance override
+        let inst_override = InstanceSettings {
+            java_path: None,
+            memory_min_mb: Some(1024),
+            memory_max_mb: Some(8192),
+            gc_preset: Some("G1GC".to_string()),
+            jvm_args: None,
+        };
+        update_instance_settings(target_id.clone(), inst_override)
+            .expect("update instance settings");
+
+        // Verify effective settings now reflect override
+        let effective_after = get_effective_instance_settings(target_id.clone())
+            .expect("get effective settings after override");
+        assert_eq!(effective_after.memory_max_mb, 8192);
+        assert_eq!(effective_after.gc_preset, "G1GC");
+        assert_eq!(
+            effective_after.java_path.as_deref(),
+            Some("C:/custom/javaw.exe") // inherited from global
+        );
+        assert!(effective_after.has_overrides);
+
+        // 4. Test Discord RPC toggle command
+        set_discord_rpc_enabled(false, None).expect("disable discord rpc");
+        let g = get_global_settings().expect("global");
+        assert!(!g.discord_rpc_enabled);
+
+        set_discord_rpc_enabled(true, Some("ru".to_string())).expect("enable discord rpc");
+        let g2 = get_global_settings().expect("global");
+        assert!(g2.discord_rpc_enabled);
 
         std::env::remove_var("AETHEL_DATA_DIR");
     }

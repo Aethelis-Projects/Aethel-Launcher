@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import '../i18n';
+import '../__mocks__/tauri';
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {

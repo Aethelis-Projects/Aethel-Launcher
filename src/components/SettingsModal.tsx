@@ -10,13 +10,14 @@ import {
   CheckCircle2,
   Download,
   Trash2,
-  Settings2,
+  Palette,
+  Radio,
 } from 'lucide-react';
 import {
   useSettingsStore,
   type GcPreset,
-  type JavaMode,
   type PreferredJavaProvider,
+  type Theme,
 } from '../store/settingsStore';
 import { useUpdateStore } from '../store/updateStore';
 import { commands, type JavaInfo, type InstalledRuntime } from '../bindings';
@@ -27,7 +28,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     minRamMb,
     maxRamMb,
@@ -36,6 +37,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     javaMode,
     preferredProvider,
     updateChannel,
+    theme,
+    discordRpcEnabled,
+    defaultJvmArgs,
     setMinRamMb,
     setMaxRamMb,
     setGcPreset,
@@ -43,6 +47,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setJavaMode,
     setPreferredProvider,
     setUpdateChannel,
+    setTheme,
+    setDiscordRpcEnabled,
+    setDefaultJvmArgs,
   } = useSettingsStore();
 
   const { checkForUpdates } = useUpdateStore();
@@ -453,6 +460,84 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </option>
                 <option value="Parallel">{t('settings.gcParallel', 'Parallel GC (Low Overhead)')}</option>
               </select>
+            </div>
+
+            {/* Custom JVM Arguments */}
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs text-zinc-400">{t('settings.jvmArgs', 'Custom JVM Arguments')}</label>
+              <input
+                type="text"
+                value={defaultJvmArgs}
+                onChange={(e) => setDefaultJvmArgs(e.target.value)}
+                placeholder={t('settings.jvmArgsPlaceholder', 'e.g. -XX:+UseStringDeduplication')}
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 font-mono placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+          </div>
+
+          {/* Appearance & Integrations Section */}
+          <div className="space-y-4 pt-4 border-t border-zinc-800/60">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+              <Palette className="w-4 h-4 text-cyan-400" />
+              <span>{t('settings.appearance', 'Appearance & Integrations')}</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Theme */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-zinc-400">{t('settings.theme', 'Interface Theme')}</label>
+                <select
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value as Theme)}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="system">{t('settings.themeSystem', 'System Default')}</option>
+                  <option value="dark">{t('settings.themeDark', 'Dark')}</option>
+                  <option value="light">{t('settings.themeLight', 'Light')}</option>
+                </select>
+              </div>
+
+              {/* Language */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-zinc-400">{t('settings.language', 'Language')}</label>
+                <select
+                  value={i18n.language}
+                  onChange={(e) => {
+                    const newLang = e.target.value;
+                    i18n.changeLanguage(newLang);
+                    if (discordRpcEnabled) {
+                      commands.setDiscordRpcActivity(newLang).catch(() => {});
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="ru">Русский</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Discord Rich Presence Card */}
+            <div className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mt-0.5">
+                  <Radio className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-medium text-zinc-200">{t('settings.discordRpc', 'Discord Rich Presence')}</div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">{t('settings.discordRpcDesc', 'Display launcher and playing status in your Discord profile')}</div>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  data-testid="discord-rpc-toggle"
+                  checked={discordRpcEnabled}
+                  onChange={(e) => setDiscordRpcEnabled(e.target.checked, i18n.language)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
             </div>
           </div>
 

@@ -128,6 +128,43 @@ export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknow
     case 'export_instance_backup':
     case 'export_modpack':
       return null;
+    case 'get_global_settings':
+      return {
+        theme: 'system',
+        discord_rpc_enabled: false,
+        update_channel: 'stable',
+        default_java_path: null,
+        default_java_mode: 'auto',
+        default_java_provider: 'Adoptium',
+        default_memory_min_mb: 1024,
+        default_memory_max_mb: 4096,
+        default_gc_preset: 'G1GC',
+        default_jvm_args: null,
+      };
+    case 'update_global_settings':
+      return null;
+    case 'get_instance_settings':
+      return {
+        java_path: null,
+        memory_min_mb: null,
+        memory_max_mb: null,
+        gc_preset: null,
+        jvm_args: null,
+      };
+    case 'update_instance_settings':
+      return null;
+    case 'get_effective_instance_settings':
+      return {
+        java_path: null,
+        memory_min_mb: 1024,
+        memory_max_mb: 4096,
+        gc_preset: 'G1GC',
+        jvm_args: null,
+        has_overrides: false,
+      };
+    case 'set_discord_rpc_enabled':
+    case 'set_discord_rpc_activity':
+      return null;
     default:
       throw new Error(`Unmocked command: ${cmd} with args: ${JSON.stringify(args)}`);
   }

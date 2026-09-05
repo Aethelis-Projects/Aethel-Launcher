@@ -38,6 +38,7 @@ const defaultInstances: Instance[] = [
     last_mclo_gs_url: null,
     last_mclo_gs_at: null,
     created_at: new Date().toISOString(),
+    settings_json: null,
   },
   {
     id: 'vanilla-1.21.1',
@@ -56,6 +57,7 @@ const defaultInstances: Instance[] = [
     last_mclo_gs_url: null,
     last_mclo_gs_at: null,
     created_at: new Date().toISOString(),
+    settings_json: null,
   },
   {
     id: 'vanilla-1.7.10',
@@ -74,6 +76,7 @@ const defaultInstances: Instance[] = [
     last_mclo_gs_url: null,
     last_mclo_gs_at: null,
     created_at: new Date().toISOString(),
+    settings_json: null,
   },
 ];
 

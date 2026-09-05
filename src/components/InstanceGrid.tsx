@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package, Upload, FolderArchive, Trash2 } from 'lucide-react';
+import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package, Upload, FolderArchive, Trash2, Sliders } from 'lucide-react';
 import { useInstanceStore } from '../store/instanceStore';
 import { useAccountStore } from '../store/accountStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -10,11 +10,13 @@ import { localizeError } from '../utils/errors';
 import { ModManagerModal } from './ModManagerModal';
 import { ModpackImportModal } from './ModpackImportModal';
 import { ModpackExportModal } from './ModpackExportModal';
+import { InstanceSettingsModal } from './InstanceSettingsModal';
 
 export const InstanceGrid: React.FC = () => {
   const { t } = useTranslation();
   const [activeModManagerInstance, setActiveModManagerInstance] = useState<Instance | null>(null);
   const [activeExportInstance, setActiveExportInstance] = useState<Instance | null>(null);
+  const [activeSettingsInstance, setActiveSettingsInstance] = useState<Instance | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const {
     instances,
@@ -42,8 +44,14 @@ export const InstanceGrid: React.FC = () => {
     setLastError(null);
 
     try {
+      const effRes = await commands.getEffectiveInstanceSettings(instanceId);
+      const eff = effRes.status === 'ok' ? effRes.data : null;
+
       let effectiveJavaPath: string | null = null;
-      if (javaMode === 'manual') {
+      if (eff?.java_path) {
+        effectiveJavaPath = eff.java_path;
+        addLog(`[Aethel] Using instance Java override: ${effectiveJavaPath}`, false);
+      } else if (javaMode === 'manual') {
         effectiveJavaPath = javaPath && javaPath.trim() ? javaPath : null;
       } else {
         addLog(`[Aethel] Resolving Java runtime for Minecraft ${version}...`, false);
@@ -56,8 +64,11 @@ export const InstanceGrid: React.FC = () => {
         }
       }
 
+      const targetRam = eff ? eff.memory_max_mb : maxRamMb;
+      const targetGc = eff ? eff.gc_preset : gcPreset;
+
       addLog(`[Aethel] Launching instance "${instanceId}" (${version})...`, false);
-      const res = await commands.launchInstance(instanceId, version, maxRamMb, effectiveJavaPath, gcPreset);
+      const res = await commands.launchInstance(instanceId, version, targetRam, effectiveJavaPath, targetGc);
       if (res.status === 'ok') {
         const pid = res.data;
         setLaunchStatus(instanceId, 'running');
@@ -175,6 +186,18 @@ export const InstanceGrid: React.FC = () => {
                 </button>
 
                 <button
+                  data-testid={`settings-instance-${instance.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveSettingsInstance(instance);
+                  }}
+                  className="py-2 px-2.5 rounded-lg font-medium text-xs flex items-center justify-center bg-zinc-800/90 hover:bg-zinc-700/90 text-zinc-400 hover:text-cyan-400 border border-zinc-700/50 hover:border-cyan-500/50 transition-colors shadow-sm"
+                  title={t('settings.instanceSettings', 'Instance Settings')}
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                </button>
+
+                <button
                   data-testid={`export-instance-${instance.id}`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -236,6 +259,16 @@ export const InstanceGrid: React.FC = () => {
           );
         })}
       </div>
+
+      {activeSettingsInstance && (
+        <InstanceSettingsModal
+          isOpen={activeSettingsInstance !== null}
+          onClose={() => setActiveSettingsInstance(null)}
+          instanceId={activeSettingsInstance.id}
+          instanceName={activeSettingsInstance.name}
+          gameVersion={activeSettingsInstance.game_version}
+        />
+      )}
 
       {activeModManagerInstance && (
         <ModManagerModal

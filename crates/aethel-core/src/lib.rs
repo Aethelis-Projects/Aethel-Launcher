@@ -8,4 +8,7 @@ pub use error::{AppError, AppErrorCode, Result};
 pub use events::{BackendEvent, DownloadProgressItem, RateLimitedBatcher};
 pub use hash::HashAlgorithm;
 pub use i18n::humanize_error;
-pub use types::{AccountMetadata, CrashPattern, CrashReport, Instance, JavaInfo};
+pub use types::{
+    AccountMetadata, CrashPattern, CrashReport, EffectiveInstanceSettings, GlobalSettings,
+    Instance, InstanceSettings, JavaInfo,
+};

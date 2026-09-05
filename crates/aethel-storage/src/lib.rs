@@ -1,9 +1,11 @@
-use aethel_core::{AccountMetadata, AppError, AppErrorCode, Instance, Result};
+use aethel_core::{
+    AccountMetadata, AppError, AppErrorCode, GlobalSettings, Instance, InstanceSettings, Result,
+};
 use rusqlite::{params, Connection};
 use std::path::Path;
 use tracing::info;
 
-pub const CURRENT_SCHEMA_VERSION: u32 = 2;
+pub const CURRENT_SCHEMA_VERSION: u32 = 3;
 
 pub struct Database {
     conn: Connection,
@@ -146,18 +148,86 @@ impl Database {
                 })?;
         }
 
+        if current_version < 3 {
+            info!("Migrating database schema from v{} to v3", current_version);
+            self.conn
+                .execute_batch(
+                    "BEGIN TRANSACTION;
+                     ALTER TABLE instances ADD COLUMN settings_json TEXT;
+                     PRAGMA user_version = 3;
+                     COMMIT;",
+                )
+                .map_err(|e| {
+                    AppError::new(
+                        AppErrorCode::InternalError,
+                        format!("Migration to v3 failed: {}", e),
+                    )
+                })?;
+
+            // Map legacy columns into settings_json for existing instances
+            let mut stmt = self
+                .conn
+                .prepare(
+                    "SELECT id, java_path, memory_min_mb, memory_max_mb, jvm_args FROM instances WHERE settings_json IS NULL;",
+                )
+                .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+            let legacy_rows = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, Option<u32>>(2)?,
+                        row.get::<_, Option<u32>>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                    ))
+                })
+                .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+            let mut updates = Vec::new();
+            for r in legacy_rows {
+                let (id, java_path, memory_min_mb, memory_max_mb, jvm_args) =
+                    r.map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+                let settings = InstanceSettings {
+                    java_path,
+                    memory_min_mb,
+                    memory_max_mb,
+                    gc_preset: None,
+                    jvm_args,
+                };
+                let json = serde_json::to_string(&settings)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+                updates.push((id, json));
+            }
+
+            for (id, json) in updates {
+                self.conn
+                    .execute(
+                        "UPDATE instances SET settings_json = ?1 WHERE id = ?2;",
+                        params![json, id],
+                    )
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+            }
+        }
+
         Ok(())
     }
 
     pub fn insert_instance(&self, instance: &Instance) -> Result<()> {
+        let settings_json = match &instance.settings_json {
+            Some(j) => j.clone(),
+            None => serde_json::to_string(&instance.settings())
+                .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+        };
+
         self.conn
             .execute(
                 "INSERT INTO instances (
                     id, name, game_version, loader, loader_version, java_path,
                     memory_min_mb, memory_max_mb, jvm_args, last_played_at,
                     total_playtime_seconds, icon_path, banner_path, created_at,
-                    last_mclo_gs_url, last_mclo_gs_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16);",
+                    last_mclo_gs_url, last_mclo_gs_at, settings_json
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17);",
                 params![
                     instance.id,
                     instance.name,
@@ -175,6 +245,7 @@ impl Database {
                     instance.created_at,
                     instance.last_mclo_gs_url,
                     instance.last_mclo_gs_at,
+                    settings_json,
                 ],
             )
             .map_err(|e| {
@@ -193,7 +264,7 @@ impl Database {
                 "SELECT id, name, game_version, loader, loader_version, java_path,
                         memory_min_mb, memory_max_mb, jvm_args, last_played_at,
                         total_playtime_seconds, icon_path, banner_path, created_at,
-                        last_mclo_gs_url, last_mclo_gs_at
+                        last_mclo_gs_url, last_mclo_gs_at, settings_json
                  FROM instances WHERE id = ?1;",
             )
             .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
@@ -255,6 +326,9 @@ impl Database {
                 last_mclo_gs_at: row
                     .get(15)
                     .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
+                settings_json: row
+                    .get(16)
+                    .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?,
             }))
         } else {
             Ok(None)
@@ -301,6 +375,37 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_instance_settings(&self, id: &str, settings: &InstanceSettings) -> Result<()> {
+        let json = serde_json::to_string(settings)
+            .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
+
+        self.conn
+            .execute(
+                "UPDATE instances SET
+                    settings_json = ?1,
+                    java_path = ?2,
+                    memory_min_mb = ?3,
+                    memory_max_mb = ?4,
+                    jvm_args = ?5
+                 WHERE id = ?6;",
+                params![
+                    json,
+                    settings.java_path,
+                    settings.memory_min_mb,
+                    settings.memory_max_mb,
+                    settings.jvm_args,
+                    id
+                ],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to update instance settings: {e}"),
+                )
+            })?;
+        Ok(())
+    }
+
     pub fn delete_instance(&self, id: &str) -> Result<()> {
         self.conn
             .execute("DELETE FROM instances WHERE id = ?1;", params![id])
@@ -320,7 +425,7 @@ impl Database {
                 "SELECT id, name, game_version, loader, loader_version, java_path,
                         memory_min_mb, memory_max_mb, jvm_args, last_played_at,
                         total_playtime_seconds, icon_path, banner_path, created_at,
-                        last_mclo_gs_url, last_mclo_gs_at
+                        last_mclo_gs_url, last_mclo_gs_at, settings_json
                  FROM instances ORDER BY created_at DESC;",
             )
             .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
@@ -344,6 +449,7 @@ impl Database {
                     created_at: row.get(13)?,
                     last_mclo_gs_url: row.get(14)?,
                     last_mclo_gs_at: row.get(15)?,
+                    settings_json: row.get(16)?,
                 })
             })
             .map_err(|e| AppError::new(AppErrorCode::InternalError, e.to_string()))?;
@@ -542,6 +648,28 @@ impl Database {
         Ok(())
     }
 
+    pub fn get_global_settings(&self) -> Result<GlobalSettings> {
+        match self.get_setting("global_settings")? {
+            Some(raw) => serde_json::from_str(&raw).map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to parse global settings: {e}"),
+                )
+            }),
+            None => Ok(GlobalSettings::default()),
+        }
+    }
+
+    pub fn set_global_settings(&self, settings: &GlobalSettings) -> Result<()> {
+        let json = serde_json::to_string(settings).map_err(|e| {
+            AppError::new(
+                AppErrorCode::InternalError,
+                format!("Failed to serialize global settings: {e}"),
+            )
+        })?;
+        self.set_setting("global_settings", &json)
+    }
+
     pub fn get_active_account(&self) -> Result<Option<AccountMetadata>> {
         if let Some(active_uuid) = self.get_setting("active_account_uuid")? {
             if let Some(acc) = self.get_account(&active_uuid)? {
@@ -639,6 +767,7 @@ mod tests {
             created_at: "2026-09-04T00:00:00Z".into(),
             last_mclo_gs_url: None,
             last_mclo_gs_at: None,
+            settings_json: None,
         };
 
         db.insert_instance(&inst).expect("insert");
@@ -652,12 +781,32 @@ mod tests {
         assert_eq!(updated.loader.as_deref(), Some("fabric"));
         assert_eq!(updated.loader_version.as_deref(), Some("0.15.7"));
 
+        // Update instance settings
+        let new_settings = InstanceSettings {
+            java_path: Some("C:/custom/bin/java.exe".to_string()),
+            memory_min_mb: Some(2048),
+            memory_max_mb: Some(8192),
+            gc_preset: Some("ZGC".to_string()),
+            jvm_args: Some("-XX:+UseZGC".to_string()),
+        };
+        db.update_instance_settings("inst-1", &new_settings)
+            .expect("update instance settings");
+
+        let updated2 = db.get_instance("inst-1").unwrap().unwrap();
+        assert_eq!(
+            updated2.java_path.as_deref(),
+            Some("C:/custom/bin/java.exe")
+        );
+        assert_eq!(updated2.memory_max_mb, Some(8192));
+        let inst_settings = updated2.settings();
+        assert_eq!(inst_settings.gc_preset.as_deref(), Some("ZGC"));
+
         let all = db.list_instances().expect("list");
         assert_eq!(all.len(), 1);
     }
 
     #[test]
-    fn test_migration_v1_to_v2_preserves_data() {
+    fn test_migration_v1_to_v2_and_v3_preserves_data() {
         let conn = Connection::open_in_memory().unwrap();
         // Setup initial v1 database manually
         conn.execute_batch(
@@ -700,9 +849,9 @@ mod tests {
 
         // Wrap into Database struct and trigger migrate()
         let mut db = Database { conn };
-        db.migrate().expect("migrate to v2");
+        db.migrate().expect("migrate to v3");
 
-        assert_eq!(db.schema_version().unwrap(), 2);
+        assert_eq!(db.schema_version().unwrap(), 3);
 
         let fetched = db.get_instance("v1-inst").expect("get").expect("exists");
         assert_eq!(fetched.name, "V1 Test");
@@ -727,6 +876,114 @@ mod tests {
             updated.last_mclo_gs_at.as_deref(),
             Some("2026-09-05T01:00:00Z")
         );
+    }
+
+    #[test]
+    fn test_migration_v2_to_v3_maps_legacy_columns() {
+        let conn = Connection::open_in_memory().unwrap();
+        // Setup initial v2 database manually
+        conn.execute_batch(
+            "CREATE TABLE instances (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                game_version TEXT NOT NULL,
+                loader TEXT,
+                loader_version TEXT,
+                java_path TEXT,
+                memory_min_mb INTEGER,
+                memory_max_mb INTEGER,
+                jvm_args TEXT,
+                last_played_at TEXT,
+                total_playtime_seconds INTEGER NOT NULL DEFAULT 0,
+                icon_path TEXT,
+                banner_path TEXT,
+                created_at TEXT NOT NULL,
+                last_mclo_gs_url TEXT,
+                last_mclo_gs_at TEXT
+            );
+            CREATE TABLE accounts_metadata (
+                uuid TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                skin_url TEXT,
+                cape_url TEXT,
+                server_url TEXT,
+                last_used_at TEXT NOT NULL
+            );
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            PRAGMA user_version = 2;",
+        )
+        .unwrap();
+
+        // Insert an instance in v2 schema with legacy columns
+        conn.execute(
+            "INSERT INTO instances (
+                id, name, game_version, java_path, memory_min_mb, memory_max_mb, jvm_args, created_at
+            ) VALUES (
+                'v2-inst', 'Legacy Settings Instance', '1.20.4',
+                'C:/java/bin/javaw.exe', 2048, 8192, '-XX:+UseG1GC', '2026-09-05T00:00:00Z'
+            );",
+            [],
+        )
+        .unwrap();
+
+        // Migrate to v3
+        let mut db = Database { conn };
+        db.migrate().expect("migrate to v3");
+
+        assert_eq!(db.schema_version().unwrap(), 3);
+
+        let fetched = db.get_instance("v2-inst").expect("get").expect("found");
+        assert!(
+            fetched.settings_json.is_some(),
+            "settings_json must be populated from legacy columns during migration"
+        );
+
+        let parsed: InstanceSettings =
+            serde_json::from_str(fetched.settings_json.as_deref().unwrap())
+                .expect("valid InstanceSettings JSON");
+        assert_eq!(parsed.java_path.as_deref(), Some("C:/java/bin/javaw.exe"));
+        assert_eq!(parsed.memory_min_mb, Some(2048));
+        assert_eq!(parsed.memory_max_mb, Some(8192));
+        assert_eq!(parsed.jvm_args.as_deref(), Some("-XX:+UseG1GC"));
+    }
+
+    #[test]
+    fn test_global_settings_persistence() {
+        let db = Database::in_memory().expect("in memory db");
+
+        // Default settings
+        let default_settings = db.get_global_settings().expect("get defaults");
+        assert_eq!(default_settings.theme, "dark");
+        assert!(!default_settings.discord_rpc_enabled);
+        assert_eq!(default_settings.default_memory_max_mb, 4096);
+
+        // Update settings
+        let updated = GlobalSettings {
+            theme: "light".to_string(),
+            discord_rpc_enabled: true,
+            update_channel: "beta".to_string(),
+            default_java_path: Some("C:/my/java.exe".to_string()),
+            default_java_mode: "manual".to_string(),
+            default_java_provider: "Zulu".to_string(),
+            default_memory_min_mb: 2048,
+            default_memory_max_mb: 8192,
+            default_gc_preset: "ZGC".to_string(),
+            default_jvm_args: Some("-XX:+UseZGC".to_string()),
+        };
+
+        db.set_global_settings(&updated)
+            .expect("set global settings");
+
+        let fetched = db
+            .get_global_settings()
+            .expect("get updated global settings");
+        assert_eq!(fetched.theme, "light");
+        assert!(fetched.discord_rpc_enabled);
+        assert_eq!(fetched.update_channel, "beta");
+        assert_eq!(fetched.default_java_path.as_deref(), Some("C:/my/java.exe"));
+        assert_eq!(fetched.default_memory_max_mb, 8192);
+        assert_eq!(fetched.default_gc_preset, "ZGC");
     }
 
     #[test]

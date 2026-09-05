@@ -3,7 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '../__mocks__/tauri';
 import { InstanceGrid } from '../components/InstanceGrid';
 import { commands } from '../bindings';
-import { mockLaunchReceipt } from '../__mocks__/tauri';
 
 describe('InstanceGrid Smoke Component Suite', () => {
   it('renders instance cards and triggers stub launch on Play click', async () => {
@@ -28,6 +27,40 @@ describe('InstanceGrid Smoke Component Suite', () => {
 
     await waitFor(() => {
       expect(launchSpy).toHaveBeenCalled();
+    });
+  });
+
+  it('opens InstanceSettingsModal, toggles overrides, and saves settings', async () => {
+    const updateSpy = vi.spyOn(commands, 'updateInstanceSettings').mockResolvedValue({
+      status: 'ok',
+      data: null,
+    });
+
+    render(<InstanceGrid />);
+
+    // Find settings button for default instance (id: 'inst-1' from mock store)
+    const settingsBtns = screen.getAllByRole('button').filter((b) =>
+      b.getAttribute('data-testid')?.startsWith('settings-instance-')
+    );
+    expect(settingsBtns.length).toBeGreaterThan(0);
+
+    fireEvent.click(settingsBtns[0]);
+
+    // Modal should be open
+    await waitFor(() => {
+      expect(screen.getByTestId('override-memory-toggle')).toBeInTheDocument();
+    });
+
+    // Toggle memory override
+    const memToggle = screen.getByTestId('override-memory-toggle');
+    fireEvent.click(memToggle);
+
+    // Click save
+    const saveBtn = screen.getByTestId('save-instance-settings-btn');
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalled();
     });
   });
 });

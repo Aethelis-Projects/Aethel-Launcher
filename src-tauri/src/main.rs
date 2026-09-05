@@ -63,11 +63,31 @@ fn main() {
 
     let builder = aethel_tauri::create_specta_builder();
 
+    let bindings_path = if std::path::Path::new("src/bindings.ts").exists()
+        || std::path::Path::new("src").is_dir()
+    {
+        "src/bindings.ts"
+    } else {
+        "../src/bindings.ts"
+    };
+
+    if args.iter().any(|a| a == "--export-bindings") {
+        builder
+            .export(
+                specta_typescript::Typescript::default()
+                    .bigint(specta_typescript::BigIntExportBehavior::Number),
+                bindings_path,
+            )
+            .expect("Failed to export TypeScript bindings");
+        println!("TypeScript bindings successfully exported to {bindings_path}");
+        return;
+    }
+
     #[cfg(debug_assertions)]
     builder
         .export(
             Typescript::default().bigint(BigIntExportBehavior::Number),
-            "../src/bindings.ts",
+            bindings_path,
         )
         .expect("Failed to export TypeScript bindings");
 

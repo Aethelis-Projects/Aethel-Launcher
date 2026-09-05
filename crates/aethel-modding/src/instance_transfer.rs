@@ -303,6 +303,7 @@ mod tests {
             created_at: "2026-09-04T12:00:00Z".to_string(),
             last_mclo_gs_url: None,
             last_mclo_gs_at: None,
+            settings_json: None,
         }
     }
 

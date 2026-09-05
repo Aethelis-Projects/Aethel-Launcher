@@ -44,7 +44,7 @@ export const WelcomeScreen: React.FC = () => {
 
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/25 text-cyan-300 text-[11px] font-mono shadow-sm">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-            <span>v1.0.0-rc.6 • Production Ready</span>
+            <span>v1.0.0-rc.7 • Production Ready</span>
           </div>
 
           {/* Update alert banner if newer installer version found */}

@@ -52,6 +52,27 @@ describe('Zustand Stores Suite', () => {
       expect(useSettingsStore.getState().gcPreset).toBe('ZGC');
       expect(useSettingsStore.getState().javaPath).toBe('C:/custom/java.exe');
     });
+
+    it('updates theme, discord RPC toggle, and custom JVM arguments', async () => {
+      const { setTheme, setDiscordRpcEnabled, setDefaultJvmArgs } = useSettingsStore.getState();
+      setTheme('dark');
+      expect(useSettingsStore.getState().theme).toBe('dark');
+
+      await setDiscordRpcEnabled(true, 'en');
+      expect(useSettingsStore.getState().discordRpcEnabled).toBe(true);
+
+      setDefaultJvmArgs('-XX:+UseStringDeduplication');
+      expect(useSettingsStore.getState().defaultJvmArgs).toBe('-XX:+UseStringDeduplication');
+    });
+
+    it('initializes global settings from backend', async () => {
+      const { initGlobalSettings } = useSettingsStore.getState();
+      await initGlobalSettings('ru');
+      const state = useSettingsStore.getState();
+      expect(state.minRamMb).toBe(1024);
+      expect(state.maxRamMb).toBe(4096);
+      expect(state.gcPreset).toBe('G1GC');
+    });
   });
 
   describe('DownloadStore', () => {

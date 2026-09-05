@@ -301,6 +301,62 @@ async importInstanceBackup(filePath: string) : Promise<Result<Instance, string>>
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getGlobalSettings() : Promise<Result<GlobalSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_global_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateGlobalSettings(settings: GlobalSettings) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_global_settings", { settings }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getInstanceSettings(instanceId: string) : Promise<Result<InstanceSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_instance_settings", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateInstanceSettings(instanceId: string, settings: InstanceSettings) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_instance_settings", { instanceId, settings }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getEffectiveInstanceSettings(instanceId: string) : Promise<Result<EffectiveInstanceSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_effective_instance_settings", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setDiscordRpcEnabled(enabled: boolean, locale: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_discord_rpc_enabled", { enabled, locale }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setDiscordRpcActivity(locale: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_discord_rpc_activity", { locale }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -327,9 +383,12 @@ export type CrashReport = { pattern: CrashPattern; diagnosis: string; suggestion
 export type DependencyConflict = { mod_a: string; mod_b: string; reason: string }
 export type DependencyType = "Required" | "Optional" | "Incompatible" | "Embedded"
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
+export type EffectiveInstanceSettings = { java_path: string | null; memory_min_mb: number; memory_max_mb: number; gc_preset: string; jvm_args: string | null; has_overrides: boolean }
+export type GlobalSettings = { theme: string; discord_rpc_enabled: boolean; update_channel: string; default_java_path: string | null; default_java_mode: string; default_java_provider: string; default_memory_min_mb: number; default_memory_max_mb: number; default_gc_preset: string; default_jvm_args: string | null }
 export type InstalledMod = { id: string; name: string; version: string; file_name: string; enabled: boolean; description: string | null; authors: string[]; project_id: string | null }
 export type InstalledRuntime = { major: number; path: string; provider: string; version_str: string }
-export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string; last_mclo_gs_url: string | null; last_mclo_gs_at: string | null }
+export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string; last_mclo_gs_url: string | null; last_mclo_gs_at: string | null; settings_json: string | null }
+export type InstanceSettings = { java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; gc_preset: string | null; jvm_args: string | null }
 export type JavaInfo = { path: string; version: string; major: number; arch: string; vendor: string | null; is_system: boolean }
 /**
  * Structured receipt representing synthesized launch parameters.
