@@ -1,0 +1,23 @@
+{
+  "id": "neoforge-21.1.65",
+  "inheritsFrom": "1.21.1",
+  "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+  "type": "release",
+  "arguments": {
+    "game": [],
+    "jvm": []
+  },
+  "libraries": [
+    {
+      "name": "net.neoforged:neoforge:21.1.65",
+      "downloads": {
+        "artifact": {
+          "path": "net/neoforged/neoforge/21.1.65/neoforge-21.1.65.jar",
+          "sha1": "",
+          "size": 1024,
+          "url": ""
+        }
+      }
+    }
+  ]
+}

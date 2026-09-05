@@ -33,6 +33,8 @@ export const mockLaunchReceipt: LaunchReceipt = {
   ],
   environment: {},
   classpath_tier: 'Tier1_Direct',
+  main_class: 'net.minecraft.client.main.Main',
+  classpath: ['libraries/client.jar', 'libraries/lwjgl.jar'],
 };
 
 export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
@@ -43,6 +45,47 @@ export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknow
       return '5627dd98-e6be-3c21-b8a8-e92344183641';
     case 'get_instances':
       return [];
+    case 'get_minecraft_versions':
+      return [
+        { id: '1.21.1', version_type: 'release', release_time: '2024-08-08T00:00:00Z' },
+        { id: '1.20.4', version_type: 'release', release_time: '2023-12-07T00:00:00Z' },
+        { id: '24w33a', version_type: 'snapshot', release_time: '2024-08-14T00:00:00Z' },
+      ];
+    case 'create_instance': {
+      const argsObj = args as
+        | {
+            name?: string;
+            gameVersion?: string;
+            loader?: string;
+            loaderVersion?: string | null;
+            ramOverrideMb?: number | null;
+          }
+        | undefined;
+      return {
+        id: 'mock-created-instance-123',
+        name: argsObj?.name || 'Minecraft 1.20.4',
+        game_version: argsObj?.gameVersion || '1.20.4',
+        loader:
+          argsObj?.loader && argsObj.loader !== 'Vanilla'
+            ? argsObj.loader.toLowerCase()
+            : null,
+        loader_version: argsObj?.loaderVersion || null,
+        java_path: null,
+        memory_min_mb: argsObj?.ramOverrideMb ? 1024 : null,
+        memory_max_mb: argsObj?.ramOverrideMb || null,
+        jvm_args: null,
+        last_played_at: null,
+        total_playtime_seconds: 0,
+        icon_path: null,
+        banner_path: null,
+        created_at: new Date().toISOString(),
+        last_mclo_gs_url: null,
+        last_mclo_gs_at: null,
+        settings_json: argsObj?.ramOverrideMb
+          ? JSON.stringify({ memory_max_mb: argsObj.ramOverrideMb })
+          : null,
+      };
+    }
     case 'delete_instance':
       return null;
     case 'get_launch_receipt':

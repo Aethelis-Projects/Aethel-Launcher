@@ -23,6 +23,7 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
 reqwest = { workspace = true }
+tokio = { workspace = true }
 minisign-verify = { workspace = true }
 semver = { workspace = true }
 uuid = { workspace = true }

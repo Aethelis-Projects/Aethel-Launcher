@@ -14,6 +14,7 @@ import {
   Sparkles,
   MoreVertical,
   FolderOpen,
+  Plus,
 } from 'lucide-react';
 import { useInstanceStore } from '../store/instanceStore';
 import { useAccountStore } from '../store/accountStore';
@@ -26,6 +27,7 @@ import { ModpackExportModal } from './ModpackExportModal';
 import { ModpackInstallModal } from './ModpackInstallModal';
 import { InstanceManagerModal } from './InstanceManagerModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
+import { CreateInstanceModal } from './CreateInstanceModal';
 
 export const InstanceGrid: React.FC = () => {
   const { t } = useTranslation();
@@ -34,6 +36,7 @@ export const InstanceGrid: React.FC = () => {
   const [activeSettingsInstance, setActiveSettingsInstance] = useState<Instance | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [openMenuInstanceId, setOpenMenuInstanceId] = useState<string | null>(null);
 
   const {
@@ -116,6 +119,14 @@ export const InstanceGrid: React.FC = () => {
           <p className="text-xs text-zinc-400 mt-1">{t('instances.createFirst')}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            data-testid="create-instance-btn"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-all shadow-md shadow-cyan-950/40"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{t('instances.create', '+ Создать инстанс')}</span>
+          </button>
           <button
             data-testid="install-modpack-btn"
             onClick={() => setIsInstallModalOpen(true)}
@@ -381,6 +392,12 @@ export const InstanceGrid: React.FC = () => {
       <ModpackInstallModal
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
+      />
+
+      {/* Create Instance Modal */}
+      <CreateInstanceModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
       />
     </div>
   );

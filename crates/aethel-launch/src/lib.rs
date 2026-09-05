@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use aethel_core::{AppError, AppErrorCode};
@@ -52,6 +52,8 @@ pub struct LaunchReceipt {
     pub arguments: Vec<String>,
     pub environment: HashMap<String, String>,
     pub classpath_tier: String,
+    pub main_class: String,
+    pub classpath: Vec<PathBuf>,
 }
 
 /// Complete configuration for launching an instance.
@@ -63,6 +65,7 @@ pub struct LaunchConfiguration {
     pub assets_dir: PathBuf,
     pub natives_dir: PathBuf,
     pub version_package: VersionPackage,
+    pub version_package_chain: Option<Vec<VersionPackage>>,
     pub classpath_entries: Vec<PathBuf>,
     pub player_name: String,
     pub player_uuid: String,
@@ -189,9 +192,22 @@ pub fn build_launch_receipt(
     vars.insert("auth_xuid", "".to_string());
     vars.insert("user_properties", "{}".to_string());
 
+    let chain: Vec<&VersionPackage> = match &config.version_package_chain {
+        Some(c) if !c.is_empty() => c.iter().collect(),
+        _ => vec![&config.version_package],
+    };
+    let effective_main_class = chain.last().unwrap().main_class.clone();
+
     let classpath_delimiter = if target_os == "windows" { ";" } else { ":" };
-    let full_classpath = config
+    let mut seen_cp = HashSet::new();
+    let deduplicated_cp: Vec<PathBuf> = config
         .classpath_entries
+        .iter()
+        .filter(|p| seen_cp.insert((*p).clone()))
+        .cloned()
+        .collect();
+
+    let full_classpath = deduplicated_cp
         .iter()
         .map(|p| p.to_string_lossy().to_string())
         .collect::<Vec<_>>()
@@ -219,26 +235,30 @@ pub fn build_launch_receipt(
         }
     }
 
-    // Version-defined JVM arguments
-    let raw_jvm_args = config.version_package.jvm_arguments(&ctx);
-    for raw in &raw_jvm_args {
-        let substituted = substitute_template(raw, &vars);
-        if is_flag_allowed_for_java(&substituted, config.java_version.major()) {
-            jvm_args.push(substituted);
+    // Version-defined JVM arguments merged across the package chain
+    for pkg in &chain {
+        let raw_jvm_args = pkg.jvm_arguments(&ctx);
+        for raw in &raw_jvm_args {
+            let substituted = substitute_template(raw, &vars);
+            if is_flag_allowed_for_java(&substituted, config.java_version.major()) {
+                jvm_args.push(substituted);
+            }
         }
     }
 
-    // 3. Synthesize game arguments
-    let raw_game_args = config.version_package.game_arguments(&ctx);
+    // 3. Synthesize game arguments merged across the package chain
     let mut game_args = Vec::new();
-    for raw in &raw_game_args {
-        game_args.push(substitute_template(raw, &vars));
+    for pkg in &chain {
+        let raw_game_args = pkg.game_arguments(&ctx);
+        for raw in &raw_game_args {
+            game_args.push(substitute_template(raw, &vars));
+        }
     }
 
     // 4. Calculate total command line length to choose Classpath Strategy
     let total_cli_len: usize = config.java_path.to_string_lossy().len()
         + jvm_args.iter().map(|a| a.len() + 1).sum::<usize>()
-        + config.version_package.main_class.len()
+        + effective_main_class.len()
         + 1
         + game_args.iter().map(|a| a.len() + 1).sum::<usize>();
 
@@ -297,7 +317,7 @@ pub fn build_launch_receipt(
         let mut all_shortened = true;
         let mut short_entries = Vec::new();
 
-        for entry in &config.classpath_entries {
+        for entry in &deduplicated_cp {
             if let Some(short) = get_short_path(entry) {
                 short_entries.push(short.to_string_lossy().to_string());
             } else {
@@ -375,7 +395,7 @@ pub fn build_launch_receipt(
 
     // Combine all launch arguments: [jvm_args, main_class, game_args]
     let mut all_arguments = final_jvm_args;
-    all_arguments.push(config.version_package.main_class.clone());
+    all_arguments.push(effective_main_class.clone());
     all_arguments.extend(game_args);
 
     Ok(LaunchReceipt {
@@ -385,6 +405,8 @@ pub fn build_launch_receipt(
         arguments: all_arguments,
         environment: env_vars,
         classpath_tier,
+        main_class: effective_main_class,
+        classpath: deduplicated_cp,
     })
 }
 

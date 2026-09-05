@@ -24,8 +24,11 @@ use aethel_modding::{
     ResolutionResult,
 };
 use aethel_storage::Database;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 
 pub mod updater;
 pub use updater::*;
@@ -180,6 +183,361 @@ fn get_instances() -> Result<Vec<Instance>, String> {
     db.list_instances().map_err(|e| e.to_string())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct MinecraftVersionEntry {
+    pub id: String,
+    pub version_type: String,
+    pub release_time: String,
+}
+
+#[derive(Deserialize)]
+struct MojangManifest {
+    versions: Vec<MojangVersionItem>,
+}
+
+#[derive(Deserialize)]
+struct MojangVersionItem {
+    id: String,
+    #[serde(rename = "type")]
+    version_type: String,
+    #[serde(rename = "releaseTime")]
+    release_time: String,
+}
+
+type VersionCacheData = Option<(Instant, Vec<MinecraftVersionEntry>)>;
+
+#[derive(Clone)]
+pub struct MinecraftVersionsCache {
+    data: Arc<RwLock<VersionCacheData>>,
+}
+
+impl Default for MinecraftVersionsCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MinecraftVersionsCache {
+    pub fn new() -> Self {
+        Self {
+            data: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    pub async fn get_or_fetch(&self) -> Result<Vec<MinecraftVersionEntry>, String> {
+        // Check cache (5-min TTL)
+        {
+            let lock = self.data.read().await;
+            if let Some((time, ref versions)) = *lock {
+                if time.elapsed() < Duration::from_secs(300) {
+                    return Ok(versions.clone());
+                }
+            }
+        }
+
+        // Fetch from Mojang
+        if let Ok(resp) =
+            reqwest::get("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json").await
+        {
+            if resp.status().is_success() {
+                if let Ok(manifest) = resp.json::<MojangManifest>().await {
+                    let versions: Vec<MinecraftVersionEntry> = manifest
+                        .versions
+                        .into_iter()
+                        .map(|v| MinecraftVersionEntry {
+                            id: v.id,
+                            version_type: v.version_type,
+                            release_time: v.release_time,
+                        })
+                        .collect();
+                    let mut lock = self.data.write().await;
+                    *lock = Some((Instant::now(), versions.clone()));
+                    return Ok(versions);
+                }
+            }
+        }
+
+        // Expired cache fallback
+        {
+            let lock = self.data.read().await;
+            if let Some((_, ref versions)) = *lock {
+                return Ok(versions.clone());
+            }
+        }
+
+        // Hardcoded 10 releases fallback
+        Ok(vec![
+            MinecraftVersionEntry {
+                id: "1.21.1".into(),
+                version_type: "release".into(),
+                release_time: "2024-08-08T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.20.4".into(),
+                version_type: "release".into(),
+                release_time: "2023-12-07T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.20.1".into(),
+                version_type: "release".into(),
+                release_time: "2023-06-12T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.19.4".into(),
+                version_type: "release".into(),
+                release_time: "2023-03-14T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.18.2".into(),
+                version_type: "release".into(),
+                release_time: "2022-02-28T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.17.1".into(),
+                version_type: "release".into(),
+                release_time: "2021-07-06T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.16.5".into(),
+                version_type: "release".into(),
+                release_time: "2021-01-15T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.12.2".into(),
+                version_type: "release".into(),
+                release_time: "2017-09-18T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.8.9".into(),
+                version_type: "release".into(),
+                release_time: "2015-12-09T00:00:00Z".into(),
+            },
+            MinecraftVersionEntry {
+                id: "1.7.10".into(),
+                version_type: "release".into(),
+                release_time: "2014-06-26T00:00:00Z".into(),
+            },
+        ])
+    }
+}
+
+static MINECRAFT_VERSIONS_CACHE: std::sync::OnceLock<MinecraftVersionsCache> =
+    std::sync::OnceLock::new();
+
+pub fn get_minecraft_versions_cache() -> &'static MinecraftVersionsCache {
+    MINECRAFT_VERSIONS_CACHE.get_or_init(MinecraftVersionsCache::new)
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn get_minecraft_versions() -> Result<Vec<MinecraftVersionEntry>, String> {
+    get_minecraft_versions_cache().get_or_fetch().await
+}
+
+pub async fn resolve_or_install_loader_package(
+    instance_dir: &Path,
+    game_version: &str,
+    loader_name: &str,
+    loader_version: &str,
+) -> Result<VersionPackage, String> {
+    let versions_dir = instance_dir.join("versions");
+    if versions_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&versions_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    let id = entry.file_name().to_string_lossy().to_string();
+                    let json_path = entry.path().join(format!("{id}.json"));
+                    if json_path.exists() {
+                        if let Ok(content) = std::fs::read_to_string(&json_path) {
+                            if let Ok(p) = VersionPackage::parse(&content) {
+                                if p.id.to_lowercase().contains(&loader_name.to_lowercase()) {
+                                    return Ok(p);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let parsed = ModloaderType::from_str(loader_name)
+        .ok_or_else(|| format!("Unknown modloader: {loader_name}"))?;
+
+    match parsed {
+        ModloaderType::Fabric => {
+            let installer = FabricInstaller::new();
+            installer
+                .install(game_version, loader_version, instance_dir)
+                .await
+                .or_else(|_| {
+                    let json = FabricInstaller::synthesize_profile(game_version, loader_version);
+                    installer.install_from_json(&json, instance_dir)
+                })
+                .map_err(|e| e.to_string())
+        }
+        ModloaderType::NeoForge => {
+            let installer = NeoForgeInstaller::new();
+            installer
+                .install(game_version, loader_version, instance_dir)
+                .map_err(|e| e.to_string())
+        }
+        ModloaderType::Quilt => {
+            let installer = QuiltInstaller::new();
+            installer
+                .install(game_version, loader_version, instance_dir)
+                .await
+                .or_else(|_| {
+                    let json = QuiltInstaller::synthesize_profile(game_version, loader_version);
+                    installer.install_from_json(&json, instance_dir)
+                })
+                .map_err(|e| e.to_string())
+        }
+        ModloaderType::Forge => {
+            let installer = ForgeInstaller::new();
+            installer
+                .install(game_version, loader_version, instance_dir)
+                .map_err(|e| e.to_string())
+        }
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn create_instance(
+    name: String,
+    game_version: String,
+    loader: String,
+    loader_version: Option<String>,
+    ram_override_mb: Option<u32>,
+) -> Result<Instance, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("Instance name cannot be empty".to_string());
+    }
+    let game_version = game_version.trim().to_string();
+    if game_version.is_empty() {
+        return Err("Game version cannot be empty".to_string());
+    }
+
+    let slug: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let slug = slug
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    let unique_suffix = &uuid::Uuid::new_v4().to_string()[..8];
+    let instance_id = if slug.is_empty() {
+        format!("instance-{unique_suffix}")
+    } else {
+        format!("{slug}-{unique_suffix}")
+    };
+
+    let app_data = get_app_data_dir();
+    let instance_dir = app_data.join("instances").join(&instance_id);
+    let dirs = [
+        "natives",
+        "mods",
+        "config",
+        "saves",
+        "resourcepacks",
+        "shaderpacks",
+        "logs",
+        "crash-reports",
+    ];
+    for d in &dirs {
+        std::fs::create_dir_all(instance_dir.join(d)).map_err(|e| e.to_string())?;
+    }
+
+    let is_vanilla = loader.eq_ignore_ascii_case("vanilla") || loader.trim().is_empty();
+    let (loader_field, loader_version_field) = if is_vanilla {
+        (None, None)
+    } else {
+        let parsed_loader = ModloaderType::from_str(&loader)
+            .ok_or_else(|| format!("Unknown modloader: {loader}"))?;
+
+        let final_loader_version = match loader_version.filter(|v| !v.trim().is_empty()) {
+            Some(v) => v,
+            None => {
+                let versions = get_modloader_versions(
+                    parsed_loader.as_str().to_string(),
+                    game_version.clone(),
+                )?;
+                versions
+                    .iter()
+                    .find(|v| v.stable)
+                    .or_else(|| versions.first())
+                    .map(|v| v.version.clone())
+                    .ok_or_else(|| {
+                        format!("No loader versions found for {loader} {game_version}")
+                    })?
+            }
+        };
+
+        let _ = resolve_or_install_loader_package(
+            &instance_dir,
+            &game_version,
+            parsed_loader.as_str(),
+            &final_loader_version,
+        )
+        .await?;
+
+        (
+            Some(parsed_loader.as_str().to_string()),
+            Some(final_loader_version),
+        )
+    };
+
+    let _ = resolve_version_package(&app_data, &game_version).await;
+
+    let settings_json = if let Some(ram) = ram_override_mb {
+        let settings = InstanceSettings {
+            java_path: None,
+            memory_min_mb: Some(1024),
+            memory_max_mb: Some(ram),
+            gc_preset: None,
+            jvm_args: None,
+        };
+        Some(serde_json::to_string(&settings).map_err(|e| e.to_string())?)
+    } else {
+        None
+    };
+
+    let instance = Instance {
+        id: instance_id,
+        name,
+        game_version,
+        loader: loader_field,
+        loader_version: loader_version_field,
+        java_path: None,
+        memory_min_mb: ram_override_mb.map(|_| 1024),
+        memory_max_mb: ram_override_mb,
+        jvm_args: None,
+        last_played_at: None,
+        total_playtime_seconds: 0,
+        icon_path: None,
+        banner_path: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        last_mclo_gs_url: None,
+        last_mclo_gs_at: None,
+        settings_json,
+    };
+
+    let db = get_database()?;
+    db.insert_instance(&instance).map_err(|e| e.to_string())?;
+
+    Ok(instance)
+}
+
 pub fn resolve_instance_classpath(
     app_data_dir: &std::path::Path,
     version: &str,
@@ -229,6 +587,7 @@ fn get_launch_receipt(game_version: String, username: String) -> Result<LaunchRe
         assets_dir: PathBuf::from("assets"),
         natives_dir: PathBuf::from(format!("instances/{game_version}/natives")),
         version_package: pkg,
+        version_package_chain: None,
         classpath_entries,
         player_name: username,
         player_uuid: offline_uuid,
@@ -494,6 +853,7 @@ fn launch_with_active_identity(
         assets_dir: PathBuf::from("assets"),
         natives_dir: PathBuf::from(format!("instances/{version}/natives")),
         version_package: pkg,
+        version_package_chain: None,
         classpath_entries,
         player_name,
         player_uuid,
@@ -695,9 +1055,39 @@ async fn launch_instance(
         .await
         .map_err(|e| e.to_string())?;
 
+    let mut pkg_chain = vec![pkg.clone()];
+    if let Some(ref inst) = maybe_instance {
+        if let (Some(loader_str), Some(loader_ver)) =
+            (inst.loader.as_deref(), inst.loader_version.as_deref())
+        {
+            if !loader_str.trim().is_empty()
+                && !loader_str.eq_ignore_ascii_case("vanilla")
+                && !loader_ver.trim().is_empty()
+            {
+                match resolve_or_install_loader_package(
+                    &instance_dir,
+                    &version_str,
+                    loader_str,
+                    loader_ver,
+                )
+                .await
+                {
+                    Ok(loader_pkg) => {
+                        pkg_chain.push(loader_pkg);
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            "Failed to resolve loader package for {loader_str} {loader_ver}: {err}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     let ctx = aethel_manifest::OsContext::current();
     let report = provision_instance(
-        std::slice::from_ref(&pkg),
+        &pkg_chain,
         &ctx,
         &version_str,
         &instance_dir,
@@ -776,6 +1166,11 @@ async fn launch_instance(
         assets_dir: report.assets_root,
         natives_dir: report.natives_dir,
         version_package: pkg,
+        version_package_chain: if pkg_chain.len() > 1 {
+            Some(pkg_chain)
+        } else {
+            None
+        },
         classpath_entries: report.classpath,
         player_name,
         player_uuid,
@@ -2055,6 +2450,8 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             get_launcher_version,
             get_offline_uuid,
             get_instances,
+            create_instance,
+            get_minecraft_versions,
             delete_instance,
             get_launch_receipt,
             launch_with_active_identity,
@@ -2482,6 +2879,67 @@ mod tests {
         set_discord_rpc_enabled(true, Some("ru".to_string())).expect("enable discord rpc");
         let g2 = get_global_settings().expect("global");
         assert!(g2.discord_rpc_enabled);
+
+        std::env::remove_var("AETHEL_DATA_DIR");
+    }
+
+    #[tokio::test]
+    async fn test_get_minecraft_versions_returns_versions() {
+        let _lock = TEST_LOCK.lock().await;
+        let versions = get_minecraft_versions().await.expect("versions");
+        assert!(!versions.is_empty());
+        assert!(versions.iter().any(|v| v.id == "1.20.4"));
+    }
+
+    #[tokio::test]
+    async fn test_create_instance_vanilla_and_fabric() {
+        let _lock = TEST_LOCK.lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("AETHEL_DATA_DIR", temp.path().to_str().unwrap());
+
+        // 1. Create Vanilla instance
+        let inst = create_instance(
+            "My Test Vanilla".to_string(),
+            "1.20.4".to_string(),
+            "Vanilla".to_string(),
+            None,
+            Some(6144),
+        )
+        .await
+        .expect("create vanilla instance");
+
+        assert_eq!(inst.name, "My Test Vanilla");
+        assert_eq!(inst.game_version, "1.20.4");
+        assert_eq!(inst.loader, None);
+        assert_eq!(inst.memory_max_mb, Some(6144));
+        assert!(temp.path().join("instances").join(&inst.id).is_dir());
+        assert!(temp
+            .path()
+            .join("instances")
+            .join(&inst.id)
+            .join("mods")
+            .is_dir());
+
+        // 2. Create Fabric instance with auto-resolved loader version
+        let fabric_inst = create_instance(
+            "Fabric Test".to_string(),
+            "1.20.4".to_string(),
+            "Fabric".to_string(),
+            None, // auto-select latest stable
+            None,
+        )
+        .await
+        .expect("create fabric instance");
+
+        assert_eq!(fabric_inst.name, "Fabric Test");
+        assert_eq!(fabric_inst.loader.as_deref(), Some("fabric"));
+        assert!(fabric_inst.loader_version.is_some());
+        assert!(temp
+            .path()
+            .join("instances")
+            .join(&fabric_inst.id)
+            .join("versions")
+            .is_dir());
 
         std::env::remove_var("AETHEL_DATA_DIR");
     }

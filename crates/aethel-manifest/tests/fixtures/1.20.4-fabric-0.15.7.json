@@ -1,0 +1,34 @@
+{
+  "id": "fabric-loader-0.15.7-1.20.4",
+  "inheritsFrom": "1.20.4",
+  "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient",
+  "type": "release",
+  "arguments": {
+    "game": [],
+    "jvm": []
+  },
+  "libraries": [
+    {
+      "name": "net.fabricmc:fabric-loader:0.15.7",
+      "downloads": {
+        "artifact": {
+          "path": "net/fabricmc/fabric-loader/0.15.7/fabric-loader-0.15.7.jar",
+          "sha1": "",
+          "size": 1024,
+          "url": ""
+        }
+      }
+    },
+    {
+      "name": "net.fabricmc:sponge-mixin:0.12.5+mixin.0.8.5",
+      "downloads": {
+        "artifact": {
+          "path": "net/fabricmc/sponge-mixin/0.12.5+mixin.0.8.5/sponge-mixin-0.12.5+mixin.0.8.5.jar",
+          "sha1": "",
+          "size": 1024,
+          "url": ""
+        }
+      }
+    }
+  ]
+}

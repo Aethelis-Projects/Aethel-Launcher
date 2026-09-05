@@ -361,6 +361,8 @@ mod tests {
             arguments: args,
             environment: HashMap::new(),
             classpath_tier: "Tier1_Direct".to_string(),
+            main_class: String::new(),
+            classpath: Vec::new(),
         };
 
         let captured = Arc::new(Mutex::new(Vec::new()));
@@ -404,6 +406,8 @@ mod tests {
             arguments: args,
             environment: HashMap::new(),
             classpath_tier: "Tier1_Direct".to_string(),
+            main_class: String::new(),
+            classpath: Vec::new(),
         };
 
         let mut proc = ProcessSupervisor::spawn(&receipt, None)

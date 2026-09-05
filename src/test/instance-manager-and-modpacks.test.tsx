@@ -4,6 +4,7 @@ import '../__mocks__/tauri';
 import { InstanceManagerModal } from '../components/InstanceManagerModal';
 import { ModpackImportModal } from '../components/ModpackImportModal';
 import { ModpackInstallModal } from '../components/ModpackInstallModal';
+import { CreateInstanceModal } from '../components/CreateInstanceModal';
 import { commands, type Instance } from '../bindings';
 
 const mockInstance: Instance = {
@@ -163,3 +164,87 @@ describe('ModpackInstallModal Suite', () => {
     });
   });
 });
+
+describe('CreateInstanceModal Suite', () => {
+  it('loads Minecraft versions and creates Vanilla instance', async () => {
+    const createSpy = vi.spyOn(commands, 'createInstance').mockResolvedValue({
+      status: 'ok',
+      data: {
+        ...mockInstance,
+        id: 'new-vanilla-id',
+        name: 'Minecraft 1.20.4',
+        game_version: '1.20.4',
+        loader: null,
+      },
+    });
+
+    const onSuccess = vi.fn();
+    const onClose = vi.fn();
+
+    render(<CreateInstanceModal isOpen={true} onClose={onClose} onSuccess={onSuccess} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1.20.4')).toBeInTheDocument();
+    });
+
+    const submitBtn = screen.getByTestId('submit-create-instance-btn');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(createSpy).toHaveBeenCalledWith(
+        'Minecraft 1.20.4',
+        '1.20.4',
+        'Vanilla',
+        null,
+        null
+      );
+      expect(onSuccess).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it('selects Fabric and enables RAM override', async () => {
+    const createSpy = vi.spyOn(commands, 'createInstance').mockResolvedValue({
+      status: 'ok',
+      data: {
+        ...mockInstance,
+        id: 'new-fabric-id',
+        name: 'Fabric Custom',
+        game_version: '1.20.4',
+        loader: 'fabric',
+      },
+    });
+
+    render(<CreateInstanceModal isOpen={true} onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1.20.4')).toBeInTheDocument();
+    });
+
+    // Switch loader to Fabric
+    const fabricBtn = screen.getByRole('button', { name: 'Fabric' });
+    fireEvent.click(fabricBtn);
+
+    // Toggle RAM override
+    const ramToggle = screen.getByRole('checkbox');
+    fireEvent.click(ramToggle);
+
+    await waitFor(() => {
+      expect(screen.getByText(/4096 МБ/i)).toBeInTheDocument();
+    });
+
+    const submitBtn = screen.getByTestId('submit-create-instance-btn');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(createSpy).toHaveBeenCalledWith(
+        'Minecraft 1.20.4',
+        '1.20.4',
+        'Fabric',
+        expect.any(String),
+        4096
+      );
+    });
+  });
+});
+

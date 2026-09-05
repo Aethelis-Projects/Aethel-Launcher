@@ -19,6 +19,7 @@ fn handle_dry_run(is_json: bool) {
         assets_dir: PathBuf::from("C:/aethel/assets"),
         natives_dir: PathBuf::from("C:/aethel/instances/1.20.4/natives"),
         version_package: pkg,
+        version_package_chain: None,
         classpath_entries: vec![
             PathBuf::from("C:/aethel/libraries/client.jar"),
             PathBuf::from("C:/aethel/libraries/lwjgl.jar"),

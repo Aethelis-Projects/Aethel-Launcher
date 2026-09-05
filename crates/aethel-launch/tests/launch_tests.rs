@@ -29,6 +29,7 @@ fn get_mock_config(
         assets_dir: dir.path().join("assets"),
         natives_dir: dir.path().join("natives"),
         version_package: pkg,
+        version_package_chain: None,
         classpath_entries: classpath,
         player_name: "Steve".to_string(),
         player_uuid: "5627dd98-e6be-3c21-b8a8-e92344183641".to_string(),
@@ -123,6 +124,7 @@ fn test_legacy_1_7_10_command_synthesis() {
         assets_dir: dir.path().join("assets"),
         natives_dir: dir.path().join("natives"),
         version_package: pkg,
+        version_package_chain: None,
         classpath_entries: vec![PathBuf::from("minecraft.jar")],
         player_name: "Иван".to_string(),
         player_uuid: "custom-uuid".to_string(),
@@ -209,6 +211,7 @@ fn test_legacy_version_adds_classpath_flag() {
         assets_dir: dir.path().join("assets"),
         natives_dir: dir.path().join("natives"),
         version_package: pkg,
+        version_package_chain: None,
         classpath_entries: vec![client_jar.clone(), PathBuf::from("custom_lib.jar")],
         player_name: "Steve".to_string(),
         player_uuid: "custom-uuid".to_string(),
@@ -262,6 +265,8 @@ async fn test_process_supervisor_envs_passed_tier2() {
         arguments: args,
         environment: envs,
         classpath_tier: "Tier2_EnvVar".to_string(),
+        main_class: String::new(),
+        classpath: Vec::new(),
     };
 
     let mut proc = aethel_launch::ProcessSupervisor::spawn(&receipt, None)
@@ -314,4 +319,157 @@ fn test_version_gated_jvm_flags() {
         25
     ));
     assert!(is_flag_allowed_for_java("-XX:+UseG1GC", 21));
+}
+
+#[test]
+fn test_fabric_chain_uses_knot_mainclass() {
+    let vanilla_content = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
+    let fabric_content =
+        include_str!("../../aethel-manifest/tests/fixtures/1.20.4-fabric-0.15.7.json");
+    let vanilla = VersionPackage::parse(vanilla_content).expect("vanilla");
+    let fabric = VersionPackage::parse(fabric_content).expect("fabric");
+    let chain = vec![vanilla.clone(), fabric.clone()];
+
+    let config = LaunchConfiguration {
+        java_path: PathBuf::from("javaw.exe"),
+        java_version: JavaVersion::V17,
+        game_dir: PathBuf::from("instances/test"),
+        assets_dir: PathBuf::from("assets"),
+        natives_dir: PathBuf::from("natives"),
+        version_package: vanilla,
+        version_package_chain: Some(chain),
+        classpath_entries: vec![
+            PathBuf::from("versions/1.20.4/1.20.4.jar"),
+            PathBuf::from("libraries/net/fabricmc/fabric-loader/0.15.7/fabric-loader-0.15.7.jar"),
+        ],
+        player_name: "Steve".to_string(),
+        player_uuid: "00000000-0000-0000-0000-000000000000".to_string(),
+        auth_access_token: "mock-token".to_string(),
+        user_type: "mojang".to_string(),
+        memory_min_mb: Some(1024),
+        memory_max_mb: Some(4096),
+        custom_jvm_args: None,
+    };
+
+    let receipt = build_launch_receipt(&config, None).expect("Build receipt");
+    assert_eq!(
+        receipt.main_class,
+        "net.fabricmc.loader.impl.launch.knot.KnotClient"
+    );
+    assert!(receipt
+        .classpath
+        .iter()
+        .any(|p| p.to_string_lossy().contains("fabric-loader")));
+}
+
+#[test]
+fn test_neoforge_chain_uses_bootstrap_launcher() {
+    let vanilla_content = include_str!("../../aethel-manifest/tests/fixtures/1.21.1.json");
+    let neoforge_content =
+        include_str!("../../aethel-manifest/tests/fixtures/1.21.1-neoforge-21.1.65.json");
+    let vanilla = VersionPackage::parse(vanilla_content).expect("vanilla");
+    let neoforge = VersionPackage::parse(neoforge_content).expect("neoforge");
+    let chain = vec![vanilla.clone(), neoforge];
+
+    let config = LaunchConfiguration {
+        java_path: PathBuf::from("javaw.exe"),
+        java_version: JavaVersion::V21,
+        game_dir: PathBuf::from("instances/test-neoforge"),
+        assets_dir: PathBuf::from("assets"),
+        natives_dir: PathBuf::from("natives"),
+        version_package: vanilla,
+        version_package_chain: Some(chain),
+        classpath_entries: vec![
+            PathBuf::from("versions/1.21.1/1.21.1.jar"),
+            PathBuf::from("libraries/net/neoforged/neoforge/21.1.65/neoforge-21.1.65.jar"),
+        ],
+        player_name: "Steve".to_string(),
+        player_uuid: "00000000-0000-0000-0000-000000000000".to_string(),
+        auth_access_token: "mock-token".to_string(),
+        user_type: "mojang".to_string(),
+        memory_min_mb: Some(1024),
+        memory_max_mb: Some(4096),
+        custom_jvm_args: None,
+    };
+
+    let receipt = build_launch_receipt(&config, None).expect("Build receipt");
+    assert_eq!(
+        receipt.main_class,
+        "cpw.mods.bootstraplauncher.BootstrapLauncher"
+    );
+}
+
+#[test]
+fn test_vanilla_chain_uses_minecraft_main() {
+    let vanilla_content = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
+    let vanilla = VersionPackage::parse(vanilla_content).expect("vanilla");
+    let chain = vec![vanilla.clone()];
+
+    let config = LaunchConfiguration {
+        java_path: PathBuf::from("javaw.exe"),
+        java_version: JavaVersion::V17,
+        game_dir: PathBuf::from("instances/test-vanilla"),
+        assets_dir: PathBuf::from("assets"),
+        natives_dir: PathBuf::from("natives"),
+        version_package: vanilla,
+        version_package_chain: Some(chain),
+        classpath_entries: vec![PathBuf::from("versions/1.20.4/1.20.4.jar")],
+        player_name: "Steve".to_string(),
+        player_uuid: "00000000-0000-0000-0000-000000000000".to_string(),
+        auth_access_token: "mock-token".to_string(),
+        user_type: "mojang".to_string(),
+        memory_min_mb: Some(1024),
+        memory_max_mb: Some(4096),
+        custom_jvm_args: None,
+    };
+
+    let receipt = build_launch_receipt(&config, None).expect("Build receipt");
+    assert_eq!(receipt.main_class, "net.minecraft.client.main.Main");
+}
+
+#[test]
+fn test_chain_deduplicates_libraries() {
+    let vanilla_content = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
+    let fabric_content =
+        include_str!("../../aethel-manifest/tests/fixtures/1.20.4-fabric-0.15.7.json");
+    let vanilla = VersionPackage::parse(vanilla_content).expect("vanilla");
+    let fabric = VersionPackage::parse(fabric_content).expect("fabric");
+    let chain = vec![vanilla.clone(), fabric];
+
+    // Simulate duplicate entries in classpath_entries
+    let duplicate_cp = vec![
+        PathBuf::from("versions/1.20.4/1.20.4.jar"),
+        PathBuf::from("libraries/com/google/guava/guava.jar"),
+        PathBuf::from("libraries/com/google/guava/guava.jar"),
+        PathBuf::from("libraries/net/fabricmc/fabric-loader/0.15.7/fabric-loader-0.15.7.jar"),
+        PathBuf::from("libraries/com/google/guava/guava.jar"),
+    ];
+
+    let config = LaunchConfiguration {
+        java_path: PathBuf::from("javaw.exe"),
+        java_version: JavaVersion::V17,
+        game_dir: PathBuf::from("instances/test-dedup"),
+        assets_dir: PathBuf::from("assets"),
+        natives_dir: PathBuf::from("natives"),
+        version_package: vanilla,
+        version_package_chain: Some(chain),
+        classpath_entries: duplicate_cp,
+        player_name: "Steve".to_string(),
+        player_uuid: "00000000-0000-0000-0000-000000000000".to_string(),
+        auth_access_token: "mock-token".to_string(),
+        user_type: "mojang".to_string(),
+        memory_min_mb: Some(1024),
+        memory_max_mb: Some(4096),
+        custom_jvm_args: None,
+    };
+
+    let receipt = build_launch_receipt(&config, None).expect("Build receipt");
+    let paths: Vec<String> = receipt
+        .classpath
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
+    let unique: std::collections::HashSet<_> = paths.iter().cloned().collect();
+    assert_eq!(paths.len(), unique.len());
+    assert_eq!(paths.len(), 3); // 1.20.4.jar + guava.jar + fabric-loader.jar
 }

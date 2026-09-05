@@ -19,6 +19,22 @@ async getInstances() : Promise<Result<Instance[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async createInstance(name: string, gameVersion: string, loader: string, loaderVersion: string | null, ramOverrideMb: number | null) : Promise<Result<Instance, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_instance", { name, gameVersion, loader, loaderVersion, ramOverrideMb }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getMinecraftVersions() : Promise<Result<MinecraftVersionEntry[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_minecraft_versions") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async deleteInstance(instanceId: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_instance", { instanceId }) };
@@ -505,7 +521,8 @@ export type JavaInfo = { path: string; version: string; major: number; arch: str
 /**
  * Structured receipt representing synthesized launch parameters.
  */
-export type LaunchReceipt = { java_path: string; working_dir: string; command: string; arguments: string[]; environment: Partial<{ [key in string]: string }>; classpath_tier: string }
+export type LaunchReceipt = { java_path: string; working_dir: string; command: string; arguments: string[]; environment: Partial<{ [key in string]: string }>; classpath_tier: string; main_class: string; classpath: string[] }
+export type MinecraftVersionEntry = { id: string; version_type: string; release_time: string }
 export type ModDependency = { project_id: string | null; version_id: string | null; file_name: string | null; dependency_type: DependencyType }
 export type ModFile = { url: string; filename: string; primary: boolean; size: number; hashes: ModFileHashes }
 export type ModFileHashes = { sha1: string | null; sha512: string | null }

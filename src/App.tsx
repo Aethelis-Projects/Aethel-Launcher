@@ -22,11 +22,11 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeCrashReport, setActiveCrashReport] = useState<CrashReport | null>(null);
   const [activeCrashInstanceId, setActiveCrashInstanceId] = useState<string | null>(null);
-  const { activeAccount, isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
+  const { isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
 
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
   const { addLog, addLogBatch } = useLogStore();
-  const { instances, setLaunchStatus, fetchInstances } = useInstanceStore();
+  const { setLaunchStatus, fetchInstances } = useInstanceStore();
   const { updateChannel, initGlobalSettings } = useSettingsStore();
 
   const [toast, setToast] = useState<{
@@ -51,83 +51,93 @@ export function App() {
     initGlobalSettings(i18n.language);
   }, [fetchAccounts, fetchInstances, initGlobalSettings, i18n.language]);
 
-  // Listen to backend events from Tauri
+  // Listen to backend events from Tauri (WS-18 singleton pattern)
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let isCancelled = false;
+    let unlistenFn: (() => void) | undefined;
 
-    const setupListener = async () => {
-      try {
-        unlisten = await events.backendEvent.listen((event) => {
-          const e = event.payload;
-          switch (e.type) {
-            case 'DownloadProgress':
-              updateProgress(e.data);
-              break;
-            case 'DownloadBatchProgress':
-              updateBatchProgress(e.data.items);
-              break;
-            case 'DownloadCompleted':
-              completeTask(e.data.task_id);
-              break;
-            case 'DownloadFailed':
-              failTask(e.data.task_id, e.data.message);
-              break;
-            case 'ProcessLog':
-              addLog(e.data.line, e.data.is_stderr, e.data.instance_id);
-              break;
-            case 'ProcessLogBatch':
-              addLogBatch(e.data.lines, false, e.data.instance_id);
-              break;
-            case 'ProcessStarted': {
-              setLaunchStatus(e.data.instance_id, 'running');
-              launchStartTimes.current.set(e.data.instance_id, Date.now());
-              const inst = instances.find((i) => i.id === e.data.instance_id);
-              const ver = inst?.game_version || '';
-              const playerName = activeAccount?.name || 'Player';
-              showToast(
-                'success',
-                `✅ Minecraft ${ver} запущен — ${playerName}`,
-                `PID: ${e.data.pid}`
-              );
-              break;
-            }
-            case 'ProcessExited': {
-              setLaunchStatus(e.data.instance_id, 'idle');
-              fetchInstances();
-              const start = launchStartTimes.current.get(e.data.instance_id);
-              launchStartTimes.current.delete(e.data.instance_id);
-              if (start && (e.data.exit_code === 0 || e.data.exit_code === null)) {
-                const elapsedSecs = Math.max(1, Math.round((Date.now() - start) / 1000));
-                const mins = Math.floor(elapsedSecs / 60);
-                const secs = elapsedSecs % 60;
-                const timeStr = mins > 0 ? `${mins} мин ${secs} сек` : `${secs} сек`;
-                showToast('info', 'Игра закрыта', `Время в игре: ${timeStr}`);
-              }
-              break;
-            }
-            case 'ProcessCrashed': {
-              setActiveCrashReport(e.data.report);
-              setActiveCrashInstanceId(e.data.instance_id);
-              const inst = instances.find((i) => i.id === e.data.instance_id);
-              const ver = inst?.game_version || '';
-              showToast(
-                'error',
-                `❌ Minecraft ${ver} завершился с ошибкой`,
-                e.data.report.suggestion || 'Подробности доступны в отчете о краше'
-              );
-              break;
-            }
-            default:
-              break;
+    events.backendEvent
+      .listen((event) => {
+        const e = event.payload;
+        switch (e.type) {
+          case 'DownloadProgress':
+            updateProgress(e.data);
+            break;
+          case 'DownloadBatchProgress':
+            updateBatchProgress(e.data.items);
+            break;
+          case 'DownloadCompleted':
+            completeTask(e.data.task_id);
+            break;
+          case 'DownloadFailed':
+            failTask(e.data.task_id, e.data.message);
+            break;
+          case 'ProcessLog':
+            addLog(e.data.line, e.data.is_stderr, e.data.instance_id);
+            break;
+          case 'ProcessLogBatch':
+            addLogBatch(e.data.lines, false, e.data.instance_id);
+            break;
+          case 'ProcessStarted': {
+            setLaunchStatus(e.data.instance_id, 'running');
+            launchStartTimes.current.set(e.data.instance_id, Date.now());
+            const currentInstances = useInstanceStore.getState().instances;
+            const currentAccount = useAccountStore.getState().activeAccount;
+            const inst = currentInstances.find((i) => i.id === e.data.instance_id);
+            const ver = inst?.game_version || '';
+            const playerName = currentAccount?.name || 'Player';
+            showToast(
+              'success',
+              `✅ Minecraft ${ver} запущен — ${playerName}`,
+              `PID: ${e.data.pid}`
+            );
+            break;
           }
-        });
-      } catch {}
-    };
-
-    setupListener();
+          case 'ProcessExited': {
+            setLaunchStatus(e.data.instance_id, 'idle');
+            fetchInstances();
+            const start = launchStartTimes.current.get(e.data.instance_id);
+            launchStartTimes.current.delete(e.data.instance_id);
+            if (start && (e.data.exit_code === 0 || e.data.exit_code === null)) {
+              const elapsedSecs = Math.max(1, Math.round((Date.now() - start) / 1000));
+              const mins = Math.floor(elapsedSecs / 60);
+              const secs = elapsedSecs % 60;
+              const timeStr = mins > 0 ? `${mins} мин ${secs} сек` : `${secs} сек`;
+              showToast('info', 'Игра закрыта', `Время в игре: ${timeStr}`);
+            }
+            break;
+          }
+          case 'ProcessCrashed': {
+            setActiveCrashReport(e.data.report);
+            setActiveCrashInstanceId(e.data.instance_id);
+            const currentInstances = useInstanceStore.getState().instances;
+            const inst = currentInstances.find((i) => i.id === e.data.instance_id);
+            const ver = inst?.game_version || '';
+            showToast(
+              'error',
+              `❌ Minecraft ${ver} завершился с ошибкой`,
+              e.data.report.suggestion || 'Подробности доступны в отчете о краше'
+            );
+            break;
+          }
+          default:
+            break;
+        }
+      })
+      .then((unlisten) => {
+        if (isCancelled) {
+          unlisten();
+        } else {
+          unlistenFn = unlisten;
+        }
+      })
+      .catch(() => {});
 
     return () => {
-      if (unlisten) unlisten();
+      isCancelled = true;
+      if (unlistenFn) {
+        unlistenFn();
+      }
     };
   }, [
     updateProgress,
@@ -138,8 +148,6 @@ export function App() {
     addLogBatch,
     setLaunchStatus,
     fetchInstances,
-    instances,
-    activeAccount,
   ]);
 
   return (
