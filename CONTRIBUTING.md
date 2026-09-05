@@ -123,3 +123,14 @@ We enforce [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/
 2. **Atomic Commits:** Keep commits focused on a single change. Avoid bundling unrelated formatting edits.
 3. **Tests Included:** Any new logic or bug fix must be accompanied by corresponding unit or integration tests.
 4. **CI Green:** Ensure GitHub Actions CI workflows pass completely on your PR branch.
+
+---
+
+## 🚀 CI/CD & Release Architecture Rules
+
+We maintain a strictly disciplined two-workflow CI/CD architecture to guarantee atomic releases without race conditions:
+
+1. **Sole Publisher Invariant:** No job or step, except the `publish` stage in `release.yml`, interacts with GitHub Releases. All build jobs only produce and upload artifacts.
+2. **Service Release Invariant:** The `launcher-updates` service release is strictly a `prerelease: true` and is **never** marked as `Latest`. It exists solely for the background auto-updater to serve bundles, `.sig` signatures, and `latest.json`.
+3. **Public Release Invariant:** The public release tag (e.g. `v1.0.0-rc.5`) is always marked `make_latest: true` and contains **only** the standalone installer executables (`Aethel-Installer-*`).
+4. **Fresh Payload Invariant:** Standalone installers are assembled exclusively from fresh binaries produced in the exact same workflow run. Fallback downloads of outdated binaries during release builds are strictly prohibited.

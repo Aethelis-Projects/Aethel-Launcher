@@ -1,40 +1,145 @@
-name: Release
+# ==============================================================================
+# Aethel Launcher — Release Pipeline
+#
+# Iron Rules:
+# 1. Sole Publisher Invariant: No job other than 'publish' touches GitHub Releases.
+# 2. Service Release Invariant: 'launcher-updates' is always prerelease: true, never Latest.
+# 3. Public Release Invariant: The public release tag (v*) is always make_latest: true.
+# 4. Fresh Payload Invariant: Standalone installers embed payload from this exact run.
+# ==============================================================================
+
+name: Release Pipeline
 
 on:
   push:
     tags:
       - 'v*'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: Release (${{ matrix.os }} - ${{ matrix.target }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: macos-latest
-            target: aarch64-apple-darwin
-
-    runs-on: ${{ matrix.os }}
+  # ── Стадия 1: ГЕЙТ — все проверки ─────────────────────────
+  gate:
+    name: Gate (Verification & Quality)
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Set up Java 8 & 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify UUID generation matches JVM
+        run: |
+          javac tools/Gen.java
+          java -Dfile.encoding=UTF-8 -cp tools Gen > tools/out.txt
+          python tools/vectors_to_txt.py > tools/expected.txt
+          diff -u tools/out.txt tools/expected.txt
+
+      - name: Install Gitleaks
+        run: |
+          curl -sSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.24.0/gitleaks_8.24.0_linux_x64.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          rm gitleaks.tar.gz
+
+      - name: Scan repository for secrets
+        run: gitleaks detect --verbose --redact
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@cargo-deny
+
+      - name: Check Licenses & Advisories
+        run: cargo deny check
+
+      - name: Check Rust Formatting
+        run: cargo fmt --check
+
+      - name: Clippy Linter
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run Rust Tests
+        run: cargo test --workspace
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Frontend License Audit
+        run: npm run audit:licenses
+
+      - name: Frontend Security Audit
+        run: npm run audit:security
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Lint Frontend
+        run: npm run lint
+
+      - name: Run Frontend Tests
+        run: npm test
+
+  # ── Стадия 2: СБОРКА ЛАУНЧЕРА (матрица ОС) ────────────────
+  build-launcher:
+    name: Build Launcher (${{ matrix.platform }})
+    needs: gate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: macos
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -62,33 +167,6 @@ jobs:
       - name: Install Tauri CLI Binary
         run: cargo binstall --no-confirm tauri-cli || cargo install tauri-cli --locked
 
-      - name: Determine Release Type
-        id: release_type
-        shell: bash
-        run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          if [[ "$TAG_NAME" =~ -(alpha|beta|rc) ]]; then
-            echo "prerelease=true" >> $GITHUB_OUTPUT
-            echo "draft=false" >> $GITHUB_OUTPUT
-            echo "🚧 Pre-release detected: $TAG_NAME"
-          else
-            echo "prerelease=false" >> $GITHUB_OUTPUT
-            echo "draft=false" >> $GITHUB_OUTPUT
-            echo "✅ Stable release detected: $TAG_NAME"
-          fi
-
-      # Windows: Code Signing (conditional if certificate provided)
-      - name: Setup Windows Certificate
-        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE_DATA != ''
-        env:
-          WINDOWS_CERTIFICATE_DATA: ${{ secrets.WINDOWS_CERTIFICATE_DATA }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        shell: pwsh
-        run: |
-          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_DATA)
-          [IO.File]::WriteAllBytes("certificate.pfx", $bytes)
-
-      # Build with Tauri
       - name: Build Tauri App
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -99,166 +177,314 @@ jobs:
           if [[ "$TAG_NAME" =~ -(alpha|beta|rc) ]]; then
             case "${{ runner.os }}" in
               Windows)
-                echo "Pre-release on Windows: building NSIS (excluding WiX MSI)"
                 cargo tauri build --target ${{ matrix.target }} --bundles nsis
                 ;;
               Linux)
-                echo "Pre-release on Linux: building AppImage and DEB"
                 cargo tauri build --target ${{ matrix.target }} --bundles appimage,deb
                 ;;
               macOS)
-                echo "Pre-release on macOS: building DMG"
                 cargo tauri build --target ${{ matrix.target }} --bundles dmg
                 ;;
             esac
           else
-            echo "Stable release: building all targets"
             cargo tauri build --target ${{ matrix.target }}
           fi
 
-      # Windows: Sign binary if certificate exists
-      - name: Sign Windows Binary
-        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE_DATA != ''
-        env:
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      # Minor #1: Create Windows Payload ZIP
+      - name: Create Windows Payload ZIP
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
-          if (Test-Path "certificate.pfx") {
-            Get-ChildItem -Path "target\${{ matrix.target }}\release\bundle\msi\*.msi" | ForEach-Object {
-              & $signtool sign /f certificate.pfx /p $env:WINDOWS_CERTIFICATE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
-            }
+          mkdir stage-payload
+          $exe = Get-ChildItem -Path target -Filter "aethel-launcher-bin.exe" -Recurse | Where-Object { $_.FullName -notmatch '\\deps\\' -and $_.FullName -notmatch '\\build\\' } | Select-Object -First 1
+          Copy-Item $exe.FullName -Destination stage-payload\aethel-launcher-bin.exe
+          Copy-Item $exe.FullName -Destination "stage-payload\Aethel Launcher.exe"
+          $exeDir = $exe.DirectoryName
+          Get-ChildItem -Path $exeDir -Filter "*.dll" | ForEach-Object { Copy-Item $_.FullName -Destination stage-payload\ }
+          if (Test-Path "$exeDir\resources") {
+            Copy-Item -Recurse "$exeDir\resources" -Destination stage-payload\resources
           }
+          Compress-Archive -Path stage-payload\* -DestinationPath aethel-windows-payload.zip -Force
 
-      # macOS: Sign and Notarize (conditional on secrets)
-      - name: Sign and Notarize macOS App
-        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Collect Bundles for Artifact
+        shell: bash
         run: |
-          echo "Importing certificate and submitting to Apple notarytool..."
-          # Notarization pipeline documented in docs/code-signing.md
+          mkdir -p bundle-artifacts
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            cp aethel-windows-payload.zip bundle-artifacts/
+            find target -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.zip" -o -name "*.sig" \) ! -path "*/deps/*" ! -path "*/build/*" ! -path "*/incremental/*" -exec cp {} bundle-artifacts/ \;
+          elif [ "${{ runner.os }}" == "Linux" ]; then
+            find target -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.tar.gz" -o -name "*.sig" \) ! -path "*/deps/*" ! -path "*/build/*" ! -path "*/incremental/*" -exec cp {} bundle-artifacts/ \;
+          elif [ "${{ runner.os }}" == "macOS" ]; then
+            find target -type f \( -name "*.dmg" -o -name "*.tar.gz" -o -name "*.sig" \) ! -path "*/deps/*" ! -path "*/build/*" ! -path "*/incremental/*" -exec cp {} bundle-artifacts/ \;
+          fi
 
-      # 1. Upload Raw Bundles & Update Artifacts to service release 'launcher-updates'
-      - name: Upload Raw Bundles to Service Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Launcher Bundles Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: "launcher-updates"
-          prerelease: false
-          draft: false
-          files: |
-            target/${{ matrix.target }}/release/bundle/msi/*.msi
-            target/${{ matrix.target }}/release/bundle/nsis/*.exe
-            target/${{ matrix.target }}/release/bundle/deb/*.deb
-            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
-            target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
-            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
-            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-            target/${{ matrix.target }}/release/bundle/**/latest.json
-            target/${{ matrix.target }}/release/bundle/**/*.sig
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: launcher-bundles-${{ matrix.platform }}
+          path: bundle-artifacts/*
+          retention-days: 7
 
-      # 2. Build Standalone Installer with Embedded Payload
-      - name: Locate Raw Bundle Payload
-        id: payload
+  # ── Стадия 3: СБОРКА ИНСТАЛЛЕРА со СВЕЖИМ payload ─────────
+  build-installer:
+    name: Build Standalone Installer (${{ matrix.platform }})
+    needs: build-launcher
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: macos
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Add macOS Universal Targets
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Download Launcher Bundle Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: launcher-bundles-${{ matrix.platform }}
+          path: payload-dir
+
+      # Minor #3: Compute Payload SHA-256
+      - name: Compute Payload SHA-256
         shell: bash
         run: |
-          PAYLOAD=""
-          case "${{ runner.os }}" in
-            Windows)
-              mkdir -p payload-stage
-              EXE_PATH=$(find target/${{ matrix.target }}/release -maxdepth 1 -name "aethel-launcher-bin.exe" 2>/dev/null | head -n 1)
-              if [ -z "$EXE_PATH" ]; then
-                EXE_PATH=$(find src-tauri/target/${{ matrix.target }}/release -maxdepth 1 -name "aethel-launcher-bin.exe" 2>/dev/null | head -n 1)
-              fi
-              echo "Found launcher executable at: $EXE_PATH"
-              cp "$EXE_PATH" payload-stage/aethel-launcher-bin.exe
-              cp "$EXE_PATH" "payload-stage/Aethel Launcher.exe"
-              EXE_DIR=$(dirname "$EXE_PATH")
-              find "$EXE_DIR" -maxdepth 1 -name "*.dll" -exec cp {} payload-stage/ \; 2>/dev/null || true
-              if [ -d "$EXE_DIR/resources" ]; then
-                cp -r "$EXE_DIR/resources" payload-stage/
-              fi
-              (cd payload-stage && powershell -NoProfile -Command "Compress-Archive -Path * -DestinationPath ../aethel-windows-payload.zip -Force")
-              PAYLOAD=$(pwd)/aethel-windows-payload.zip
-              ;;
-            Linux)
-              PAYLOAD=$(find target/${{ matrix.target }}/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -n 1)
-              if [ -z "$PAYLOAD" ]; then
-                PAYLOAD=$(find src-tauri/target/${{ matrix.target }}/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -n 1)
-              fi
-              ;;
-            macOS)
-              APP_PATH=$(find target/${{ matrix.target }}/release/bundle/macos -name "*.app" 2>/dev/null | head -n 1)
-              if [ -z "$APP_PATH" ]; then
-                APP_PATH=$(find src-tauri/target/${{ matrix.target }}/release/bundle/macos -name "*.app" 2>/dev/null | head -n 1)
-              fi
-              if [ -n "$APP_PATH" ]; then
-                APP_DIR=$(dirname "$APP_PATH")
-                APP_NAME=$(basename "$APP_PATH")
-                tar -czf aethel-macos-payload.tar.gz -C "$APP_DIR" "$APP_NAME"
-                PAYLOAD=$(pwd)/aethel-macos-payload.tar.gz
-              else
-                PAYLOAD=$(find target/${{ matrix.target }}/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -n 1)
-              fi
-              ;;
-          esac
-          echo "Found payload: $PAYLOAD"
-          echo "payload_path=$PAYLOAD" >> $GITHUB_OUTPUT
-
-      - name: Build Standalone Installer
-        env:
-          AETHEL_PAYLOAD_FILE: ${{ steps.payload.outputs.payload_path }}
-        shell: bash
-        run: |
-          npm run build:installer
-          cargo build --release --target ${{ matrix.target }} -p aethel-installer
-
           mkdir -p dist-installer
           case "${{ runner.os }}" in
             Windows)
-              cp target/${{ matrix.target }}/release/aethel-installer.exe dist-installer/Aethel-Installer-Windows-x64.exe
+              PAYLOAD_FILE=$(find payload-dir -name "aethel-windows-payload.zip" | head -n 1)
+              OUTPUT_NAME="Aethel-Installer-Windows-x64.exe"
               ;;
             Linux)
-              cp target/${{ matrix.target }}/release/aethel-installer dist-installer/Aethel-Installer-Linux-x64
-              chmod +x dist-installer/Aethel-Installer-Linux-x64
+              PAYLOAD_FILE=$(find payload-dir -name "*.AppImage" | head -n 1)
+              OUTPUT_NAME="Aethel-Installer-Linux-x64"
               ;;
             macOS)
-              cp target/${{ matrix.target }}/release/aethel-installer dist-installer/Aethel-Installer-macOS-${{ matrix.target }}
-              chmod +x dist-installer/Aethel-Installer-macOS-${{ matrix.target }}
+              PAYLOAD_FILE=$(find payload-dir -name "*.dmg" -o -name "*.tar.gz" | head -n 1)
+              OUTPUT_NAME="Aethel-Installer-macOS-universal"
               ;;
           esac
 
-      # 3. Public Release: Upload ONLY the Standalone Installer Executable
-      - name: Upload Standalone Installer to Public Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+          echo "Found payload file: $PAYLOAD_FILE"
+          SHA256=$(sha256sum "$PAYLOAD_FILE" | cut -d' ' -f1)
+          echo "Payload SHA256: $SHA256"
+          echo "AETHEL_PAYLOAD_SHA256=$SHA256" >> $GITHUB_ENV
+          echo "AETHEL_PAYLOAD_FILE=$(pwd)/$PAYLOAD_FILE" >> $GITHUB_ENV
+          echo "INSTALLER_OUTPUT_NAME=$OUTPUT_NAME" >> $GITHUB_ENV
+
+      - name: Build Standalone Installer
+        shell: bash
+        run: |
+          npm ci
+          npm run build:installer
+
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            cargo build --release --target aarch64-apple-darwin -p aethel-installer
+            cargo build --release --target x86_64-apple-darwin -p aethel-installer
+            lipo -create -output "dist-installer/$INSTALLER_OUTPUT_NAME" \
+              target/aarch64-apple-darwin/release/aethel-installer \
+              target/x86_64-apple-darwin/release/aethel-installer || \
+              cp target/aarch64-apple-darwin/release/aethel-installer "dist-installer/$INSTALLER_OUTPUT_NAME"
+          else
+            cargo build --release --target ${{ matrix.target }} -p aethel-installer
+            BIN=$(find target -name "aethel-installer.exe" -o -name "aethel-installer" | grep -v "/deps/" | grep -v "/build/" | head -n 1)
+            cp "$BIN" "dist-installer/$INSTALLER_OUTPUT_NAME"
+          fi
+          chmod +x "dist-installer/$INSTALLER_OUTPUT_NAME" || true
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
         with:
-          draft: ${{ steps.release_type.outputs.draft }}
-          prerelease: ${{ steps.release_type.outputs.prerelease }}
+          name: installer-${{ matrix.platform }}
+          path: dist-installer/*
+          retention-days: 7
+
+  # ── Стадия 4: ЕДИНСТВЕННЫЙ ПУБЛИКАТОР (атомарно) ──────────
+  publish:
+    name: Publish Releases (Atomic)
+    needs: [build-launcher, build-installer]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Minisign
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y minisign
+
+      # Minor #6: Download all artifacts from previous stages
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Organize Artifacts
+        shell: bash
+        run: |
+          mkdir -p bundles installers
+          # Collect installers
+          find all-artifacts/installer-* -type f -exec cp {} installers/ \;
+          # Collect bundles (excluding the internal payload zip)
+          find all-artifacts/launcher-bundles-* -type f ! -name "aethel-windows-payload.zip" -exec cp {} bundles/ \;
+
+          echo "=== Collected Installers ==="
+          ls -lh installers/
+          echo "=== Collected Bundles ==="
+          ls -lh bundles/
+
+      # Minor #2: Sign Bundles with Minisign & Generate latest.json
+      - name: Sign Bundles and Generate latest.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAG_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          # 1. Sign any bundle that lacks a signature if private key is present
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "$TAURI_SIGNING_PRIVATE_KEY" > minisign.key
+            for bundle in bundles/*; do
+              if [ -f "$bundle" ] && [[ ! "$bundle" =~ \.sig$ ]]; then
+                if [ ! -f "${bundle}.sig" ]; then
+                  echo "Signing $bundle with minisign..."
+                  if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+                    minisign -S -s minisign.key -m "$bundle" -x "${bundle}.sig" -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" || true
+                  else
+                    minisign -S -s minisign.key -m "$bundle" -x "${bundle}.sig" || true
+                  fi
+                fi
+              fi
+            done
+            rm -f minisign.key
+          fi
+
+          # 2. Synthesize unified latest.json for Tauri background updater
+          python3 - << 'EOF'
+          import json, glob, os, sys
+          from datetime import datetime, timezone
+
+          tag = os.environ.get("TAG_NAME", "v1.0.0-rc.5")
+          version = tag.lstrip("v")
+          repo = "Aethelis-Projects/Aethel-Launcher"
+          base_url = f"https://github.com/{repo}/releases/download/launcher-updates"
+
+          manifest = {
+              "version": tag,
+              "notes": f"Aethel Launcher {tag} update",
+              "pub_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "platforms": {}
+          }
+
+          bundle_files = glob.glob("bundles/*")
+          print(f"Found {len(bundle_files)} files in bundles/")
+
+          def get_signature(file_path):
+              sig_file = file_path + ".sig"
+              if os.path.exists(sig_file):
+                  with open(sig_file, "r", encoding="utf-8") as f:
+                      return f.read().strip()
+              return ""
+
+          # Platform patterns
+          for f in bundle_files:
+              fname = os.path.basename(f)
+              if fname.endswith(".sig"):
+                  continue
+              sig = get_signature(f)
+              url = f"{base_url}/{fname}"
+
+              if fname.endswith(".exe") or fname.endswith(".nsis.zip") or fname.endswith(".msi"):
+                  if "x64" in fname or "amd64" in fname:
+                      manifest["platforms"]["windows-x86_64"] = {
+                          "signature": sig,
+                          "url": url
+                      }
+              elif fname.endswith(".AppImage") or fname.endswith(".AppImage.tar.gz") or fname.endswith(".deb"):
+                  if "amd64" in fname or "x86_64" in fname:
+                      manifest["platforms"]["linux-x86_64"] = {
+                          "signature": sig,
+                          "url": url
+                      }
+              elif fname.endswith(".dmg") or fname.endswith(".app.tar.gz"):
+                  if "aarch64" in fname or "arm64" in fname:
+                      manifest["platforms"]["darwin-aarch64"] = {
+                          "signature": sig,
+                          "url": url
+                      }
+                  else:
+                      manifest["platforms"]["darwin-x86_64"] = {
+                          "signature": sig,
+                          "url": url
+                      }
+
+          with open("latest.json", "w", encoding="utf-8") as out:
+              json.dump(manifest, out, indent=2)
+
+          print("Generated latest.json:")
+          print(json.dumps(manifest, indent=2))
+          EOF
+
+      # Service Release: Delete if exists and recreate atomically with --prerelease
+      - name: Publish Service Release (launcher-updates)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release delete launcher-updates --yes || true
+          gh release create launcher-updates \
+            bundles/* latest.json \
+            --prerelease \
+            --title "launcher-updates (service release for auto-updater)" \
+            --notes "Служебный релиз для автоматического обновления лаунчера. Публичные автономные инсталлеры доступны на странице релизов." \
+            --target $GITHUB_SHA
+
+      # Public Release: Upload ONLY the 3 standalone installer binaries
+      - name: Publish Public Release (${{ github.ref_name }})
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installers/*
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') }}
+          make_latest: true
           generate_release_notes: false
-          body: |
-            ## ✨ Release ${{ github.ref_name }}
-
-            ### 🚀 Standalone Offline Installer
-            Download the installer executable for your operating system below. Each installer embeds the complete launcher application for a 100% offline installation experience.
-
-            - **Windows**: `Aethel-Installer-Windows-x64.exe`
-            - **Linux**: `Aethel-Installer-Linux-x64`
-            - **macOS**: `Aethel-Installer-macOS-*`
-
-            ---
-            **Full Changelog**: https://github.com/Aethelis-Projects/Aethel-Launcher/compare/v1.0.0-rc.2...${{ github.ref_name }}
-          files: |
-            dist-installer/*
+          body_path: RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
