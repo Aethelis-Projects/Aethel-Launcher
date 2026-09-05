@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Gamepad2, Terminal, Settings } from 'lucide-react';
+import { Gamepad2, Terminal, Settings, Coffee } from 'lucide-react';
 import { TitleBar } from './components/TitleBar';
 import { InstanceGrid } from './components/InstanceGrid';
 import { DownloadDrawer } from './components/DownloadDrawer';
 import { SettingsModal } from './components/SettingsModal';
+import { JavaManagerModal } from './components/JavaManagerModal';
 import { AccountModal } from './components/AccountModal';
 import { CrashReportModal } from './components/CrashReportModal';
 import { UpdateChecker } from './components/UpdateChecker';
@@ -20,6 +21,7 @@ export function App() {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<'instances' | 'logs'>('instances');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isJavaManagerOpen, setIsJavaManagerOpen] = useState(false);
   const [activeCrashReport, setActiveCrashReport] = useState<CrashReport | null>(null);
   const [activeCrashInstanceId, setActiveCrashInstanceId] = useState<string | null>(null);
   const { isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
@@ -153,7 +155,12 @@ export function App() {
   return (
     <div className="flex h-screen w-screen flex-col bg-zinc-950 text-zinc-100 antialiased font-sans select-none overflow-hidden">
       {/* Frameless TitleBar */}
-      <TitleBar />
+      <TitleBar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onOpenJava={() => setIsJavaManagerOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
 
       {/* Main Workspace Layout */}
       <div className="flex flex-1 overflow-hidden">
@@ -184,6 +191,15 @@ export function App() {
                 <Terminal className="w-4 h-4" />
                 <span>{t('nav.logs')}</span>
               </button>
+
+              <button
+                onClick={() => setIsJavaManagerOpen(true)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition-colors"
+                title={t('javaManager.title', 'Java Runtime Manager')}
+              >
+                <Coffee className="w-4 h-4 text-cyan-400" />
+                <span>Java</span>
+              </button>
             </nav>
           </div>
 
@@ -211,8 +227,15 @@ export function App() {
       {/* Account Management Modal */}
       <AccountModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} />
 
+      {/* Java Manager Modal (Prism-Style) */}
+      <JavaManagerModal isOpen={isJavaManagerOpen} onClose={() => setIsJavaManagerOpen(false)} />
+
       {/* Global Settings Modal */}
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onOpenJavaManager={() => setIsJavaManagerOpen(true)}
+      />
 
       {/* Crash Report Modal */}
       <CrashReportModal

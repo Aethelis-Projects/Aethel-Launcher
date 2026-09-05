@@ -43,7 +43,16 @@ impl CrashAnalyzer {
                 );
             }
 
-            // 2. Wrong Java Version
+            // 2. Outdated Modloader ASM (Unsupported class file major version)
+            if line.contains("Unsupported class file major version") {
+                return (
+                    CrashPattern::OutdatedLoaderAsm,
+                    "Модлоадер устарел для этой версии Minecraft".to_string(),
+                    "Обновите Loader до последней стабильной версии: Instance Manager → Overview → Modloader.".to_string(),
+                );
+            }
+
+            // 3. Wrong Java Version
             if line.contains(
                 "has been compiled by a more recent version of the Java Runtime Environment",
             ) || line.contains("Unsupported major.minor version")
@@ -334,6 +343,17 @@ mod tests {
             CrashPattern::UnsatisfiedLink(lib) => assert!(lib.contains("lwjgl64.dll")),
             other => panic!("Expected UnsatisfiedLink, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_crash_outdated_loader_asm() {
+        let lines = vec![
+            "[main/ERROR]: java.lang.IllegalArgumentException: Unsupported class file major version 69"
+                .to_string(),
+        ];
+        let report = CrashAnalyzer::analyze(Some(1), &lines);
+        assert_eq!(report.pattern, CrashPattern::OutdatedLoaderAsm);
+        assert!(report.suggestion.contains("Instance Manager"));
     }
 
     #[test]

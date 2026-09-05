@@ -1,10 +1,12 @@
 pub mod fabric;
 pub mod forge;
+pub mod meta;
 pub mod neoforge;
 pub mod quilt;
 
 pub use fabric::FabricInstaller;
 pub use forge::ForgeInstaller;
+pub use meta::*;
 pub use neoforge::NeoForgeInstaller;
 pub use quilt::QuiltInstaller;
 

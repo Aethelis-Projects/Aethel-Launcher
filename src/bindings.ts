@@ -75,6 +75,22 @@ async detectSystemJava() : Promise<Result<JavaInfo[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async detectSystemJavas() : Promise<Result<DetectedJava[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("detect_system_javas") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async testJavaPath(path: string) : Promise<Result<JavaTestResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("test_java_path", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async downloadJre(major: number) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("download_jre", { major }) };
@@ -462,6 +478,14 @@ async searchModpacks(query: string, provider: string, loader: string | null, gam
     else return { status: "error", error: e  as any };
 }
 },
+async getModpackDetails(provider: string, projectId: string) : Promise<Result<ModpackProjectDetails, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_modpack_details", { provider, projectId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async installOnlineModpack(provider: string, projectId: string, versionId: string | null, instanceName: string) : Promise<Result<Instance, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("install_online_modpack", { provider, projectId, versionId, instanceName }) };
@@ -506,10 +530,11 @@ backendEvent: "backend-event"
 export type AccountMetadata = { uuid: string; username: string; account_type: string; skin_url: string | null; cape_url: string | null; server_url: string | null; last_used_at: string; is_active: boolean }
 export type AppErrorCode = "NO_DISK_SPACE" | "NETWORK_ERROR" | "HASH_MISMATCH" | "JAVA_NOT_FOUND" | "JAVA_INCOMPATIBLE" | "CLASSPATH_TOO_LONG" | "INVALID_MANIFEST" | "ZIP_SLIP_DETECTED" | "AUTH_FAILED" | "KEYRING_ACCESS_FAILED" | "ENCRYPTION_FAILED" | "DECRYPTION_FAILED" | "INSTANCE_NOT_FOUND" | "LAUNCH_PROVISION_FAILED" | "INTERNAL_ERROR"
 export type BackendEvent = { type: "DownloadProgress"; data: { task_id: string; current: number; total: number; speed_bps: number; file_name: string } } | { type: "DownloadBatchProgress"; data: { items: DownloadProgressItem[] } } | { type: "DownloadCompleted"; data: { task_id: string } } | { type: "DownloadFailed"; data: { task_id: string; error_code: AppErrorCode; message: string } } | { type: "ProcessStarting"; data: { instance_id: string } } | { type: "ProcessStarted"; data: { instance_id: string; pid: number } } | { type: "ProcessLog"; data: { instance_id: string; line: string; is_stderr: boolean } } | { type: "ProcessLogBatch"; data: { instance_id: string; lines: string[] } } | { type: "ProcessExited"; data: { instance_id: string; exit_code: number | null } } | { type: "ProcessCrashed"; data: { instance_id: string; report: CrashReport } } | { type: "InstanceUpdated"; data: { instance_id: string } }
-export type CrashPattern = "OutOfMemory" | { ClassNotFound: string } | { NoClassDefFound: string } | { UnsatisfiedLink: string } | { WrongJavaVersion: { expected: number; actual: number | null } } | "GpuDriverIssue" | { ModConflict: string } | "Unknown"
+export type CrashPattern = "OutOfMemory" | { ClassNotFound: string } | { NoClassDefFound: string } | { UnsatisfiedLink: string } | { WrongJavaVersion: { expected: number; actual: number | null } } | "GpuDriverIssue" | { ModConflict: string } | "OutdatedLoaderAsm" | "Unknown"
 export type CrashReport = { pattern: CrashPattern; diagnosis: string; suggestion: string; full_log: string; exit_code: number | null; upload_url: string | null }
 export type DependencyConflict = { mod_a: string; mod_b: string; reason: string }
 export type DependencyType = "Required" | "Optional" | "Incompatible" | "Embedded"
+export type DetectedJava = { path: string; version: string; major: number; arch: string; vendor: string | null; source: JavaSource }
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
 export type EffectiveInstanceSettings = { java_path: string | null; memory_min_mb: number; memory_max_mb: number; gc_preset: string; jvm_args: string | null; has_overrides: boolean }
 export type GlobalSettings = { theme: string; discord_rpc_enabled: boolean; update_channel: string; default_java_path: string | null; default_java_mode: string; default_java_provider: string; 
@@ -526,6 +551,8 @@ export type InstalledRuntime = { major: number; path: string; provider: string; 
 export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string; last_mclo_gs_url: string | null; last_mclo_gs_at: string | null; settings_json: string | null }
 export type InstanceSettings = { java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; gc_preset: string | null; jvm_args: string | null }
 export type JavaInfo = { path: string; version: string; major: number; arch: string; vendor: string | null; is_system: boolean }
+export type JavaSource = "Managed" | "System"
+export type JavaTestResult = { valid: boolean; version: string | null; major: number | null; vendor: string | null; arch: string | null; output: string; error: string | null }
 /**
  * Structured receipt representing synthesized launch parameters.
  */
@@ -540,6 +567,7 @@ export type ModVersion = { version_id: string; project_id: string; version_numbe
 export type ModloaderType = "Fabric" | "NeoForge" | "Quilt" | "Forge"
 export type ModloaderVersion = { loader: ModloaderType; version: string; game_version: string; stable: boolean }
 export type ModpackInspectResult = { name: string; version: string; summary: string | null; game_version: string; loader: string; loader_version: string | null; file_count: number; author: string | null; icon_base64: string | null }
+export type ModpackProjectDetails = { description_html: string | null; body_markdown: string | null; screenshots: string[]; logo_url: string | null }
 export type ModpackSearchResult = { provider: string; project_id: string; title: string; summary: string; author: string; downloads: number; icon_url: string | null; categories: string[]; latest_version: string | null; supported_game_versions: string[] }
 export type ResolutionResult = { to_install: ModVersion[]; optional_suggestions: ModVersion[]; conflicts: DependencyConflict[] }
 export type ResourcePackEntry = { file_name: string; name: string; description: string | null; icon_base64: string | null; is_enabled: boolean; size_bytes: number }

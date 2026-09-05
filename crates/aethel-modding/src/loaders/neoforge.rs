@@ -28,7 +28,7 @@ impl NeoForgeInstaller {
             },
             "libraries": [
                 {
-                    "name": format!("net.neoforged:neoforge:{loader_version}")
+                    "name": format!("net.neoforged:neoforge:{loader_version}:client")
                 },
                 {
                     "name": "net.neoforged.fancymodloader:loader:2.0.0"

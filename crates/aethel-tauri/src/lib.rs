@@ -8,7 +8,9 @@ use aethel_core::{
     Instance, InstanceSettings, JavaInfo,
 };
 use aethel_java::{
-    detect_system_java as scan_system_java, GCPreset, InstalledRuntime, JavaProvider, JavaResolver,
+    detect_system_java as scan_system_java, detect_system_javas as scan_system_javas,
+    test_java_path as check_java_path, DetectedJava, GCPreset, InstalledRuntime, JavaProvider,
+    JavaResolver, JavaTestResult,
 };
 use aethel_launch::{
     build_classpath, build_launch_receipt, provision_instance, resolve_version_package,
@@ -465,7 +467,8 @@ async fn create_instance(
                 let versions = get_modloader_versions(
                     parsed_loader.as_str().to_string(),
                     game_version.clone(),
-                )?;
+                )
+                .await?;
                 versions
                     .iter()
                     .find(|v| v.stable)
@@ -865,6 +868,19 @@ fn launch_with_active_identity(
 #[specta::specta]
 fn detect_system_java() -> Result<Vec<JavaInfo>, String> {
     Ok(scan_system_java())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn detect_system_javas() -> Result<Vec<DetectedJava>, String> {
+    let runtimes_dir = get_app_data_dir().join("runtimes");
+    Ok(scan_system_javas(Some(&runtimes_dir)))
+}
+
+#[tauri::command]
+#[specta::specta]
+fn test_java_path(path: String) -> Result<JavaTestResult, String> {
+    Ok(check_java_path(Path::new(&path)))
 }
 
 #[tauri::command]
@@ -1449,79 +1465,57 @@ fn uninstall_modloader(instance_id: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+type LoaderVersionCacheMap =
+    std::collections::HashMap<(String, String), (std::time::Instant, Vec<ModloaderVersion>)>;
+
+static LOADER_VERSIONS_CACHE: std::sync::OnceLock<tokio::sync::RwLock<LoaderVersionCacheMap>> =
+    std::sync::OnceLock::new();
+
+fn get_loader_versions_cache() -> &'static tokio::sync::RwLock<LoaderVersionCacheMap> {
+    LOADER_VERSIONS_CACHE.get_or_init(|| tokio::sync::RwLock::new(std::collections::HashMap::new()))
+}
+
 #[tauri::command]
 #[specta::specta]
-fn get_modloader_versions(
+async fn get_modloader_versions(
     loader: String,
     game_version: String,
 ) -> Result<Vec<ModloaderVersion>, String> {
     let parsed =
         ModloaderType::from_str(&loader).ok_or_else(|| format!("Unknown modloader: {loader}"))?;
 
-    let versions = match parsed {
-        ModloaderType::Fabric => vec![
-            ModloaderVersion {
-                loader: ModloaderType::Fabric,
-                version: "0.16.10".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-            ModloaderVersion {
-                loader: ModloaderType::Fabric,
-                version: "0.15.11".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-            ModloaderVersion {
-                loader: ModloaderType::Fabric,
-                version: "0.15.7".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-        ],
-        ModloaderType::NeoForge => vec![
-            ModloaderVersion {
-                loader: ModloaderType::NeoForge,
-                version: "20.4.160-beta".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-            ModloaderVersion {
-                loader: ModloaderType::NeoForge,
-                version: "20.4.80-beta".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-        ],
-        ModloaderType::Quilt => vec![
-            ModloaderVersion {
-                loader: ModloaderType::Quilt,
-                version: "0.26.1".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-            ModloaderVersion {
-                loader: ModloaderType::Quilt,
-                version: "0.25.0".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-        ],
-        ModloaderType::Forge => vec![
-            ModloaderVersion {
-                loader: ModloaderType::Forge,
-                version: "49.0.30".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-            ModloaderVersion {
-                loader: ModloaderType::Forge,
-                version: "47.2.20".into(),
-                game_version: game_version.clone(),
-                stable: true,
-            },
-        ],
+    let cache_key = (parsed.as_str().to_lowercase(), game_version.clone());
+    {
+        let cache = get_loader_versions_cache().read().await;
+        if let Some((time, vers)) = cache.get(&cache_key) {
+            if time.elapsed() < std::time::Duration::from_secs(300) {
+                return Ok(vers.clone());
+            }
+        }
+    }
+
+    let client = reqwest::Client::builder()
+        .user_agent("aethel-launcher/1.0.0 (Aethelis Projects)")
+        .build()
+        .unwrap_or_default();
+
+    let fetched =
+        aethel_modding::fetch_loader_versions_online(parsed, &game_version, &client).await;
+    let versions = match fetched {
+        Ok(v) if !v.is_empty() => v,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to fetch live {loader} versions for {game_version}: {e}. Using fallback."
+            );
+            aethel_modding::fallback_loader_versions(parsed, &game_version)
+        }
+        _ => aethel_modding::fallback_loader_versions(parsed, &game_version),
     };
+
+    {
+        let mut cache = get_loader_versions_cache().write().await;
+        cache.insert(cache_key, (std::time::Instant::now(), versions.clone()));
+    }
 
     Ok(versions)
 }
@@ -2239,6 +2233,104 @@ async fn search_modpacks(
     Ok(results)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct ModpackProjectDetails {
+    pub description_html: Option<String>,
+    pub body_markdown: Option<String>,
+    pub screenshots: Vec<String>,
+    pub logo_url: Option<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn get_modpack_details(
+    provider: String,
+    project_id: String,
+) -> Result<ModpackProjectDetails, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("aethel-launcher/1.0.0 (Aethelis Projects)")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    if provider == "modrinth" {
+        let url = format!("https://api.modrinth.com/v2/project/{project_id}");
+        let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            let val: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            let body_markdown = val["body"].as_str().map(|s| s.to_string());
+            let mut screenshots = Vec::new();
+            if let Some(arr) = val["gallery"].as_array() {
+                for item in arr {
+                    if let Some(u) = item["url"].as_str() {
+                        screenshots.push(u.to_string());
+                    }
+                }
+            }
+            let logo_url = val["icon_url"].as_str().map(|s| s.to_string());
+            return Ok(ModpackProjectDetails {
+                description_html: None,
+                body_markdown,
+                screenshots,
+                logo_url,
+            });
+        }
+        return Err(format!(
+            "Modrinth project request returned {}",
+            resp.status()
+        ));
+    } else if provider == "curseforge" {
+        let mod_url = format!("https://api.curseforge.com/v1/mods/{project_id}");
+        let resp = client
+            .get(&mod_url)
+            .header("x-api-key", aethel_modding::DEFAULT_CURSEFORGE_KEY)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let mut screenshots = Vec::new();
+        let mut logo_url = None;
+        if resp.status().is_success() {
+            if let Ok(val) = resp.json::<serde_json::Value>().await {
+                if let Some(arr) = val["data"]["screenshots"].as_array() {
+                    for item in arr {
+                        if let Some(u) = item["url"].as_str() {
+                            screenshots.push(u.to_string());
+                        }
+                    }
+                }
+                logo_url = val["data"]["logo"]["url"].as_str().map(|s| s.to_string());
+            }
+        }
+
+        let desc_url = format!("https://api.curseforge.com/v1/mods/{project_id}/description");
+        let desc_resp = client
+            .get(&desc_url)
+            .header("x-api-key", aethel_modding::DEFAULT_CURSEFORGE_KEY)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let description_html = if desc_resp.status().is_success() {
+            if let Ok(desc_val) = desc_resp.json::<serde_json::Value>().await {
+                desc_val["data"].as_str().map(|s| s.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        return Ok(ModpackProjectDetails {
+            description_html,
+            body_markdown: None,
+            screenshots,
+            logo_url,
+        });
+    }
+
+    Err(format!("Unsupported provider: {provider}"))
+}
+
 #[tauri::command]
 #[specta::specta]
 async fn install_online_modpack(
@@ -2528,6 +2620,8 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             launch_with_active_identity,
             launch_instance,
             detect_system_java,
+            detect_system_javas,
+            test_java_path,
             download_jre,
             get_installed_runtimes,
             download_runtime,
@@ -2577,6 +2671,7 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             get_instance_worlds,
             inspect_modpack,
             search_modpacks,
+            get_modpack_details,
             install_online_modpack,
             pick_file_dialog,
             prepare_silent_update_and_restart
@@ -2680,22 +2775,34 @@ mod tests {
         assert!(report.suggestion.contains("Allocate more RAM"));
     }
 
-    #[test]
-    fn test_modloader_versions_query() {
-        let fabric = get_modloader_versions("fabric".into(), "1.20.4".into()).unwrap();
+    #[tokio::test]
+    async fn test_modloader_versions_query() {
+        let fabric = get_modloader_versions("fabric".into(), "1.20.4".into())
+            .await
+            .unwrap();
         assert!(!fabric.is_empty());
         assert_eq!(fabric[0].loader, ModloaderType::Fabric);
 
-        let neoforge = get_modloader_versions("neoforge".into(), "1.20.4".into()).unwrap();
+        let neoforge = get_modloader_versions("neoforge".into(), "1.20.4".into())
+            .await
+            .unwrap();
         assert!(!neoforge.is_empty());
 
-        let quilt = get_modloader_versions("quilt".into(), "1.20.4".into()).unwrap();
+        let quilt = get_modloader_versions("quilt".into(), "1.20.4".into())
+            .await
+            .unwrap();
         assert!(!quilt.is_empty());
 
-        let forge = get_modloader_versions("forge".into(), "1.20.4".into()).unwrap();
+        let forge = get_modloader_versions("forge".into(), "1.20.4".into())
+            .await
+            .unwrap();
         assert!(!forge.is_empty());
 
-        assert!(get_modloader_versions("invalid_loader".into(), "1.20.4".into()).is_err());
+        assert!(
+            get_modloader_versions("invalid_loader".into(), "1.20.4".into())
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

@@ -38,6 +38,33 @@ pub struct InstalledRuntime {
     pub version_str: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum JavaSource {
+    Managed,
+    System,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct DetectedJava {
+    pub path: String,
+    pub version: String,
+    pub major: u32,
+    pub arch: String,
+    pub vendor: Option<String>,
+    pub source: JavaSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct JavaTestResult {
+    pub valid: bool,
+    pub version: Option<String>,
+    pub major: Option<u32>,
+    pub vendor: Option<String>,
+    pub arch: Option<String>,
+    pub output: String,
+    pub error: Option<String>,
+}
+
 pub struct JavaResolver {
     cache_dir: PathBuf,
     client: reqwest::Client,
@@ -450,15 +477,16 @@ pub fn parse_java_version_output(output: &str) -> Result<(String, u32, Option<St
             let version_str = &version_line[s + 1..e];
             let major = parse_java_major(version_str);
 
-            let vendor = if output.to_lowercase().contains("temurin") {
+            let lower = output.to_lowercase();
+            let vendor = if lower.contains("temurin") || lower.contains("adoptium") {
                 Some("Eclipse Temurin".to_string())
-            } else if output.to_lowercase().contains("zulu") {
+            } else if lower.contains("zulu") {
                 Some("Azul Zulu".to_string())
-            } else if output.to_lowercase().contains("microsoft") {
+            } else if lower.contains("microsoft") {
                 Some("Microsoft".to_string())
-            } else if output.to_lowercase().contains("oracle") {
+            } else if lower.contains("oracle") {
                 Some("Oracle".to_string())
-            } else if output.to_lowercase().contains("openjdk") {
+            } else if lower.contains("openjdk") {
                 Some("OpenJDK".to_string())
             } else {
                 None
@@ -475,17 +503,96 @@ pub fn parse_java_version_output(output: &str) -> Result<(String, u32, Option<St
 }
 
 fn parse_java_major(version: &str) -> u32 {
-    let parts: Vec<&str> = version.split('.').collect();
-    if parts.is_empty() {
-        return 8;
+    let clean = version.trim();
+    if let Some(after_one) = clean.strip_prefix("1.") {
+        // e.g. "1.8.0_381" -> 8
+        let num_part = after_one
+            .split(|c: char| !c.is_ascii_digit())
+            .next()
+            .unwrap_or("");
+        num_part.parse::<u32>().unwrap_or(8)
+    } else {
+        // e.g. "17.0.8" -> 17, "21" -> 21, "25-ea" -> 25
+        let num_part = clean
+            .split(|c: char| !c.is_ascii_digit())
+            .next()
+            .unwrap_or("");
+        num_part.parse::<u32>().unwrap_or(17)
+    }
+}
+
+/// Tests a specific Java executable path by executing `java -version`.
+pub fn test_java_path(path: &Path) -> JavaTestResult {
+    if !path.exists() {
+        return JavaTestResult {
+            valid: false,
+            version: None,
+            major: None,
+            vendor: None,
+            arch: None,
+            output: String::new(),
+            error: Some(format!(
+                "Executable path does not exist: {}",
+                path.display()
+            )),
+        };
     }
 
-    if parts[0] == "1" && parts.len() > 1 {
-        // e.g. "1.8.0_381" -> 8
-        parts[1].parse::<u32>().unwrap_or(8)
-    } else {
-        // e.g. "17.0.8" -> 17, "21" -> 21
-        parts[0].parse::<u32>().unwrap_or(17)
+    let output_res = std::process::Command::new(path).arg("-version").output();
+    match output_res {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let combined = if stderr.trim().is_empty() {
+                stdout.to_string()
+            } else if stdout.trim().is_empty() {
+                stderr.to_string()
+            } else {
+                format!("{stdout}\n{stderr}")
+            };
+
+            match parse_java_version_output(&combined) {
+                Ok((version, major, vendor)) => {
+                    let arch = if combined.contains("64-Bit")
+                        || combined.contains("x86_64")
+                        || combined.contains("amd64")
+                    {
+                        "x86_64".to_string()
+                    } else if combined.contains("aarch64") || combined.contains("arm64") {
+                        "aarch64".to_string()
+                    } else {
+                        "x86".to_string()
+                    };
+                    JavaTestResult {
+                        valid: true,
+                        version: Some(version),
+                        major: Some(major),
+                        vendor,
+                        arch: Some(arch),
+                        output: combined.trim().to_string(),
+                        error: None,
+                    }
+                }
+                Err(e) => JavaTestResult {
+                    valid: false,
+                    version: None,
+                    major: None,
+                    vendor: None,
+                    arch: None,
+                    output: combined.trim().to_string(),
+                    error: Some(format!("Failed to parse version output: {e}")),
+                },
+            }
+        }
+        Err(e) => JavaTestResult {
+            valid: false,
+            version: None,
+            major: None,
+            vendor: None,
+            arch: None,
+            output: String::new(),
+            error: Some(format!("Failed to execute java binary: {e}")),
+        },
     }
 }
 
@@ -597,6 +704,249 @@ pub fn detect_system_java() -> Vec<JavaInfo> {
             }
         }
     }
+
+    found
+}
+
+/// Comprehensive scan of system and launcher-managed Java runtimes.
+pub fn detect_system_javas(cache_dir: Option<&Path>) -> Vec<DetectedJava> {
+    let mut candidates: Vec<(PathBuf, JavaSource)> = Vec::new();
+
+    // 1. Managed runtimes in cache_dir
+    if let Some(dir) = cache_dir {
+        if dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.is_dir() {
+                        if let Some(exe) = JavaResolver::find_executable_in_dir(&p) {
+                            candidates.push((exe, JavaSource::Managed));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. JAVA_HOME
+    if let Ok(java_home) = std::env::var("JAVA_HOME") {
+        let path = PathBuf::from(java_home);
+        candidates.push((
+            path.join("bin")
+                .join(if cfg!(windows) { "javaw.exe" } else { "java" }),
+            JavaSource::System,
+        ));
+        candidates.push((path.join("bin").join("java"), JavaSource::System));
+    }
+
+    // 3. System directories
+    #[cfg(windows)]
+    {
+        let roots = [
+            r"C:\Program Files\Java",
+            r"C:\Program Files (x86)\Java",
+            r"C:\Program Files\Eclipse Adoptium",
+            r"C:\Program Files\Microsoft",
+            r"C:\Program Files\BellSoft",
+            r"C:\Program Files\Zulu",
+            r"C:\Program Files\Amazon Corretto",
+        ];
+        for root in roots {
+            let root_path = Path::new(root);
+            if let Ok(entries) = std::fs::read_dir(root_path) {
+                for entry in entries.flatten() {
+                    let bin_w = entry.path().join("bin").join("javaw.exe");
+                    if bin_w.exists() {
+                        candidates.push((bin_w, JavaSource::System));
+                    }
+                    let bin_j = entry.path().join("bin").join("java.exe");
+                    if bin_j.exists() {
+                        candidates.push((bin_j, JavaSource::System));
+                    }
+                }
+            }
+        }
+
+        // IntelliJ / JetBrains .jdks
+        if let Ok(userprofile) = std::env::var("USERPROFILE") {
+            let jdks_path = Path::new(&userprofile).join(".jdks");
+            if let Ok(entries) = std::fs::read_dir(&jdks_path) {
+                for entry in entries.flatten() {
+                    let bin_w = entry.path().join("bin").join("javaw.exe");
+                    if bin_w.exists() {
+                        candidates.push((bin_w, JavaSource::System));
+                    }
+                    let bin_j = entry.path().join("bin").join("java.exe");
+                    if bin_j.exists() {
+                        candidates.push((bin_j, JavaSource::System));
+                    }
+                }
+            }
+        }
+
+        // 'where java' / 'where javaw'
+        for cmd in &["java", "javaw"] {
+            if let Ok(out) = std::process::Command::new("where").arg(cmd).output() {
+                if out.status.success() {
+                    let text = String::from_utf8_lossy(&out.stdout);
+                    for line in text.lines() {
+                        let trimmed = line.trim();
+                        if !trimmed.is_empty() {
+                            let p = PathBuf::from(trimmed);
+                            if p.exists() {
+                                candidates.push((p, JavaSource::System));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Windows Registry: reg query HKLM\SOFTWARE\JavaSoft /s
+        if let Ok(out) = std::process::Command::new("reg")
+            .args(["query", r"HKLM\SOFTWARE\JavaSoft", "/s"])
+            .output()
+        {
+            if out.status.success() {
+                let text = String::from_utf8_lossy(&out.stdout);
+                for line in text.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("JavaHome") {
+                        if let Some(pos) = trimmed.find("REG_SZ") {
+                            let val = trimmed[pos + 6..].trim();
+                            let home = Path::new(val);
+                            let bin_w = home.join("bin").join("javaw.exe");
+                            if bin_w.exists() {
+                                candidates.push((bin_w, JavaSource::System));
+                            }
+                            let bin_j = home.join("bin").join("java.exe");
+                            if bin_j.exists() {
+                                candidates.push((bin_j, JavaSource::System));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    {
+        let dirs = [
+            "/usr/lib/jvm",
+            "/usr/java",
+            "/opt/java",
+            "/Library/Java/JavaVirtualMachines",
+        ];
+        for d in dirs {
+            if let Ok(entries) = std::fs::read_dir(d) {
+                for entry in entries.flatten() {
+                    if let Some(exe) = JavaResolver::find_executable_in_dir(&entry.path()) {
+                        candidates.push((exe, JavaSource::System));
+                    }
+                }
+            }
+        }
+
+        if let Ok(home) = std::env::var("HOME") {
+            let home_path = Path::new(&home);
+            let jdks = home_path.join(".jdks");
+            if let Ok(entries) = std::fs::read_dir(&jdks) {
+                for entry in entries.flatten() {
+                    if let Some(exe) = JavaResolver::find_executable_in_dir(&entry.path()) {
+                        candidates.push((exe, JavaSource::System));
+                    }
+                }
+            }
+            let sdkman = home_path.join(".sdkman").join("candidates").join("java");
+            if let Ok(entries) = std::fs::read_dir(&sdkman) {
+                for entry in entries.flatten() {
+                    if let Some(exe) = JavaResolver::find_executable_in_dir(&entry.path()) {
+                        candidates.push((exe, JavaSource::System));
+                    }
+                }
+            }
+        }
+
+        if let Ok(out) = std::process::Command::new("which").arg("java").output() {
+            if out.status.success() {
+                let p = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+                if p.exists() {
+                    candidates.push((p, JavaSource::System));
+                }
+            }
+        }
+    }
+
+    // PATH
+    if let Ok(path_var) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let exe = dir.join(if cfg!(windows) { "javaw.exe" } else { "java" });
+            if exe.exists() {
+                candidates.push((exe, JavaSource::System));
+            }
+        }
+    }
+
+    let mut found = Vec::new();
+    let mut seen_paths = std::collections::HashSet::new();
+
+    for (exe, mut source) in candidates {
+        if !exe.exists() {
+            continue;
+        }
+
+        let canonical = exe.canonicalize().unwrap_or_else(|_| exe.clone());
+        let norm_key = canonical.to_string_lossy().to_lowercase();
+        if !seen_paths.insert(norm_key) {
+            continue;
+        }
+
+        if let Some(dir) = cache_dir {
+            if let Ok(canon_dir) = dir.canonicalize() {
+                if canonical.starts_with(&canon_dir) {
+                    source = JavaSource::Managed;
+                }
+            } else if canonical.starts_with(dir) {
+                source = JavaSource::Managed;
+            }
+        }
+
+        let test_res = test_java_path(&exe);
+        if test_res.valid {
+            if let (Some(version), Some(major)) = (test_res.version, test_res.major) {
+                let arch = test_res.arch.unwrap_or_else(|| {
+                    if cfg!(target_arch = "x86_64") {
+                        "x86_64".to_string()
+                    } else if cfg!(target_arch = "aarch64") {
+                        "aarch64".to_string()
+                    } else {
+                        "x86".to_string()
+                    }
+                });
+
+                found.push(DetectedJava {
+                    path: exe.to_string_lossy().to_string(),
+                    version,
+                    major,
+                    arch,
+                    vendor: test_res.vendor,
+                    source,
+                });
+            }
+        }
+    }
+
+    found.sort_by(|a, b| {
+        b.major
+            .cmp(&a.major)
+            .then_with(|| match (a.source, b.source) {
+                (JavaSource::Managed, JavaSource::System) => std::cmp::Ordering::Less,
+                (JavaSource::System, JavaSource::Managed) => std::cmp::Ordering::Greater,
+                _ => std::cmp::Ordering::Equal,
+            })
+            .then_with(|| a.path.cmp(&b.path))
+    });
 
     found
 }
@@ -731,5 +1081,35 @@ mod tests {
             HashAlgorithm::Sha1
         )
         .is_err());
+    }
+
+    #[test]
+    fn test_detect_system_javas_parses_version() {
+        let (version, major, vendor) = parse_java_version_output(
+            "openjdk version \"21.0.3\" 2024-04-16 LTS\nEclipse Adoptium",
+        )
+        .unwrap();
+        assert_eq!(version, "21.0.3");
+        assert_eq!(major, 21);
+        assert_eq!(vendor, Some("Eclipse Temurin".to_string()));
+
+        let (v25, m25, _) =
+            parse_java_version_output("openjdk version \"25-ea\" 2025-09-16\nOpenJDK").unwrap();
+        assert_eq!(v25, "25-ea");
+        assert_eq!(m25, 25);
+    }
+
+    #[test]
+    fn test_compatibility_matrix_resolution() {
+        assert_eq!(JavaResolver::fallback_version("1.7.10"), 8);
+        assert_eq!(JavaResolver::fallback_version("1.12.2"), 8);
+        assert_eq!(JavaResolver::fallback_version("1.16.5"), 8);
+        assert_eq!(JavaResolver::fallback_version("1.17.1"), 16);
+        assert_eq!(JavaResolver::fallback_version("1.18.2"), 17);
+        assert_eq!(JavaResolver::fallback_version("1.20.4"), 17);
+        assert_eq!(JavaResolver::fallback_version("1.20.5"), 21);
+        assert_eq!(JavaResolver::fallback_version("1.21.1"), 21);
+        assert_eq!(JavaResolver::fallback_version("25w01a"), 25);
+        assert_eq!(JavaResolver::fallback_version("26.2"), 25);
     }
 }

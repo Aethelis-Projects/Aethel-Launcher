@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { commands, type Instance, type ModpackSearchResult } from '../bindings';
 import { useInstanceStore } from '../store/instanceStore';
+import { SafeHtml } from './SafeHtml';
+import { VersionSelector } from './VersionSelector';
 
 export interface ModpackBrowserModalProps {
   isOpen: boolean;
@@ -33,30 +35,6 @@ interface ModpackVersionItem {
   loaders: string[];
   date_published?: string;
   changelog?: string;
-}
-
-const COMMON_VERSIONS = [
-  'all',
-  '1.21.4',
-  '1.21.1',
-  '1.20.4',
-  '1.20.1',
-  '1.19.2',
-  '1.18.2',
-  '1.16.5',
-  '1.12.2',
-];
-
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/on\w+="[^"]*"/gi, '')
-    .replace(/on\w+='[^']*'/gi, '')
-    .replace(/href="javascript:[^"]*"/gi, 'href="#"');
 }
 
 export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
@@ -169,22 +147,24 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
     setIsLoadingDetails(true);
 
     try {
-      if (pack.provider === 'modrinth') {
-        // Fetch project details for gallery and markdown description
-        const projResp = await fetch(`https://api.modrinth.com/v2/project/${pack.project_id}`);
-        if (projResp.ok) {
-          const projData = await projResp.json();
-          if (projData.body) {
-            setPackDescription(projData.body);
-          }
-          if (Array.isArray(projData.gallery)) {
-            const images = projData.gallery
-              .map((g: { url?: string }) => g.url)
-              .filter((u: unknown): u is string => typeof u === 'string');
-            setPackScreenshots(images);
-          }
+      const detailsRes = await commands.getModpackDetails(pack.provider, pack.project_id);
+      if (detailsRes.status === 'ok') {
+        const d = detailsRes.data;
+        if (d.body_markdown) {
+          setPackDescription(d.body_markdown);
+        } else if (d.description_html) {
+          setPackDescription(d.description_html);
+        } else {
+          setPackDescription(pack.summary);
         }
+        if (d.screenshots && d.screenshots.length > 0) {
+          setPackScreenshots(d.screenshots);
+        }
+      } else {
+        setPackDescription(pack.summary);
+      }
 
+      if (pack.provider === 'modrinth') {
         // Fetch versions list
         const verResp = await fetch(`https://api.modrinth.com/v2/project/${pack.project_id}/version`);
         if (verResp.ok) {
@@ -205,9 +185,6 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
             }
           }
         }
-      } else {
-        // CurseForge fallback
-        setPackDescription(pack.summary);
       }
     } catch {
       setPackDescription(pack.summary);
@@ -311,17 +288,11 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
                 <Layers className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Version:</span>
               </label>
-              <select
+              <VersionSelector
                 value={selectedGameVersion}
-                onChange={(e) => setSelectedGameVersion(e.target.value)}
-                className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
-              >
-                {COMMON_VERSIONS.map((v) => (
-                  <option key={v} value={v}>
-                    {v === 'all' ? 'All Versions' : `Minecraft ${v}`}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedGameVersion}
+                provider={provider}
+              />
             </div>
           </div>
 
@@ -468,6 +439,29 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
                 </div>
               )}
 
+              {/* Modpack Description (WS-28) */}
+              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 space-y-3">
+                <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                  About Modpack
+                </h4>
+                {isLoadingDetails ? (
+                  <div className="flex items-center justify-center py-6 text-zinc-500 gap-2 text-xs">
+                    <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                    <span>Loading details...</span>
+                  </div>
+                ) : packDescription ? (
+                  selectedPack.provider === 'curseforge' || packDescription.includes('<p>') || packDescription.includes('<div') ? (
+                    <SafeHtml html={packDescription} />
+                  ) : (
+                    <div className="prose prose-invert max-w-none text-xs text-zinc-300 leading-relaxed">
+                      <ReactMarkdown>{packDescription}</ReactMarkdown>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-xs text-zinc-400 leading-relaxed">{selectedPack.summary}</p>
+                )}
+              </div>
+
               {/* Install Configuration & Version Selector */}
               <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 space-y-4">
                 <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
@@ -539,11 +533,7 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
                 ) : packDescription ? (
                   <div className="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 text-xs text-zinc-300 leading-relaxed max-w-none overflow-x-auto prose prose-invert">
                     {selectedPack.provider === 'curseforge' ? (
-                      <div
-                        dangerouslySetInnerHTML={{
-                          __html: sanitizeHtml(packDescription),
-                        }}
-                      />
+                      <SafeHtml html={packDescription} />
                     ) : (
                       <ReactMarkdown>{packDescription}</ReactMarkdown>
                     )}

@@ -204,6 +204,12 @@ mod tests {
             maven_name_to_path("net.minecraftforge:forge:1.20.1-47.2.0:launcher"),
             Some("net/minecraftforge/forge/1.20.1-47.2.0/forge-1.20.1-47.2.0-launcher.jar".into())
         );
+        assert_eq!(
+            maven_name_to_path("net.minecraftforge:forge:1.21.10-49.0.30:client"),
+            Some(
+                "net/minecraftforge/forge/1.21.10-49.0.30/forge-1.21.10-49.0.30-client.jar".into()
+            )
+        );
         assert_eq!(maven_name_to_path("invalid_coordinate"), None);
     }
 

@@ -151,6 +151,7 @@ pub enum CrashPattern {
     WrongJavaVersion { expected: u32, actual: Option<u32> },
     GpuDriverIssue,
     ModConflict(String),
+    OutdatedLoaderAsm,
     Unknown,
 }
 

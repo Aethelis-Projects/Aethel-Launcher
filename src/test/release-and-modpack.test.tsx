@@ -5,6 +5,7 @@ import { ModpackImportModal } from '../components/ModpackImportModal';
 import { ModpackExportModal } from '../components/ModpackExportModal';
 import { UpdateChecker } from '../components/UpdateChecker';
 import { SettingsModal } from '../components/SettingsModal';
+import { JavaManagerModal } from '../components/JavaManagerModal';
 import { commands, type Instance } from '../bindings';
 import { useUpdateStore } from '../store/updateStore';
 
@@ -18,6 +19,19 @@ vi.mock('../bindings', () => ({
     downloadAndInstallUpdate: vi.fn(),
     getInstances: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
     detectSystemJava: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
+    detectSystemJavas: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
+    testJavaPath: vi.fn().mockResolvedValue({
+      status: 'ok',
+      data: {
+        valid: true,
+        version: '21.0.3',
+        major: 21,
+        vendor: 'Eclipse Temurin',
+        arch: 'x86_64',
+        output: 'openjdk version "21.0.3"',
+        error: null,
+      },
+    }),
     getInstalledRuntimes: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
     downloadRuntime: vi.fn().mockResolvedValue({ status: 'ok', data: {} }),
     deleteRuntime: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
@@ -316,57 +330,27 @@ describe('Phase M6 UI Components', () => {
       });
     });
 
-    it('renders Java runtime manager cards and allows downloading runtime', async () => {
-      vi.mocked(commands.getInstalledRuntimes).mockResolvedValueOnce({
-        status: 'ok',
-        data: [
-          {
-            major: 21,
-            path: 'C:/runtimes/java-21/bin/javaw.exe',
-            provider: 'Adoptium',
-            version_str: 'Java 21',
-          },
-        ],
-      });
-      vi.mocked(commands.downloadRuntime).mockResolvedValueOnce({
-        status: 'ok',
-        data: {
-          major: 17,
-          path: 'C:/runtimes/java-17/bin/javaw.exe',
-          provider: 'Adoptium',
-          version_str: 'Java 17',
-        },
-      });
+    it('allows opening Java Manager from SettingsModal', async () => {
+      const openJavaManagerMock = vi.fn();
+      render(<SettingsModal isOpen={true} onClose={() => {}} onOpenJavaManager={openJavaManagerMock} />);
 
-      render(<SettingsModal isOpen={true} onClose={() => {}} />);
-
-      await waitFor(() => {
-        expect(commands.getInstalledRuntimes).toHaveBeenCalled();
-        expect(screen.getByText('Java 21 (LTS)')).toBeInTheDocument();
-        expect(screen.getByText('Java 17 (LTS)')).toBeInTheDocument();
-        expect(screen.getByText('Java 8 (Legacy)')).toBeInTheDocument();
-      });
-
-      // Find download buttons
-      const downloadButtons = screen.getAllByRole('button', { name: /Скачать|Download/i });
-      expect(downloadButtons.length).toBeGreaterThan(0);
-
-      fireEvent.click(downloadButtons[0]);
-
-      await waitFor(() => {
-        expect(commands.downloadRuntime).toHaveBeenCalledWith(17, 'Adoptium');
-      });
+      const manageBtn = screen.getByRole('button', { name: /Manage Runtimes|Управление/i });
+      expect(manageBtn).toBeInTheDocument();
+      fireEvent.click(manageBtn);
+      expect(openJavaManagerMock).toHaveBeenCalled();
     });
 
-    it('allows deleting an installed runtime', async () => {
-      vi.mocked(commands.getInstalledRuntimes).mockResolvedValue({
+    it('renders Java runtime manager cards and allows deleting runtime in JavaManagerModal', async () => {
+      vi.mocked(commands.detectSystemJavas).mockResolvedValueOnce({
         status: 'ok',
         data: [
           {
             major: 21,
             path: 'C:/runtimes/java-21/bin/javaw.exe',
-            provider: 'Adoptium',
-            version_str: 'Java 21',
+            vendor: 'Adoptium',
+            version: '21.0.3',
+            arch: 'x86_64',
+            source: 'Managed',
           },
         ],
       });
@@ -375,13 +359,14 @@ describe('Phase M6 UI Components', () => {
         data: null,
       });
 
-      render(<SettingsModal isOpen={true} onClose={() => {}} />);
+      render(<JavaManagerModal isOpen={true} onClose={() => {}} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Java 21 (LTS)')).toBeInTheDocument();
+        expect(commands.detectSystemJavas).toHaveBeenCalled();
+        expect(screen.getByText('Java 21')).toBeInTheDocument();
       });
 
-      const deleteBtn = screen.getByRole('button', { name: /Удалить|Delete/i });
+      const deleteBtn = screen.getByTestId('delete-runtime-21');
       fireEvent.click(deleteBtn);
 
       await waitFor(() => {

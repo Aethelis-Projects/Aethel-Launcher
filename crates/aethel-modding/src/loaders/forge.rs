@@ -34,7 +34,7 @@ impl ForgeInstaller {
             },
             "libraries": [
                 {
-                    "name": format!("net.minecraftforge:forge:{mc_version}-{forge_version}")
+                    "name": format!("net.minecraftforge:forge:{mc_version}-{forge_version}:client")
                 }
             ]
         })
