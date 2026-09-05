@@ -1106,15 +1106,22 @@ mod tests {
         };
         db.insert_instance(&inst).expect("insert");
 
-        db.update_instance_name("inst-1", "Updated Name").expect("rename");
-        db.update_instance_icon("inst-1", Some("C:/icons/custom.png")).expect("icon");
-        db.update_instance_playtime("inst-1", 125, "2026-09-05T12:00:00Z").expect("playtime 1");
-        db.update_instance_playtime("inst-1", 75, "2026-09-05T14:00:00Z").expect("playtime 2");
+        db.update_instance_name("inst-1", "Updated Name")
+            .expect("rename");
+        db.update_instance_icon("inst-1", Some("C:/icons/custom.png"))
+            .expect("icon");
+        db.update_instance_playtime("inst-1", 125, "2026-09-05T12:00:00Z")
+            .expect("playtime 1");
+        db.update_instance_playtime("inst-1", 75, "2026-09-05T14:00:00Z")
+            .expect("playtime 2");
 
         let fetched = db.get_instance("inst-1").expect("get").expect("exists");
         assert_eq!(fetched.name, "Updated Name");
         assert_eq!(fetched.icon_path.as_deref(), Some("C:/icons/custom.png"));
         assert_eq!(fetched.total_playtime_seconds, 200);
-        assert_eq!(fetched.last_played_at.as_deref(), Some("2026-09-05T14:00:00Z"));
+        assert_eq!(
+            fetched.last_played_at.as_deref(),
+            Some("2026-09-05T14:00:00Z")
+        );
     }
 }

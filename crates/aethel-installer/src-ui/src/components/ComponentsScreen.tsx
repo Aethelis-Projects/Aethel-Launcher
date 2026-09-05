@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Layers, Cpu, Monitor, DownloadCloud } from 'lucide-react';
-import { useInstallerStore, type SelectedComponents } from '../store/installerStore';
+import { useInstallerStore } from '../store/installerStore';
 
 export const ComponentsScreen: React.FC = () => {
   const { t } = useTranslation();

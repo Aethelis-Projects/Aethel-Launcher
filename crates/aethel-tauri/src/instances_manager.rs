@@ -169,7 +169,9 @@ impl<'a> NbtReader<'a> {
         }
     }
 
-    pub fn parse_level_dat(&mut self) -> (Option<String>, Option<i64>, Option<u64>, Option<String>) {
+    pub fn parse_level_dat(
+        &mut self,
+    ) -> (Option<String>, Option<i64>, Option<u64>, Option<String>) {
         let mut level_name = None;
         let mut seed = None;
         let mut last_played = None;
@@ -186,7 +188,13 @@ impl<'a> NbtReader<'a> {
 
         let _ = self.read_string();
 
-        self.scan_compound(&mut level_name, &mut seed, &mut last_played, &mut game_mode, 0);
+        self.scan_compound(
+            &mut level_name,
+            &mut seed,
+            &mut last_played,
+            &mut game_mode,
+            0,
+        );
 
         (level_name, seed, last_played, game_mode)
     }
@@ -264,9 +272,7 @@ impl<'a> NbtReader<'a> {
 
 pub type LevelDatInfo = (Option<String>, Option<i64>, Option<u64>, Option<String>);
 
-pub fn parse_level_dat_file(
-    file_path: &Path,
-) -> Result<LevelDatInfo, AppError> {
+pub fn parse_level_dat_file(file_path: &Path) -> Result<LevelDatInfo, AppError> {
     let mut f = File::open(file_path).map_err(|e| {
         AppError::new(
             AppErrorCode::InternalError,
@@ -298,7 +304,10 @@ pub fn parse_level_dat_file(
 
 pub fn calculate_dir_size(path: &Path) -> u64 {
     let mut total: u64 = 0;
-    if let Ok(entries) = walkdir::WalkDir::new(path).into_iter().collect::<Result<Vec<_>, _>>() {
+    if let Ok(entries) = walkdir::WalkDir::new(path)
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+    {
         for entry in entries {
             if let Ok(meta) = entry.metadata() {
                 if meta.is_file() {
@@ -315,7 +324,11 @@ pub fn read_image_data_url(path: &Path) -> Option<String> {
         return None;
     }
     let mut bytes = Vec::new();
-    if File::open(path).and_then(|mut f| f.read_to_end(&mut bytes)).is_ok() && !bytes.is_empty() {
+    if File::open(path)
+        .and_then(|mut f| f.read_to_end(&mut bytes))
+        .is_ok()
+        && !bytes.is_empty()
+    {
         let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
         let mime = if path.extension().and_then(|e| e.to_str()) == Some("jpg") {
             "image/jpeg"
@@ -375,7 +388,10 @@ pub fn set_active_resourcepack_status(
     }
 
     if enabled {
-        if !current_packs.iter().any(|p| p == &target_ref || p == pack_name) {
+        if !current_packs
+            .iter()
+            .any(|p| p == &target_ref || p == pack_name)
+        {
             current_packs.push(target_ref);
         }
     } else {
@@ -427,7 +443,10 @@ pub fn read_active_shaderpack(instance_dir: &Path) -> Option<String> {
     None
 }
 
-pub fn write_active_shaderpack(instance_dir: &Path, shader_name: Option<&str>) -> Result<(), AppError> {
+pub fn write_active_shaderpack(
+    instance_dir: &Path,
+    shader_name: Option<&str>,
+) -> Result<(), AppError> {
     let name_val = shader_name.unwrap_or("OFF");
 
     let config_dir = instance_dir.join("config");
@@ -541,9 +560,7 @@ pub fn scan_resourcepacks(instance_dir: &Path) -> Vec<ResourcePackEntry> {
             p == &file_name || p == &format!("file/{file_name}") || p.ends_with(&file_name)
         });
 
-        let name = file_name
-            .trim_end_matches(".zip")
-            .to_string();
+        let name = file_name.trim_end_matches(".zip").to_string();
         let mut description = None;
         let mut icon_base64 = None;
         let size_bytes = if is_dir {
@@ -561,7 +578,9 @@ pub fn scan_resourcepacks(instance_dir: &Path) -> Vec<ResourcePackEntry> {
                             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&buf) {
                                 if let Some(desc) = val["pack"]["description"].as_str() {
                                     description = Some(desc.to_string());
-                                } else if let Some(desc_obj) = val["pack"]["description"]["text"].as_str() {
+                                } else if let Some(desc_obj) =
+                                    val["pack"]["description"]["text"].as_str()
+                                {
                                     description = Some(desc_obj.to_string());
                                 }
                             }
@@ -569,7 +588,8 @@ pub fn scan_resourcepacks(instance_dir: &Path) -> Vec<ResourcePackEntry> {
                     }
                     if let Ok(mut icon_file) = archive.by_name("pack.png") {
                         let mut icon_bytes = Vec::new();
-                        if icon_file.read_to_end(&mut icon_bytes).is_ok() && !icon_bytes.is_empty() {
+                        if icon_file.read_to_end(&mut icon_bytes).is_ok() && !icon_bytes.is_empty()
+                        {
                             let b64 = base64::engine::general_purpose::STANDARD.encode(&icon_bytes);
                             icon_base64 = Some(format!("data:image/png;base64,{b64}"));
                         }
@@ -656,7 +676,10 @@ pub fn inspect_modpack_archive(archive_path: &Path) -> Result<ModpackInspectResu
     let file = File::open(archive_path).map_err(|e| {
         AppError::new(
             AppErrorCode::InternalError,
-            format!("Failed to open modpack archive {}: {e}", archive_path.display()),
+            format!(
+                "Failed to open modpack archive {}: {e}",
+                archive_path.display()
+            ),
         )
     })?;
 
@@ -683,9 +706,9 @@ pub fn inspect_modpack_archive(archive_path: &Path) -> Result<ModpackInspectResu
     // 1. Modrinth
     if let Ok(mut index_file) = archive.by_name("modrinth.index.json") {
         let mut content = String::new();
-        index_file.read_to_string(&mut content).map_err(|e| {
-            AppError::new(AppErrorCode::InvalidManifest, e.to_string())
-        })?;
+        index_file
+            .read_to_string(&mut content)
+            .map_err(|e| AppError::new(AppErrorCode::InvalidManifest, e.to_string()))?;
 
         let index: aethel_modding::ModrinthIndex = serde_json::from_str(&content).map_err(|e| {
             AppError::new(
@@ -728,9 +751,9 @@ pub fn inspect_modpack_archive(archive_path: &Path) -> Result<ModpackInspectResu
     // 2. CurseForge
     if let Ok(mut manifest_file) = archive.by_name("manifest.json") {
         let mut content = String::new();
-        manifest_file.read_to_string(&mut content).map_err(|e| {
-            AppError::new(AppErrorCode::InvalidManifest, e.to_string())
-        })?;
+        manifest_file
+            .read_to_string(&mut content)
+            .map_err(|e| AppError::new(AppErrorCode::InvalidManifest, e.to_string()))?;
 
         let manifest: aethel_modding::CurseForgeManifest =
             serde_json::from_str(&content).map_err(|e| {

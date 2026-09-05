@@ -137,6 +137,7 @@ export function App() {
     addLog,
     addLogBatch,
     setLaunchStatus,
+    fetchInstances,
     instances,
     activeAccount,
   ]);

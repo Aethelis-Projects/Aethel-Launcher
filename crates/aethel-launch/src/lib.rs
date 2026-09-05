@@ -81,12 +81,10 @@ pub struct FlagSpec {
 }
 
 /// Known JVM flags that are only supported starting from specific Java versions.
-pub const VERSION_GATED_FLAGS: &[FlagSpec] = &[
-    FlagSpec {
-        prefix: "--sun-misc-unsafe-memory-access",
-        min_java: 22,
-    },
-];
+pub const VERSION_GATED_FLAGS: &[FlagSpec] = &[FlagSpec {
+    prefix: "--sun-misc-unsafe-memory-access",
+    min_java: 22,
+}];
 
 /// Checks whether a JVM argument is allowed on the target Java version.
 pub fn is_flag_allowed_for_java(arg: &str, java_major: u32) -> bool {

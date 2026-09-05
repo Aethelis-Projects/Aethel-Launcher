@@ -4,7 +4,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useInstallerStore, COMPONENT_SIZES } from './store/installerStore';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { LicenseScreen } from './components/LicenseScreen';
-import { ComponentsScreen } from './components/ComponentsScreen';
 import { ShimmerProgress } from './animations/ShimmerProgress';
 import i18n from './i18n';
 

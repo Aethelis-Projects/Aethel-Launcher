@@ -315,4 +315,3 @@ fn test_version_gated_jvm_flags() {
     ));
     assert!(is_flag_allowed_for_java("-XX:+UseG1GC", 21));
 }
-

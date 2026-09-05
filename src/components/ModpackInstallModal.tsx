@@ -8,7 +8,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Package,
-  Layers,
   User,
   Sparkles,
   ArrowRight,

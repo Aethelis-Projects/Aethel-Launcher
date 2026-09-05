@@ -1543,14 +1543,16 @@ fn open_instance_folder(instance_id: String, subfolder: Option<String>) -> Resul
 #[specta::specta]
 fn update_instance_name(instance_id: String, name: String) -> Result<(), String> {
     let db = get_database()?;
-    db.update_instance_name(&instance_id, &name).map_err(|e| e.to_string())
+    db.update_instance_name(&instance_id, &name)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
 fn update_instance_icon(instance_id: String, icon_path: Option<String>) -> Result<(), String> {
     let db = get_database()?;
-    db.update_instance_icon(&instance_id, icon_path.as_deref()).map_err(|e| e.to_string())
+    db.update_instance_icon(&instance_id, icon_path.as_deref())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1648,7 +1650,8 @@ async fn search_modpacks(
                 if let Ok(val) = resp.json::<serde_json::Value>().await {
                     if let Some(hits) = val["hits"].as_array() {
                         for h in hits {
-                            let project_id = h["project_id"].as_str().unwrap_or_default().to_string();
+                            let project_id =
+                                h["project_id"].as_str().unwrap_or_default().to_string();
                             let title = h["title"].as_str().unwrap_or_default().to_string();
                             let summary = h["description"].as_str().unwrap_or_default().to_string();
                             let author = h["author"].as_str().unwrap_or_default().to_string();
@@ -1656,11 +1659,19 @@ async fn search_modpacks(
                             let icon_url = h["icon_url"].as_str().map(|s| s.to_string());
                             let categories = h["categories"]
                                 .as_array()
-                                .map(|arr| arr.iter().filter_map(|c| c.as_str().map(String::from)).collect())
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|c| c.as_str().map(String::from))
+                                        .collect()
+                                })
                                 .unwrap_or_default();
                             let supported_game_versions = h["versions"]
                                 .as_array()
-                                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|v| v.as_str().map(String::from))
+                                        .collect()
+                                })
                                 .unwrap_or_default();
 
                             results.push(CoreModpackSearchResult {
@@ -1728,10 +1739,15 @@ async fn search_modpacks(
                                 .unwrap_or("Unknown")
                                 .to_string();
                             let downloads = m["downloadCount"].as_u64().unwrap_or(0);
-                            let icon_url = m["logo"]["thumbnailUrl"].as_str().map(|s| s.to_string());
+                            let icon_url =
+                                m["logo"]["thumbnailUrl"].as_str().map(|s| s.to_string());
                             let categories = m["categories"]
                                 .as_array()
-                                .map(|arr| arr.iter().filter_map(|c| c["name"].as_str().map(String::from)).collect())
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|c| c["name"].as_str().map(String::from))
+                                        .collect()
+                                })
                                 .unwrap_or_default();
                             let latest_file_id = m["mainFileId"].to_string();
 
@@ -1775,9 +1791,8 @@ async fn install_online_modpack(
 
     let (download_url, file_ext) = if provider == "curseforge" {
         let file_id = version_id.ok_or_else(|| "CurseForge requires a file ID".to_string())?;
-        let url = format!(
-            "https://api.curseforge.com/v1/mods/{project_id}/files/{file_id}/download-url"
-        );
+        let url =
+            format!("https://api.curseforge.com/v1/mods/{project_id}/files/{file_id}/download-url");
         let resp = client
             .get(&url)
             .header("x-api-key", aethel_modding::DEFAULT_CURSEFORGE_KEY)
@@ -1789,8 +1804,13 @@ async fn install_online_modpack(
             return Err(format!("CurseForge file API error: {}", resp.status()));
         }
 
-        let val = resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
-        let dl = val["data"].as_str().ok_or_else(|| "Missing download URL in CurseForge response".to_string())?;
+        let val = resp
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| e.to_string())?;
+        let dl = val["data"]
+            .as_str()
+            .ok_or_else(|| "Missing download URL in CurseForge response".to_string())?;
         (dl.to_string(), "zip")
     } else {
         let url = if let Some(ref vid) = version_id {
@@ -1804,23 +1824,39 @@ async fn install_online_modpack(
             return Err(format!("Modrinth version API error: {}", resp.status()));
         }
 
-        let val = resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+        let val = resp
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| e.to_string())?;
         let ver_obj = if val.is_array() {
-            val.as_array().and_then(|a| a.first()).ok_or_else(|| "No versions found for modpack".to_string())?
+            val.as_array()
+                .and_then(|a| a.first())
+                .ok_or_else(|| "No versions found for modpack".to_string())?
         } else {
             &val
         };
 
-        let files = ver_obj["files"].as_array().ok_or_else(|| "Missing files array".to_string())?;
-        let primary_file = files.iter().find(|f| f["primary"].as_bool().unwrap_or(false)).or_else(|| files.first())
+        let files = ver_obj["files"]
+            .as_array()
+            .ok_or_else(|| "Missing files array".to_string())?;
+        let primary_file = files
+            .iter()
+            .find(|f| f["primary"].as_bool().unwrap_or(false))
+            .or_else(|| files.first())
             .ok_or_else(|| "No files in version".to_string())?;
 
-        let dl = primary_file["url"].as_str().ok_or_else(|| "Missing file URL".to_string())?;
+        let dl = primary_file["url"]
+            .as_str()
+            .ok_or_else(|| "Missing file URL".to_string())?;
         (dl.to_string(), "mrpack")
     };
 
     let temp_archive_path = temp_dir.join(format!("{}.{}", uuid::Uuid::new_v4(), file_ext));
-    let resp = client.get(&download_url).send().await.map_err(|e| e.to_string())?;
+    let resp = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     if !resp.status().is_success() {
         return Err(format!("Download failed with status: {}", resp.status()));
     }
@@ -1900,7 +1936,8 @@ async fn prepare_silent_update_and_restart(
             let info = check_for_updates_internal(None, None, env!("CARGO_PKG_VERSION"))
                 .await?
                 .ok_or_else(|| "No update available".to_string())?;
-            info.download_url.ok_or_else(|| "No download URL available".to_string())?
+            info.download_url
+                .ok_or_else(|| "No download URL available".to_string())?
         }
     };
 
