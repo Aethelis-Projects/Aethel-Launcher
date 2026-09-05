@@ -169,11 +169,15 @@
     },
     "INSTANCE_NOT_FOUND": {
       "title": "Instance Not Found",
-      "message": "The specified instance record does not exist in local storage."
+      "message": "The specified instance does not exist in local database."
+    },
+    "LAUNCH_PROVISION_FAILED": {
+      "title": "Launch Preparation Failed",
+      "message": "Required game client or library files could not be verified or downloaded."
     },
     "INTERNAL_ERROR": {
       "title": "Internal Error",
-      "message": "An unexpected error occurred. Review the log console for stack trace details."
+      "message": "An unexpected internal error occurred. Please check the log console."
     }
   },
   "auth": {

@@ -357,40 +357,34 @@ jobs:
         with:
           path: all-artifacts
 
-      - name: Organize Artifacts
+      - name: Organize Release Assets
         shell: bash
         run: |
-          mkdir -p bundles installers
-          # Collect installers
-          find all-artifacts/installer-* -type f -exec cp {} installers/ \;
-          # Collect bundles (excluding the internal payload zip)
-          find all-artifacts/launcher-bundles-* -type f ! -name "aethel-windows-payload.zip" -exec cp {} bundles/ \;
+          mkdir -p release_assets
+          # Collect the 3 standalone installers
+          find all-artifacts/installer-* -type f -exec cp {} release_assets/ \;
 
-          echo "=== Collected Installers ==="
-          ls -lh installers/
-          echo "=== Collected Bundles ==="
-          ls -lh bundles/
+          echo "=== Standalone Installers Collected ==="
+          ls -lh release_assets/
 
-      # Minor #2: Sign Bundles with Minisign & Generate latest.json
-      - name: Sign Bundles and Generate latest.json
+      # Sign Standalone Installers with Minisign & Generate latest.json
+      - name: Sign Installers and Generate latest.json
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           TAG_NAME: ${{ github.ref_name }}
         shell: bash
         run: |
-          # 1. Sign any bundle that lacks a signature if private key is present
+          # 1. Sign each installer with Minisign
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "$TAURI_SIGNING_PRIVATE_KEY" > minisign.key
-            for bundle in bundles/*; do
-              if [ -f "$bundle" ] && [[ ! "$bundle" =~ \.sig$ ]]; then
-                if [ ! -f "${bundle}.sig" ]; then
-                  echo "Signing $bundle with minisign..."
-                  if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
-                    minisign -S -s minisign.key -m "$bundle" -x "${bundle}.sig" -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" || true
-                  else
-                    minisign -S -s minisign.key -m "$bundle" -x "${bundle}.sig" || true
-                  fi
+            for inst in release_assets/*; do
+              if [ -f "$inst" ] && [[ ! "$inst" =~ \.sig$ ]]; then
+                echo "Signing $inst with minisign..."
+                if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+                  minisign -S -s minisign.key -m "$inst" -x "${inst}.sig" -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" || true
+                else
+                  minisign -S -s minisign.key -m "$inst" -x "${inst}.sig" || true
                 fi
               fi
             done
@@ -402,20 +396,20 @@ jobs:
           import json, glob, os, sys
           from datetime import datetime, timezone
 
-          tag = os.environ.get("TAG_NAME", "v1.0.0-rc.5")
+          tag = os.environ.get("TAG_NAME", "v1.0.0-rc.6")
           version = tag.lstrip("v")
           repo = "Aethelis-Projects/Aethel-Launcher"
-          base_url = f"https://github.com/{repo}/releases/download/launcher-updates"
+          base_url = f"https://github.com/{repo}/releases/download/{tag}"
 
           manifest = {
-              "version": tag,
-              "notes": f"Aethel Launcher {tag} update",
+              "version": version,
+              "notes": f"Aethel Launcher {tag} release",
               "pub_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "platforms": {}
           }
 
-          bundle_files = glob.glob("bundles/*")
-          print(f"Found {len(bundle_files)} files in bundles/")
+          installer_files = glob.glob("release_assets/*")
+          print(f"Found {len(installer_files)} files in release_assets/")
 
           def get_signature(file_path):
               sig_file = file_path + ".sig"
@@ -424,67 +418,70 @@ jobs:
                       return f.read().strip()
               return ""
 
-          # Platform patterns
-          for f in bundle_files:
+          for f in installer_files:
               fname = os.path.basename(f)
-              if fname.endswith(".sig"):
+              if fname.endswith(".sig") or fname == "latest.json":
                   continue
               sig = get_signature(f)
               url = f"{base_url}/{fname}"
+              file_size = os.path.getsize(f)
 
-              if fname.endswith(".exe") or fname.endswith(".nsis.zip") or fname.endswith(".msi"):
-                  if "x64" in fname or "amd64" in fname:
-                      manifest["platforms"]["windows-x86_64"] = {
-                          "signature": sig,
-                          "url": url
-                      }
-              elif fname.endswith(".AppImage") or fname.endswith(".AppImage.tar.gz") or fname.endswith(".deb"):
-                  if "amd64" in fname or "x86_64" in fname:
-                      manifest["platforms"]["linux-x86_64"] = {
-                          "signature": sig,
-                          "url": url
-                      }
-              elif fname.endswith(".dmg") or fname.endswith(".app.tar.gz"):
-                  if "aarch64" in fname or "arm64" in fname:
-                      manifest["platforms"]["darwin-aarch64"] = {
-                          "signature": sig,
-                          "url": url
-                      }
-                  else:
-                      manifest["platforms"]["darwin-x86_64"] = {
-                          "signature": sig,
-                          "url": url
-                      }
+              if "windows" in fname.lower() or fname.endswith(".exe"):
+                  manifest["platforms"]["windows-x86_64"] = {
+                      "signature": sig,
+                      "url": url,
+                      "download_size": file_size
+                  }
+              elif "linux" in fname.lower() or fname.endswith(".appimage"):
+                  manifest["platforms"]["linux-x86_64"] = {
+                      "signature": sig,
+                      "url": url,
+                      "download_size": file_size
+                  }
+              elif "macos" in fname.lower() or "darwin" in fname.lower() or fname.endswith(".dmg"):
+                  manifest["platforms"]["darwin-x86_64"] = {
+                      "signature": sig,
+                      "url": url,
+                      "download_size": file_size
+                  }
+                  manifest["platforms"]["darwin-aarch64"] = {
+                      "signature": sig,
+                      "url": url,
+                      "download_size": file_size
+                  }
 
-          with open("latest.json", "w", encoding="utf-8") as out:
+          with open("release_assets/latest.json", "w", encoding="utf-8") as out:
               json.dump(manifest, out, indent=2)
 
-          print("Generated latest.json:")
+          print("Generated release_assets/latest.json:")
           print(json.dumps(manifest, indent=2))
           EOF
 
-      # Service Release: Delete if exists and recreate atomically with --prerelease
-      - name: Publish Service Release (launcher-updates)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Strict Pre-Publish Gate asserting all 7 files exist
+      - name: Validate Release Assets (Strict 7-Asset Gate)
         shell: bash
         run: |
-          gh release delete launcher-updates --yes || true
-          gh release create launcher-updates \
-            bundles/* latest.json \
-            --prerelease \
-            --title "launcher-updates (service release for auto-updater)" \
-            --notes "Служебный релиз для автоматического обновления лаунчера. Публичные автономные инсталлеры доступны на странице релизов." \
-            --target $GITHUB_SHA
+          echo "=== Validating release_assets contents ==="
+          ls -lh release_assets/
+          COUNT=$(ls -1 release_assets | wc -l)
+          echo "Total release assets: $COUNT"
+          if [ "$COUNT" -ne 7 ]; then
+            echo "ERROR: Expected exactly 7 release assets (3 standalone installers + 3 signatures + latest.json), found $COUNT"
+            ls -la release_assets/
+            exit 1
+          fi
+          test -f release_assets/latest.json || { echo "ERROR: latest.json missing"; exit 1; }
+          echo "Pre-publish verification passed: exactly 7 required release assets present."
 
-      # Public Release: Upload ONLY the 3 standalone installer binaries
+      # Single Atomic Public Release containing all 7 assets
       - name: Publish Public Release (${{ github.ref_name }})
         uses: softprops/action-gh-release@v2
         with:
-          files: installers/*
+          files: release_assets/*
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') }}
           make_latest: true
           generate_release_notes: false
           body_path: RELEASE_NOTES.md
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, Loader2, Clock, Calendar, CheckCircle2, AlertCircle, Package, Upload, FolderArchive, Trash2 } from 'lucide-react';
 import { useInstanceStore } from '../store/instanceStore';
+import { useAccountStore } from '../store/accountStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
 import { commands, type Instance } from '../bindings';
@@ -22,16 +23,21 @@ export const InstanceGrid: React.FC = () => {
     deleteInstance,
     launchStatus,
     setLaunchStatus,
-    setLastReceipt,
     setLastError,
-    lastReceipt,
     lastError,
   } = useInstanceStore();
 
+  const { activeAccount, setIsAccountModalOpen } = useAccountStore();
   const { maxRamMb, javaPath, javaMode, preferredProvider, gcPreset } = useSettingsStore();
   const { addLog } = useLogStore();
 
   const handleLaunch = async (instanceId: string, version: string) => {
+    if (!activeAccount) {
+      addLog(`[Aethel] No active account found. Please select or add an account before playing.`, true);
+      setIsAccountModalOpen(true);
+      return;
+    }
+
     setLaunchStatus(instanceId, 'launching');
     setLastError(null);
 
@@ -50,22 +56,12 @@ export const InstanceGrid: React.FC = () => {
         }
       }
 
-      addLog(`[Aethel] Synthesizing launch configuration for ${version}...`, false);
-
-      const receiptRes = await commands.launchWithStubIdentity(version, maxRamMb, effectiveJavaPath, gcPreset);
-      if (receiptRes.status === 'ok') {
-        setLastReceipt(receiptRes.data);
-        addLog(`[Aethel] Launch receipt verified: Classpath Tier = ${receiptRes.data.classpath_tier}`, false);
-        addLog(`[Aethel] Process command: ${receiptRes.data.command} ${receiptRes.data.arguments.slice(0, 5).join(' ')} ...`, false);
-      }
-
-      addLog(`[Aethel] Spawning game process for ${version}...`, false);
+      addLog(`[Aethel] Launching instance "${instanceId}" (${version})...`, false);
       const res = await commands.launchInstance(instanceId, version, maxRamMb, effectiveJavaPath, gcPreset);
       if (res.status === 'ok') {
         const pid = res.data;
         setLaunchStatus(instanceId, 'running');
-        addLog(`[Aethel] Game process started (PID: ${pid})`, false);
-        addLog(`[Aethel] Active player: Player (00000000-0000-0000-0000-000000000000)`, false);
+        addLog(`[Aethel] Game process started (PID: ${pid}) for player ${activeAccount.name}`, false);
       } else {
         setLastError(res.error);
         setLaunchStatus(instanceId, 'idle');
@@ -103,20 +99,6 @@ export const InstanceGrid: React.FC = () => {
             <span className="font-semibold">{localizeError(lastError, t).title}: </span>
             <span>{localizeError(lastError, t).message}</span>
           </div>
-        </div>
-      )}
-
-      {lastReceipt && (
-        <div className="p-3 bg-emerald-950/40 border border-emerald-800/80 rounded-lg flex items-center justify-between text-xs text-emerald-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>
-              {t('stub.dryRunSuccess')} ({lastReceipt.classpath_tier})
-            </span>
-          </div>
-          <span className="font-mono text-[11px] text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded">
-            Player @ 00000000-...
-          </span>
         </div>
       )}
 

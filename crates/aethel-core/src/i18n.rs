@@ -45,6 +45,9 @@ pub fn humanize_error(code: AppErrorCode) -> &'static str {
         AppErrorCode::InstanceNotFound => {
             "Instance not found. The specified instance ID does not exist in local storage."
         }
+        AppErrorCode::LaunchProvisionFailed => {
+            "Launch preparation failed. Required game client or library files could not be verified."
+        }
         AppErrorCode::InternalError => {
             "An unexpected internal error occurred. Please consult the launcher log console."
         }
@@ -71,6 +74,7 @@ mod tests {
             AppErrorCode::EncryptionFailed,
             AppErrorCode::DecryptionFailed,
             AppErrorCode::InstanceNotFound,
+            AppErrorCode::LaunchProvisionFailed,
             AppErrorCode::InternalError,
         ];
 

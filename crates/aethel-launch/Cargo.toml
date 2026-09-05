@@ -9,6 +9,9 @@ repository.workspace = true
 [dependencies]
 aethel-core = { path = "../aethel-core" }
 aethel-manifest = { path = "../aethel-manifest" }
+aethel-java = { path = "../aethel-java" }
+sha1 = { workspace = true }
+zip = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

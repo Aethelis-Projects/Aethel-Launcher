@@ -17,6 +17,7 @@ pub enum AppErrorCode {
     EncryptionFailed,
     DecryptionFailed,
     InstanceNotFound,
+    LaunchProvisionFailed,
     InternalError,
 }
 

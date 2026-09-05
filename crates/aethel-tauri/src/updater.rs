@@ -49,6 +49,36 @@ pub struct UpdateManifest {
     pub platforms: HashMap<String, UpdatePlatform>,
 }
 
+/// Update channel selection: Stable (production releases) vs Beta (pre-releases).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum UpdateChannel {
+    Stable,
+    Beta,
+}
+
+impl From<&str> for UpdateChannel {
+    fn from(s: &str) -> Self {
+        match s.to_ascii_lowercase().as_str() {
+            "beta" => Self::Beta,
+            _ => Self::Stable,
+        }
+    }
+}
+
+impl std::str::FromStr for UpdateChannel {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from(s))
+    }
+}
+
+/// Normalizes a version tag/string by stripping leading 'v' and whitespace for semver compatibility.
+pub fn normalize_version(version: &str) -> &str {
+    let trimmed = version.trim();
+    trimmed.strip_prefix('v').unwrap_or(trimmed)
+}
+
 pub fn current_platform_target() -> &'static str {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
     {
@@ -120,8 +150,8 @@ pub fn evaluate_manifest(
     current_version_str: &str,
     platform_target: &str,
 ) -> Option<UpdateInfo> {
-    let current_ver = Version::parse(current_version_str.trim_start_matches('v')).ok()?;
-    let target_ver = Version::parse(manifest.version.trim_start_matches('v')).ok()?;
+    let current_ver = Version::parse(normalize_version(current_version_str)).ok()?;
+    let target_ver = Version::parse(normalize_version(&manifest.version)).ok()?;
 
     if target_ver <= current_ver {
         return None;
@@ -150,8 +180,8 @@ pub fn evaluate_github_release(
     current_version_str: &str,
     platform_target: &str,
 ) -> Option<UpdateInfo> {
-    let current_ver = Version::parse(current_version_str.trim_start_matches('v')).ok()?;
-    let target_ver = Version::parse(release.tag_name.trim_start_matches('v')).ok()?;
+    let current_ver = Version::parse(normalize_version(current_version_str)).ok()?;
+    let target_ver = Version::parse(normalize_version(&release.tag_name)).ok()?;
 
     if target_ver <= current_ver {
         return None;
@@ -162,7 +192,10 @@ pub fn evaluate_github_release(
             let asset = release
                 .assets
                 .iter()
-                .find(|a| a.name.ends_with(".exe") && a.name.contains("setup"))
+                .find(|a| {
+                    let n = a.name.to_lowercase();
+                    n.ends_with(".exe") && (n.contains("setup") || n.contains("installer"))
+                })
                 .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".msi")))
                 .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".exe")));
             (
@@ -175,7 +208,8 @@ pub fn evaluate_github_release(
                 .assets
                 .iter()
                 .find(|a| a.name.ends_with(".AppImage"))
-                .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".deb")));
+                .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".deb")))
+                .or_else(|| release.assets.iter().find(|a| a.name.contains("Linux")));
             (
                 asset.map(|a| a.browser_download_url.clone()),
                 asset.map(|a| a.size).unwrap_or(0),
@@ -185,7 +219,12 @@ pub fn evaluate_github_release(
             let asset = release
                 .assets
                 .iter()
-                .find(|a| a.name.ends_with(".dmg") && a.name.contains("aarch64"))
+                .find(|a| {
+                    let n = a.name.to_lowercase();
+                    n.ends_with(".dmg")
+                        && (n.contains("aarch64") || n.contains("arm64") || n.contains("universal"))
+                })
+                .or_else(|| release.assets.iter().find(|a| a.name.contains("macOS")))
                 .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".dmg")));
             (
                 asset.map(|a| a.browser_download_url.clone()),
@@ -196,7 +235,12 @@ pub fn evaluate_github_release(
             let asset = release
                 .assets
                 .iter()
-                .find(|a| a.name.ends_with(".dmg") && a.name.contains("x64"))
+                .find(|a| {
+                    let n = a.name.to_lowercase();
+                    n.ends_with(".dmg")
+                        && (n.contains("x64") || n.contains("x86_64") || n.contains("universal"))
+                })
+                .or_else(|| release.assets.iter().find(|a| a.name.contains("macOS")))
                 .or_else(|| release.assets.iter().find(|a| a.name.ends_with(".dmg")));
             (
                 asset.map(|a| a.browser_download_url.clone()),
@@ -232,6 +276,7 @@ pub async fn check_for_updates_internal(
     current_version: &str,
 ) -> Result<Option<UpdateInfo>, String> {
     let chan = channel.unwrap_or_else(|| "stable".to_string());
+    let chan_enum = UpdateChannel::from(chan.as_str());
 
     // 1. Check in-memory cache (TTL 15 min) unless custom endpoint is provided
     if endpoint_override.is_none() {
@@ -247,8 +292,8 @@ pub async fn check_for_updates_internal(
     let target = current_platform_target();
 
     let client = match reqwest::Client::builder()
-        .user_agent("aethel-launcher/0.1.0 (Aethelis Projects)")
-        .timeout(std::time::Duration::from_secs(5))
+        .user_agent("Aethel-Launcher-Updater/1.0.0 (Aethelis Projects)")
+        .timeout(std::time::Duration::from_secs(10))
         .build()
     {
         Ok(c) => c,
@@ -270,7 +315,7 @@ pub async fn check_for_updates_internal(
 
     // 2. Query GitHub Releases API for real-time release notes & assets
     let gh_api_url =
-        "https://api.github.com/repos/Aethelis-Projects/Aethel-Launcher/releases?per_page=5";
+        "https://api.github.com/repos/Aethelis-Projects/Aethel-Launcher/releases?per_page=10";
     if let Ok(resp) = client.get(gh_api_url).send().await {
         if resp.status().is_success() {
             if let Ok(releases) = resp.json::<Vec<GitHubRelease>>().await {
@@ -278,14 +323,39 @@ pub async fn check_for_updates_internal(
                     if r.draft {
                         return false;
                     }
-                    if chan == "stable" {
-                        !r.prerelease
-                    } else {
-                        true
+                    match chan_enum {
+                        UpdateChannel::Stable => !r.prerelease,
+                        UpdateChannel::Beta => true,
                     }
                 });
 
                 if let Some(rel) = candidate {
+                    // Prefer latest.json asset if bundled in the release
+                    if let Some(latest_asset) = rel.assets.iter().find(|a| a.name == "latest.json")
+                    {
+                        if let Ok(m_resp) =
+                            client.get(&latest_asset.browser_download_url).send().await
+                        {
+                            if m_resp.status().is_success() {
+                                if let Ok(manifest) = m_resp.json::<UpdateManifest>().await {
+                                    if let Some(info) =
+                                        evaluate_manifest(&manifest, current_version, target)
+                                    {
+                                        if let Ok(mut guard) = RELEASE_CACHE.lock() {
+                                            *guard = Some((
+                                                std::time::Instant::now(),
+                                                chan.clone(),
+                                                Some(info.clone()),
+                                            ));
+                                        }
+                                        return Ok(Some(info));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback to evaluating raw release assets
                     let info = evaluate_github_release(&rel, current_version, target);
                     if let Ok(mut guard) = RELEASE_CACHE.lock() {
                         *guard = Some((std::time::Instant::now(), chan.clone(), info.clone()));
@@ -296,12 +366,9 @@ pub async fn check_for_updates_internal(
         }
     }
 
-    // 3. Fallback to static manifest
-    let fallback_url = if chan == "beta" {
-        "https://github.com/Aethelis-Projects/aethel-launcher/releases/download/beta/latest.json"
-    } else {
-        "https://github.com/Aethelis-Projects/aethel-launcher/releases/latest/download/latest.json"
-    };
+    // 3. Fallback to static manifest on latest public release
+    let fallback_url =
+        "https://github.com/Aethelis-Projects/Aethel-Launcher/releases/latest/download/latest.json";
 
     if let Ok(resp) = client.get(fallback_url).send().await {
         if resp.status().is_success() {
@@ -390,5 +457,89 @@ mod tests {
         // Must not return an Err, but Ok(None) to maintain offline resilience
         assert!(res.is_ok());
         assert!(res.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_semver_v_prefix_stripped() {
+        assert_eq!(normalize_version("v1.0.0-rc.6"), "1.0.0-rc.6");
+        assert_eq!(normalize_version("1.0.0-rc.6"), "1.0.0-rc.6");
+        assert_eq!(normalize_version("  v2.0.0 "), "2.0.0");
+        let parsed = Version::parse(normalize_version("v1.0.0-rc.6"));
+        assert!(parsed.is_ok(), "Parsed version without error");
+    }
+
+    #[test]
+    fn test_updater_channel_filtering() {
+        let releases = [
+            GitHubRelease {
+                tag_name: "v1.1.0-draft".to_string(),
+                name: Some("Draft".to_string()),
+                body: None,
+                published_at: None,
+                prerelease: true,
+                draft: true,
+                assets: vec![],
+            },
+            GitHubRelease {
+                tag_name: "v1.0.0-rc.6".to_string(),
+                name: Some("v1.0.0-rc.6".to_string()),
+                body: None,
+                published_at: None,
+                prerelease: true,
+                draft: false,
+                assets: vec![],
+            },
+            GitHubRelease {
+                tag_name: "v1.0.0".to_string(),
+                name: Some("v1.0.0".to_string()),
+                body: None,
+                published_at: None,
+                prerelease: false,
+                draft: false,
+                assets: vec![],
+            },
+        ];
+
+        // Stable channel filters out drafts and prereleases -> picks v1.0.0
+        let stable_candidate = releases.iter().find(|r| !r.draft && !r.prerelease);
+        assert_eq!(stable_candidate.unwrap().tag_name, "v1.0.0");
+
+        // Beta channel filters out drafts only -> picks v1.0.0-rc.6
+        let beta_candidate = releases.iter().find(|r| !r.draft);
+        assert_eq!(beta_candidate.unwrap().tag_name, "v1.0.0-rc.6");
+    }
+
+    #[test]
+    fn test_updater_reads_from_public_release() {
+        let release = GitHubRelease {
+            tag_name: "v1.0.0-rc.6".to_string(),
+            name: Some("v1.0.0-rc.6".to_string()),
+            body: Some("RC6 Notes".to_string()),
+            published_at: Some("2026-09-05T12:00:00Z".to_string()),
+            prerelease: true,
+            draft: false,
+            assets: vec![
+                GitHubAsset {
+                    name: "Aethel-Installer-Windows-x64.exe".to_string(),
+                    browser_download_url: "https://github.com/Aethelis-Projects/Aethel-Launcher/releases/download/v1.0.0-rc.6/Aethel-Installer-Windows-x64.exe".to_string(),
+                    size: 45000000,
+                },
+                GitHubAsset {
+                    name: "Aethel-Installer-Windows-x64.exe.sig".to_string(),
+                    browser_download_url: "https://github.com/Aethelis-Projects/Aethel-Launcher/releases/download/v1.0.0-rc.6/Aethel-Installer-Windows-x64.exe.sig".to_string(),
+                    size: 200,
+                },
+            ],
+        };
+
+        let update = evaluate_github_release(&release, "1.0.0-rc.5", "windows-x86_64");
+        assert!(update.is_some());
+        let info = update.unwrap();
+        assert_eq!(info.version, "v1.0.0-rc.6");
+        assert_eq!(info.download_size, 45000000);
+        assert!(info
+            .download_url
+            .unwrap()
+            .contains("Aethel-Installer-Windows-x64.exe"));
     }
 }

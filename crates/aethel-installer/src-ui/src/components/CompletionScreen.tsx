@@ -132,5 +132,5 @@ export const CompletionScreen: React.FC = () => {
 };
 
 function env_version(): string {
-  return '1.0.0-rc.5';
+  return '1.0.0-rc.6';
 }

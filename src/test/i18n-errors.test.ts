@@ -17,6 +17,7 @@ const errorCodes: AppErrorCode[] = [
   'ENCRYPTION_FAILED',
   'DECRYPTION_FAILED',
   'INSTANCE_NOT_FOUND',
+  'LAUNCH_PROVISION_FAILED',
   'INTERNAL_ERROR',
 ];
 

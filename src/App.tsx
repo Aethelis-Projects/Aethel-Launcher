@@ -5,11 +5,10 @@ import { TitleBar } from './components/TitleBar';
 import { InstanceGrid } from './components/InstanceGrid';
 import { DownloadDrawer } from './components/DownloadDrawer';
 import { SettingsModal } from './components/SettingsModal';
-import { LogViewer } from './components/LogViewer';
-import { StubLaunchButton } from './components/StubLaunchButton';
 import { AccountModal } from './components/AccountModal';
 import { CrashReportModal } from './components/CrashReportModal';
 import { UpdateChecker } from './components/UpdateChecker';
+import { LogViewer } from './components/LogViewer';
 import { useAccountStore } from './store/accountStore';
 import { useDownloadStore } from './store/downloadStore';
 import { useLogStore } from './store/logStore';
@@ -23,12 +22,28 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeCrashReport, setActiveCrashReport] = useState<CrashReport | null>(null);
   const [activeCrashInstanceId, setActiveCrashInstanceId] = useState<string | null>(null);
-  const { isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
+  const { activeAccount, isAccountModalOpen, setIsAccountModalOpen, fetchAccounts } = useAccountStore();
 
   const { updateProgress, updateBatchProgress, completeTask, failTask } = useDownloadStore();
   const { addLog, addLogBatch } = useLogStore();
-  const { setLaunchStatus, fetchInstances } = useInstanceStore();
+  const { instances, setLaunchStatus, fetchInstances } = useInstanceStore();
   const { updateChannel } = useSettingsStore();
+
+  const [toast, setToast] = useState<{
+    id: string;
+    type: 'success' | 'info' | 'error';
+    title: string;
+    description?: string;
+  } | null>(null);
+  const launchStartTimes = React.useRef<Map<string, number>>(new Map());
+
+  const showToast = (type: 'success' | 'info' | 'error', title: string, description?: string) => {
+    const id = Math.random().toString();
+    setToast({ id, type, title, description });
+    setTimeout(() => {
+      setToast((curr) => (curr?.id === id ? null : curr));
+    }, 5000);
+  };
 
   useEffect(() => {
     fetchAccounts();
@@ -62,16 +77,44 @@ export function App() {
             case 'ProcessLogBatch':
               addLogBatch(e.data.lines, false, e.data.instance_id);
               break;
-            case 'ProcessStarted':
+            case 'ProcessStarted': {
               setLaunchStatus(e.data.instance_id, 'running');
+              launchStartTimes.current.set(e.data.instance_id, Date.now());
+              const inst = instances.find((i) => i.id === e.data.instance_id);
+              const ver = inst?.game_version || '';
+              const playerName = activeAccount?.name || 'Player';
+              showToast(
+                'success',
+                `✅ Minecraft ${ver} запущен — ${playerName}`,
+                `PID: ${e.data.pid}`
+              );
               break;
-            case 'ProcessExited':
+            }
+            case 'ProcessExited': {
               setLaunchStatus(e.data.instance_id, 'idle');
+              const start = launchStartTimes.current.get(e.data.instance_id);
+              launchStartTimes.current.delete(e.data.instance_id);
+              if (start && (e.data.exit_code === 0 || e.data.exit_code === null)) {
+                const elapsedSecs = Math.max(1, Math.round((Date.now() - start) / 1000));
+                const mins = Math.floor(elapsedSecs / 60);
+                const secs = elapsedSecs % 60;
+                const timeStr = mins > 0 ? `${mins} мин ${secs} сек` : `${secs} сек`;
+                showToast('info', 'Игра закрыта', `Время в игре: ${timeStr}`);
+              }
               break;
-            case 'ProcessCrashed':
+            }
+            case 'ProcessCrashed': {
               setActiveCrashReport(e.data.report);
               setActiveCrashInstanceId(e.data.instance_id);
+              const inst = instances.find((i) => i.id === e.data.instance_id);
+              const ver = inst?.game_version || '';
+              showToast(
+                'error',
+                `❌ Minecraft ${ver} завершился с ошибкой`,
+                e.data.report.suggestion || 'Подробности доступны в отчете о краше'
+              );
               break;
+            }
             default:
               break;
           }
@@ -84,7 +127,17 @@ export function App() {
     return () => {
       if (unlisten) unlisten();
     };
-  }, [updateProgress, updateBatchProgress, completeTask, failTask, addLog, addLogBatch, setLaunchStatus]);
+  }, [
+    updateProgress,
+    updateBatchProgress,
+    completeTask,
+    failTask,
+    addLog,
+    addLogBatch,
+    setLaunchStatus,
+    instances,
+    activeAccount,
+  ]);
 
   return (
     <div className="flex h-screen w-screen flex-col bg-zinc-950 text-zinc-100 antialiased font-sans select-none overflow-hidden">
@@ -121,11 +174,6 @@ export function App() {
                 <span>{t('nav.logs')}</span>
               </button>
             </nav>
-
-            {/* Stub Identity Quick Card in Sidebar */}
-            <div className="pt-2">
-              <StubLaunchButton />
-            </div>
           </div>
 
           {/* Bottom Settings Trigger */}
@@ -168,6 +216,25 @@ export function App() {
 
       {/* Auto-Update Notification Banner / Modal */}
       <UpdateChecker channel={updateChannel} />
+
+      {/* Process Event Notification Toast */}
+      {toast && (
+        <div
+          data-testid="process-event-toast"
+          className={`fixed bottom-6 right-6 z-50 max-w-sm p-3.5 rounded-xl border shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+            toast.type === 'success'
+              ? 'bg-emerald-950/95 border-emerald-500/40 text-emerald-100 shadow-emerald-950/50'
+              : toast.type === 'error'
+              ? 'bg-rose-950/95 border-rose-500/40 text-rose-100 shadow-rose-950/50'
+              : 'bg-zinc-900/95 border-zinc-700/50 text-zinc-100 shadow-zinc-950/50'
+          }`}
+        >
+          <div className="text-xs font-semibold">{toast.title}</div>
+          {toast.description && (
+            <div className="text-[11px] opacity-80 mt-1">{toast.description}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

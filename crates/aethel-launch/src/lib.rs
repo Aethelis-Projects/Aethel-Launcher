@@ -438,9 +438,11 @@ pub async fn ensure_client_jar(
 }
 
 pub mod crash;
+pub mod provision;
 pub mod supervisor;
 
 pub use crash::{upload_to_mclogs, upload_to_mclogs_endpoint, CrashAnalyzer};
+pub use provision::*;
 #[cfg(windows)]
 pub use supervisor::JobObject;
 pub use supervisor::{LogCallback, ProcessSupervisor, SupervisedProcess};

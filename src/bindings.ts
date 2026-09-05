@@ -35,14 +35,6 @@ async getLaunchReceipt(gameVersion: string, username: string) : Promise<Result<L
     else return { status: "error", error: e  as any };
 }
 },
-async launchWithStubIdentity(gameVersion: string | null, memoryMaxMb: number | null, javaPath: string | null, gcPreset: string | null) : Promise<Result<LaunchReceipt, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("launch_with_stub_identity", { gameVersion, memoryMaxMb, javaPath, gcPreset }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async launchWithActiveIdentity(gameVersion: string | null, memoryMaxMb: number | null, javaPath: string | null, gcPreset: string | null) : Promise<Result<LaunchReceipt, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("launch_with_active_identity", { gameVersion, memoryMaxMb, javaPath, gcPreset }) };
@@ -328,7 +320,7 @@ backendEvent: "backend-event"
 /** user-defined types **/
 
 export type AccountMetadata = { uuid: string; username: string; account_type: string; skin_url: string | null; cape_url: string | null; server_url: string | null; last_used_at: string; is_active: boolean }
-export type AppErrorCode = "NO_DISK_SPACE" | "NETWORK_ERROR" | "HASH_MISMATCH" | "JAVA_NOT_FOUND" | "JAVA_INCOMPATIBLE" | "CLASSPATH_TOO_LONG" | "INVALID_MANIFEST" | "ZIP_SLIP_DETECTED" | "AUTH_FAILED" | "KEYRING_ACCESS_FAILED" | "ENCRYPTION_FAILED" | "DECRYPTION_FAILED" | "INSTANCE_NOT_FOUND" | "INTERNAL_ERROR"
+export type AppErrorCode = "NO_DISK_SPACE" | "NETWORK_ERROR" | "HASH_MISMATCH" | "JAVA_NOT_FOUND" | "JAVA_INCOMPATIBLE" | "CLASSPATH_TOO_LONG" | "INVALID_MANIFEST" | "ZIP_SLIP_DETECTED" | "AUTH_FAILED" | "KEYRING_ACCESS_FAILED" | "ENCRYPTION_FAILED" | "DECRYPTION_FAILED" | "INSTANCE_NOT_FOUND" | "LAUNCH_PROVISION_FAILED" | "INTERNAL_ERROR"
 export type BackendEvent = { type: "DownloadProgress"; data: { task_id: string; current: number; total: number; speed_bps: number; file_name: string } } | { type: "DownloadBatchProgress"; data: { items: DownloadProgressItem[] } } | { type: "DownloadCompleted"; data: { task_id: string } } | { type: "DownloadFailed"; data: { task_id: string; error_code: AppErrorCode; message: string } } | { type: "ProcessStarting"; data: { instance_id: string } } | { type: "ProcessStarted"; data: { instance_id: string; pid: number } } | { type: "ProcessLog"; data: { instance_id: string; line: string; is_stderr: boolean } } | { type: "ProcessLogBatch"; data: { instance_id: string; lines: string[] } } | { type: "ProcessExited"; data: { instance_id: string; exit_code: number | null } } | { type: "ProcessCrashed"; data: { instance_id: string; report: CrashReport } } | { type: "InstanceUpdated"; data: { instance_id: string } }
 export type CrashPattern = "OutOfMemory" | { ClassNotFound: string } | { NoClassDefFound: string } | { UnsatisfiedLink: string } | { WrongJavaVersion: { expected: number; actual: number | null } } | "GpuDriverIssue" | { ModConflict: string } | "Unknown"
 export type CrashReport = { pattern: CrashPattern; diagnosis: string; suggestion: string; full_log: string; exit_code: number | null; upload_url: string | null }

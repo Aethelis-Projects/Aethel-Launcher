@@ -4,8 +4,9 @@ use aethel_java::{
     detect_system_java as scan_system_java, GCPreset, InstalledRuntime, JavaProvider, JavaResolver,
 };
 use aethel_launch::{
-    build_classpath, build_launch_receipt, ensure_client_jar, upload_to_mclogs, CrashAnalyzer,
-    JavaVersion, LaunchConfiguration, LaunchReceipt, ProcessSupervisor,
+    build_classpath, build_launch_receipt, provision_instance, resolve_version_package,
+    upload_to_mclogs, CrashAnalyzer, JavaVersion, LaunchConfiguration, LaunchReceipt,
+    ProcessSupervisor,
 };
 use aethel_manifest::VersionPackage;
 use aethel_modding::{
@@ -252,51 +253,6 @@ pub fn major_to_launch_version(major: u32) -> JavaVersion {
 
 #[tauri::command]
 #[specta::specta]
-fn launch_with_stub_identity(
-    game_version: Option<String>,
-    memory_max_mb: Option<u32>,
-    java_path: Option<String>,
-    gc_preset: Option<String>,
-) -> Result<LaunchReceipt, String> {
-    let version = game_version.unwrap_or_else(|| "1.20.4".to_string());
-    let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
-    let pkg = VersionPackage::parse(fixture).map_err(|e| e.to_string())?;
-
-    let req_major = JavaResolver::fallback_version(&version);
-    let preset = match gc_preset.as_deref() {
-        Some("ZGC") => GCPreset::ZGC,
-        Some("GenerationalZGC") => GCPreset::GenerationalZGC,
-        Some("Parallel") => GCPreset::Parallel,
-        _ => GCPreset::G1GC,
-    };
-    let jvm_args = preset.to_jvm_args(req_major);
-
-    let resolved_java = resolve_best_existing_java(&version, java_path.as_deref());
-
-    let classpath_entries = resolve_instance_classpath(&get_app_data_dir(), &version, &pkg);
-
-    let config = LaunchConfiguration {
-        java_path: resolved_java,
-        java_version: major_to_launch_version(req_major),
-        game_dir: PathBuf::from(format!("instances/{version}")),
-        assets_dir: PathBuf::from("assets"),
-        natives_dir: PathBuf::from(format!("instances/{version}/natives")),
-        version_package: pkg,
-        classpath_entries,
-        player_name: "Player".to_string(),
-        player_uuid: "00000000-0000-0000-0000-000000000000".to_string(),
-        auth_access_token: "0".to_string(),
-        user_type: "legacy".to_string(),
-        memory_min_mb: Some(1024),
-        memory_max_mb: Some(memory_max_mb.unwrap_or(4096)),
-        custom_jvm_args: Some(jvm_args),
-    };
-
-    build_launch_receipt(&config, None).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
 async fn login_microsoft() -> Result<AccountMetadata, String> {
     let storage = Arc::new(get_secure_storage());
     let auth = aethel_auth::microsoft::MicrosoftAuth::new(storage);
@@ -434,7 +390,13 @@ fn launch_with_active_identity(
     gc_preset: Option<String>,
 ) -> Result<LaunchReceipt, String> {
     let version = game_version.unwrap_or_else(|| "1.20.4".to_string());
-    let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
+    let fixture = match version.as_str() {
+        "1.7.10" => include_str!("../../aethel-manifest/tests/fixtures/1.7.10.json"),
+        "1.12.2" => include_str!("../../aethel-manifest/tests/fixtures/1.12.2.json"),
+        "1.16.5" => include_str!("../../aethel-manifest/tests/fixtures/1.16.5.json"),
+        "1.21.1" => include_str!("../../aethel-manifest/tests/fixtures/1.21.1.json"),
+        _ => include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json"),
+    };
     let pkg = VersionPackage::parse(fixture).map_err(|e| e.to_string())?;
 
     let db = get_database()?;
@@ -661,16 +623,34 @@ async fn launch_instance(
     java_path: Option<String>,
     gc_preset: Option<String>,
 ) -> Result<u32, String> {
-    let version_str = game_version.clone().unwrap_or_else(|| "1.20.4".to_string());
-    let fixture = include_str!("../../aethel-manifest/tests/fixtures/1.20.4.json");
-    if let Ok(pkg) = VersionPackage::parse(fixture) {
-        let versions_dir = get_app_data_dir().join("versions");
-        let _ = ensure_client_jar(&versions_dir, &version_str, &pkg).await;
-    }
+    let app_data = get_app_data_dir();
+    let (maybe_instance, active) = {
+        let db = get_database()?;
+        (
+            db.get_instance(&instance_id).map_err(|e| e.to_string())?,
+            db.get_active_account().map_err(|e| e.to_string())?,
+        )
+    };
 
-    let mut receipt =
-        launch_with_active_identity(game_version, memory_max_mb, java_path, gc_preset)?;
-    let instance_dir = get_app_data_dir().join("instances").join(&instance_id);
+    let version_str = game_version
+        .or_else(|| maybe_instance.as_ref().map(|i| i.game_version.clone()))
+        .unwrap_or_else(|| "1.20.4".to_string());
+
+    let eff_memory_max = memory_max_mb
+        .or_else(|| maybe_instance.as_ref().and_then(|i| i.memory_max_mb))
+        .unwrap_or(4096);
+
+    let eff_memory_min = maybe_instance
+        .as_ref()
+        .and_then(|i| i.memory_min_mb)
+        .unwrap_or(1024);
+
+    let eff_java_path =
+        java_path.or_else(|| maybe_instance.as_ref().and_then(|i| i.java_path.clone()));
+
+    let eff_jvm_args = maybe_instance.as_ref().and_then(|i| i.jvm_args.clone());
+
+    let instance_dir = app_data.join("instances").join(&instance_id);
     let dirs = [
         "natives",
         "mods",
@@ -689,11 +669,108 @@ async fn launch_instance(
     if template_options.exists() && !options_file.exists() {
         let _ = std::fs::copy(&template_options, &options_file);
     }
+
+    let pkg = resolve_version_package(&app_data, &version_str)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let ctx = aethel_manifest::OsContext::current();
+    let report = provision_instance(
+        std::slice::from_ref(&pkg),
+        &ctx,
+        &version_str,
+        &instance_dir,
+        &app_data,
+        eff_java_path.as_deref(),
+        true,
+        true,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    let req_major = report.java_version.major();
+    let preset = match gc_preset.as_deref() {
+        Some("ZGC") => GCPreset::ZGC,
+        Some("GenerationalZGC") => GCPreset::GenerationalZGC,
+        Some("Parallel") => GCPreset::Parallel,
+        _ => GCPreset::G1GC,
+    };
+    let mut base_jvm_args = preset.to_jvm_args(req_major);
+    if let Some(extra) = eff_jvm_args {
+        for arg in extra.split_whitespace() {
+            base_jvm_args.push(arg.to_string());
+        }
+    }
+
+    let (player_name, player_uuid, auth_access_token, user_type, custom_jvm_args) = match active {
+        Some(acc) if acc.account_type == "microsoft" => {
+            let storage = get_secure_storage();
+            let key_prefix = format!("ms_{}", acc.uuid);
+            let token = storage
+                .retrieve_token(&format!("{key_prefix}_mc_token"))
+                .unwrap_or(None)
+                .unwrap_or_else(|| "0".to_string());
+            (
+                acc.username,
+                acc.uuid,
+                token,
+                "mojang".to_string(),
+                base_jvm_args,
+            )
+        }
+        Some(acc) if acc.account_type == "authlib" => {
+            if let Some(ref server_url) = acc.server_url {
+                let cache_dir = app_data.join("libraries");
+                let injector = aethel_auth::authlib::AuthlibInjector::new(cache_dir);
+                let jar_path = injector.jar_path();
+                base_jvm_args.push(injector.java_agent_arg(&jar_path, server_url));
+            }
+            (
+                acc.username,
+                acc.uuid,
+                "0".to_string(),
+                "mojang".to_string(),
+                base_jvm_args,
+            )
+        }
+        Some(acc) => (
+            acc.username,
+            acc.uuid,
+            "0".to_string(),
+            "legacy".to_string(),
+            base_jvm_args,
+        ),
+        None => (
+            "Player".to_string(),
+            "00000000-0000-0000-0000-000000000000".to_string(),
+            "0".to_string(),
+            "legacy".to_string(),
+            base_jvm_args,
+        ),
+    };
+
+    let config = LaunchConfiguration {
+        java_path: report.java_path,
+        java_version: report.java_version,
+        game_dir: instance_dir.clone(),
+        assets_dir: report.assets_root,
+        natives_dir: report.natives_dir,
+        version_package: pkg,
+        classpath_entries: report.classpath,
+        player_name,
+        player_uuid,
+        auth_access_token,
+        user_type,
+        memory_min_mb: Some(eff_memory_min),
+        memory_max_mb: Some(eff_memory_max),
+        custom_jvm_args: Some(custom_jvm_args),
+    };
+
+    let mut receipt = build_launch_receipt(&config, None).map_err(|e| e.to_string())?;
     receipt.working_dir = instance_dir;
 
-    if let Ok(db) = get_database() {
-        if let Ok(Some(mut inst)) = db.get_instance(&instance_id) {
-            inst.last_played_at = Some(chrono::Utc::now().to_rfc3339());
+    if let Some(mut inst) = maybe_instance {
+        inst.last_played_at = Some(chrono::Utc::now().to_rfc3339());
+        if let Ok(db) = get_database() {
             let _ = db.insert_instance(&inst);
         }
     }
@@ -1321,7 +1398,6 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             get_instances,
             delete_instance,
             get_launch_receipt,
-            launch_with_stub_identity,
             launch_with_active_identity,
             launch_instance,
             detect_system_java,
@@ -1368,17 +1444,12 @@ mod tests {
     static TEST_LOCK: TokioMutex<()> = TokioMutex::const_new(());
 
     #[test]
-    fn test_launch_with_stub_identity_dry_run() {
+    fn test_launch_receipt_dry_run() {
         let _lock = TEST_LOCK.blocking_lock();
-        let receipt = launch_with_stub_identity(Some("1.20.4".to_string()), Some(2048), None, None)
-            .expect("should produce valid launch receipt");
+        let receipt =
+            launch_with_active_identity(Some("1.20.4".to_string()), Some(2048), None, None)
+                .expect("should produce valid launch receipt");
 
-        assert!(receipt.arguments.contains(&"Player".to_string()));
-        assert!(receipt
-            .arguments
-            .contains(&"00000000-0000-0000-0000-000000000000".to_string()));
-        assert!(receipt.arguments.contains(&"0".to_string()));
-        assert!(receipt.arguments.contains(&"legacy".to_string()));
         assert!(receipt.arguments.contains(&"-Xmx2048M".to_string()));
     }
 
@@ -1432,7 +1503,7 @@ mod tests {
         let detected = detect_system_java().expect("detect java");
         let _ = detected.len();
 
-        let receipt = launch_with_stub_identity(
+        let receipt = launch_with_active_identity(
             Some("1.20.4".to_string()),
             Some(4096),
             Some("C:/custom/java/bin/javaw.exe".to_string()),

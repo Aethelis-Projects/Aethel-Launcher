@@ -7,10 +7,10 @@ import { mockLaunchReceipt } from '../__mocks__/tauri';
 
 describe('InstanceGrid Smoke Component Suite', () => {
   it('renders instance cards and triggers stub launch on Play click', async () => {
-    // Spy on launchWithStubIdentity
-    const launchSpy = vi.spyOn(commands, 'launchWithStubIdentity').mockResolvedValue({
+    // Spy on launchInstance
+    const launchSpy = vi.spyOn(commands, 'launchInstance').mockResolvedValue({
       status: 'ok',
-      data: mockLaunchReceipt,
+      data: 12345,
     });
 
     render(<InstanceGrid />);
