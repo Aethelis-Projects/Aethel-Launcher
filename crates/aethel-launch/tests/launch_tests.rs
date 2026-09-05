@@ -139,6 +139,24 @@ fn test_legacy_1_7_10_command_synthesis() {
     assert!(receipt
         .arguments
         .contains(&"net.minecraft.client.main.Main".to_string()));
+    assert!(receipt.arguments.contains(&"--userProperties".to_string()));
+    let user_prop_idx = receipt
+        .arguments
+        .iter()
+        .position(|a| a == "--userProperties")
+        .expect("has --userProperties");
+    assert_eq!(
+        receipt.arguments.get(user_prop_idx + 1),
+        Some(&"{}".to_string()),
+        "userProperties must be substituted with '{{}}' object"
+    );
+    assert!(
+        !receipt
+            .arguments
+            .iter()
+            .any(|a| a.contains("${user_properties}")),
+        "unexpanded ${{user_properties}} must not be present"
+    );
 }
 
 #[test]

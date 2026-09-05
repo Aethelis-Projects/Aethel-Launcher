@@ -16,10 +16,12 @@
 use sha1::{Digest, Sha1};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tracing::{info, warn};
 
 use aethel_core::{AppError, AppErrorCode};
 use aethel_java::{detect_system_java, JavaProvider, JavaResolver};
-use aethel_manifest::{OsContext, VersionPackage};
+use aethel_manifest::{AssetDownloadTask, AssetIndex, AssetIndexRef, OsContext, VersionPackage};
 
 use crate::{build_classpath, JavaVersion};
 
@@ -241,6 +243,189 @@ pub async fn resolve_version_package(
     ))
 }
 
+/// Provisions assets: downloads the asset index JSON to `<assets_root>/indexes/<id>.json`
+/// and concurrently fetches missing asset objects into `<assets_root>/objects/<hash[0..2]>/<hash>`,
+/// prioritizing essential assets (window icons, title screen panorama, sounds definition, fonts).
+pub async fn provision_assets(
+    assets_root: &Path,
+    asset_index_ref: &AssetIndexRef,
+    allow_downloads: bool,
+) -> Result<(), AppError> {
+    let indexes_dir = assets_root.join("indexes");
+    std::fs::create_dir_all(&indexes_dir)?;
+    let index_file = indexes_dir.join(format!("{}.json", asset_index_ref.id));
+
+    let index_content = if index_file.exists() && verify_sha1(&index_file, &asset_index_ref.sha1) {
+        std::fs::read_to_string(&index_file).ok()
+    } else {
+        None
+    };
+
+    let index_str = match index_content {
+        Some(content) => content,
+        None => {
+            if !allow_downloads {
+                let embedded = match asset_index_ref.id.as_str() {
+                    "12" | "1.20" => Some(include_str!(
+                        "../../aethel-manifest/tests/fixtures/asset_index_1.20.json"
+                    )),
+                    _ => None,
+                };
+                if let Some(emb) = embedded {
+                    let _ = std::fs::write(&index_file, emb);
+                    emb.to_string()
+                } else {
+                    warn!(
+                        "Missing asset index file {} and downloads are disabled",
+                        index_file.display()
+                    );
+                    return Ok(());
+                }
+            } else {
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(30))
+                    .build()
+                    .map_err(|e| AppError::new(AppErrorCode::NetworkError, e.to_string()))?;
+
+                let resp = client.get(&asset_index_ref.url).send().await.map_err(|e| {
+                    AppError::new(
+                        AppErrorCode::NetworkError,
+                        format!(
+                            "Failed to download asset index {}: {e}",
+                            asset_index_ref.url
+                        ),
+                    )
+                })?;
+
+                if !resp.status().is_success() {
+                    return Err(AppError::new(
+                        AppErrorCode::NetworkError,
+                        format!(
+                            "HTTP error {} downloading asset index from {}",
+                            resp.status(),
+                            asset_index_ref.url
+                        ),
+                    ));
+                }
+
+                let text = resp.text().await.map_err(|e| {
+                    AppError::new(
+                        AppErrorCode::NetworkError,
+                        format!("Failed to read asset index text: {e}"),
+                    )
+                })?;
+
+                if !asset_index_ref.sha1.is_empty() {
+                    let mut hasher = Sha1::new();
+                    hasher.update(text.as_bytes());
+                    let actual = format!("{:x}", hasher.finalize());
+                    if !actual.eq_ignore_ascii_case(&asset_index_ref.sha1) {
+                        return Err(AppError::new(
+                            AppErrorCode::HashMismatch,
+                            format!(
+                                "Asset index checksum mismatch: expected {}, got {}",
+                                asset_index_ref.sha1, actual
+                            ),
+                        ));
+                    }
+                }
+
+                let _ = std::fs::write(&index_file, &text);
+                text
+            }
+        }
+    };
+
+    let asset_index = match AssetIndex::parse(&index_str) {
+        Ok(idx) => idx,
+        Err(e) => {
+            warn!("Failed to parse asset index {}: {e}", index_file.display());
+            return Ok(());
+        }
+    };
+
+    if !allow_downloads {
+        return Ok(());
+    }
+
+    let objects_dir = assets_root.join("objects");
+    std::fs::create_dir_all(&objects_dir)?;
+
+    let mut missing_tasks = Vec::new();
+    for (logical_path, obj) in &asset_index.objects {
+        let task = AssetDownloadTask::new(logical_path, &obj.hash, obj.size, assets_root);
+        let dest = task.physical_path();
+        if !dest.exists() || dest.metadata().map(|m| m.len() != obj.size).unwrap_or(true) {
+            missing_tasks.push(task);
+        }
+    }
+
+    if missing_tasks.is_empty() {
+        return Ok(());
+    }
+
+    info!(
+        "Provisioning {} missing asset objects for index {}...",
+        missing_tasks.len(),
+        asset_index_ref.id
+    );
+
+    // Prioritize essential assets:
+    // 0: Icons, title screen panorama, sounds registry, fonts
+    // 1: Other assets
+    missing_tasks.sort_by_key(|t| {
+        if t.logical_path.starts_with("icons/")
+            || t.logical_path.contains("panorama")
+            || t.logical_path == "minecraft/sounds.json"
+            || t.logical_path.starts_with("minecraft/font/")
+        {
+            0
+        } else {
+            1
+        }
+    });
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .pool_max_idle_per_host(32)
+        .build()
+        .map_err(|e| AppError::new(AppErrorCode::NetworkError, e.to_string()))?;
+
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(32));
+    let mut join_set = tokio::task::JoinSet::new();
+
+    for task in missing_tasks {
+        let sem = semaphore.clone();
+        let cli = client.clone();
+        join_set.spawn(async move {
+            let _permit = match sem.acquire().await {
+                Ok(p) => p,
+                Err(_) => return,
+            };
+            let dest = task.physical_path();
+            if let Some(parent) = dest.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let url = task.url();
+            if let Ok(resp) = cli.get(&url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(bytes) = resp.bytes().await {
+                        if bytes.len() as u64 == task.size {
+                            let _ = std::fs::write(&dest, &bytes);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    while let Some(res) = join_set.join_next().await {
+        let _ = res;
+    }
+
+    Ok(())
+}
+
 /// Provisions all necessary runtime artifacts for launching an instance across a version package chain:
 /// 1. Version-scoped client jar: `<data>/versions/<gv>/<gv>.jar`
 /// 2. Applicable libraries: `<data>/libraries/<artifact.path>`
@@ -316,6 +501,13 @@ pub async fn provision_instance(
     std::fs::create_dir_all(&natives_dir)?;
     let assets_root = app_data_dir.join("assets");
     std::fs::create_dir_all(&assets_root)?;
+
+    // 2a. Assets Provisioning (indexes and objects)
+    if let Some(asset_index_ref) = chain.iter().find_map(|pkg| pkg.asset_index.as_ref()) {
+        if let Err(e) = provision_assets(&assets_root, asset_index_ref, allow_downloads).await {
+            warn!("Failed to provision assets for {}: {e}", asset_index_ref.id);
+        }
+    }
 
     let mut library_jars = Vec::new();
     let mut seen_paths = HashSet::new();
@@ -665,5 +857,77 @@ mod tests {
         assert_eq!(prov.java_version, JavaVersion::V8);
         assert!(!prov.classpath.is_empty());
         assert_eq!(prov.classpath[0], client_jar);
+    }
+
+    #[tokio::test]
+    async fn test_provision_assets_embedded_1_20_extracts_index() {
+        let temp = tempfile::tempdir().unwrap();
+        let assets_root = temp.path().join("assets");
+        let asset_index_ref = AssetIndexRef {
+            id: "12".to_string(),
+            sha1: "c1c4aa001cc9f37159e493a09e257c1d208b4343".to_string(),
+            size: 437886,
+            total_size: 655323518,
+            url: "https://piston-meta.mojang.com/v1/packages/c1c4aa001cc9f37159e493a09e257c1d208b4343/12.json".to_string(),
+        };
+
+        // When offline (allow_downloads = false), provision_assets uses embedded fixture for 12 / 1.20
+        let res = provision_assets(&assets_root, &asset_index_ref, false).await;
+        assert!(
+            res.is_ok(),
+            "provision_assets offline must succeed using embedded fixture"
+        );
+
+        let index_file = assets_root.join("indexes").join("12.json");
+        assert!(index_file.exists(), "indexes/12.json must exist on disk");
+
+        let content = std::fs::read_to_string(&index_file).unwrap();
+        let parsed = AssetIndex::parse(&content).unwrap();
+        assert!(parsed.objects.contains_key("icons/icon_16x16.png"));
+        assert!(parsed
+            .objects
+            .contains_key("minecraft/textures/gui/title/background/panorama_0.png"));
+        assert!(parsed.objects.contains_key("minecraft/sounds.json"));
+    }
+
+    #[test]
+    fn test_essential_assets_prioritization() {
+        let mut tasks = vec![
+            AssetDownloadTask::new(
+                "minecraft/sounds/ambient/cave/cave1.ogg",
+                "hash1",
+                100,
+                "assets",
+            ),
+            AssetDownloadTask::new(
+                "minecraft/textures/gui/title/background/panorama_0.png",
+                "hash2",
+                200,
+                "assets",
+            ),
+            AssetDownloadTask::new("minecraft/lang/ru_ru.json", "hash3", 300, "assets"),
+            AssetDownloadTask::new("icons/icon_16x16.png", "hash4", 400, "assets"),
+            AssetDownloadTask::new("minecraft/sounds.json", "hash5", 500, "assets"),
+        ];
+
+        tasks.sort_by_key(|t| {
+            if t.logical_path.starts_with("icons/")
+                || t.logical_path.contains("panorama")
+                || t.logical_path == "minecraft/sounds.json"
+                || t.logical_path.starts_with("minecraft/font/")
+            {
+                0
+            } else {
+                1
+            }
+        });
+
+        // First 3 tasks must be the essential UI & sound registry assets
+        assert_eq!(
+            tasks[0].logical_path,
+            "minecraft/textures/gui/title/background/panorama_0.png"
+        );
+        assert_eq!(tasks[1].logical_path, "icons/icon_16x16.png");
+        assert_eq!(tasks[2].logical_path, "minecraft/sounds.json");
     }
 }

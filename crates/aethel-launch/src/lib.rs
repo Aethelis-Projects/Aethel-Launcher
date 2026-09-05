@@ -139,14 +139,19 @@ pub fn build_launch_receipt(
         "assets_root",
         config.assets_dir.to_string_lossy().to_string(),
     );
-    vars.insert(
-        "assets_index_name",
-        config
-            .version_package
-            .assets
-            .clone()
-            .unwrap_or_else(|| "legacy".to_string()),
-    );
+    let assets_index_name = config
+        .version_package
+        .assets
+        .clone()
+        .or_else(|| {
+            config
+                .version_package
+                .asset_index
+                .as_ref()
+                .map(|ai| ai.id.clone())
+        })
+        .unwrap_or_else(|| "legacy".to_string());
+    vars.insert("assets_index_name", assets_index_name);
     vars.insert("auth_uuid", config.player_uuid.clone());
     vars.insert("auth_access_token", config.auth_access_token.clone());
     vars.insert("user_type", config.user_type.clone());
@@ -159,6 +164,7 @@ pub fn build_launch_receipt(
     vars.insert("launcher_version", env!("CARGO_PKG_VERSION").to_string());
     vars.insert("clientid", "".to_string());
     vars.insert("auth_xuid", "".to_string());
+    vars.insert("user_properties", "{}".to_string());
 
     let classpath_delimiter = if target_os == "windows" { ";" } else { ":" };
     let full_classpath = config
