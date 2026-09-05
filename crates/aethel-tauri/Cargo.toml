@@ -28,6 +28,12 @@ semver = { workspace = true }
 uuid = { workspace = true }
 discord-rpc-client = { workspace = true }
 tracing = { workspace = true }
+open = { workspace = true }
+flate2 = { workspace = true }
+base64 = { workspace = true }
+zip = { workspace = true }
+walkdir = { workspace = true }
+urlencoding = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

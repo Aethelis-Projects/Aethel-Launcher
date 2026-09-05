@@ -297,3 +297,22 @@ async fn test_client_jar_downloaded_if_missing() {
         .expect("ensure_client_jar cached");
     assert_eq!(jar_path, jar_path_2);
 }
+
+#[test]
+fn test_version_gated_jvm_flags() {
+    use aethel_launch::is_flag_allowed_for_java;
+    assert!(!is_flag_allowed_for_java(
+        "--sun-misc-unsafe-memory-access=allow",
+        21
+    ));
+    assert!(is_flag_allowed_for_java(
+        "--sun-misc-unsafe-memory-access=allow",
+        22
+    ));
+    assert!(is_flag_allowed_for_java(
+        "--sun-misc-unsafe-memory-access=allow",
+        25
+    ));
+    assert!(is_flag_allowed_for_java("-XX:+UseG1GC", 21));
+}
+

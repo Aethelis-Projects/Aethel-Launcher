@@ -102,6 +102,11 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
 
       if (res.status === 'ok') {
         set({ downloadProgress: 100, isDownloaded: true, isDownloading: false });
+        try {
+          await commands.prepareSilentUpdateAndRestart(updateInfo?.download_url ?? null);
+        } catch {
+          // Non-fatal if prepare restart fails in mock/unsupported environments
+        }
         return true;
       } else {
         set({ isDownloading: false, downloadProgress: 0 });

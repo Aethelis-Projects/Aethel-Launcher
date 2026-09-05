@@ -1,5 +1,9 @@
 use aethel_auth::{generate_offline_uuid, storage::SecureStorage};
 use aethel_core::{
+    types::{
+        ModpackInspectResult, ModpackSearchResult as CoreModpackSearchResult, ResourcePackEntry,
+        ShaderPackEntry, WorldEntry,
+    },
     AccountMetadata, BackendEvent, CrashReport, EffectiveInstanceSettings, GlobalSettings,
     Instance, InstanceSettings, JavaInfo,
 };
@@ -28,6 +32,9 @@ pub use updater::*;
 
 pub mod discord_rpc;
 pub use discord_rpc::*;
+
+pub mod instances_manager;
+pub use instances_manager::*;
 
 static DISCORD_RPC: std::sync::OnceLock<DiscordRpcService> = std::sync::OnceLock::new();
 
@@ -836,8 +843,20 @@ async fn launch_instance(
 
     let app_exit = app.clone();
     let inst_exit = instance_id;
+    let start_instant = std::time::Instant::now();
     tauri::async_runtime::spawn(async move {
-        match proc.wait().await {
+        let (status_res, logs) = match proc.wait().await {
+            Ok(status) => (Ok(status), proc.logs()),
+            Err(e) => (Err(e), Vec::new()),
+        };
+
+        let elapsed_secs = start_instant.elapsed().as_secs();
+        let now_iso = chrono::Utc::now().to_rfc3339();
+        if let Ok(db) = get_database() {
+            let _ = db.update_instance_playtime(&inst_exit, elapsed_secs, &now_iso);
+        }
+
+        match status_res {
             Ok(status) => {
                 let code = status.code();
                 if status.success() {
@@ -847,7 +866,6 @@ async fn launch_instance(
                     }
                     .emit(&app_exit);
                 } else {
-                    let logs = proc.logs();
                     let crash_report = CrashAnalyzer::analyze(code, &logs);
                     let _ = BackendEvent::ProcessCrashed {
                         instance_id: inst_exit.clone(),
@@ -1510,6 +1528,490 @@ fn set_discord_rpc_activity(locale: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+fn open_instance_folder(instance_id: String, subfolder: Option<String>) -> Result<(), String> {
+    let mut path = get_app_data_dir().join("instances").join(&instance_id);
+    if let Some(sub) = subfolder {
+        path = path.join(sub);
+    }
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    open::that(&path).map_err(|e| format!("Failed to open {}: {e}", path.display()))
+}
+
+#[tauri::command]
+#[specta::specta]
+fn update_instance_name(instance_id: String, name: String) -> Result<(), String> {
+    let db = get_database()?;
+    db.update_instance_name(&instance_id, &name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn update_instance_icon(instance_id: String, icon_path: Option<String>) -> Result<(), String> {
+    let db = get_database()?;
+    db.update_instance_icon(&instance_id, icon_path.as_deref()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_instance_resourcepacks(instance_id: String) -> Result<Vec<ResourcePackEntry>, String> {
+    let dir = get_app_data_dir().join("instances").join(&instance_id);
+    Ok(instances_manager::scan_resourcepacks(&dir))
+}
+
+#[tauri::command]
+#[specta::specta]
+fn toggle_instance_resourcepack(
+    instance_id: String,
+    pack_name: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let dir = get_app_data_dir().join("instances").join(&instance_id);
+    let options_path = dir.join("options.txt");
+    instances_manager::set_active_resourcepack_status(&options_path, &pack_name, enabled)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_instance_shaderpacks(instance_id: String) -> Result<Vec<ShaderPackEntry>, String> {
+    let dir = get_app_data_dir().join("instances").join(&instance_id);
+    Ok(instances_manager::scan_shaderpacks(&dir))
+}
+
+#[tauri::command]
+#[specta::specta]
+fn set_instance_active_shaderpack(
+    instance_id: String,
+    shader_name: Option<String>,
+) -> Result<(), String> {
+    let dir = get_app_data_dir().join("instances").join(&instance_id);
+    instances_manager::write_active_shaderpack(&dir, shader_name.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_instance_worlds(instance_id: String) -> Result<Vec<WorldEntry>, String> {
+    let dir = get_app_data_dir().join("instances").join(&instance_id);
+    Ok(instances_manager::scan_worlds(&dir))
+}
+
+#[tauri::command]
+#[specta::specta]
+fn inspect_modpack(file_path: String) -> Result<ModpackInspectResult, String> {
+    instances_manager::inspect_modpack_archive(std::path::Path::new(&file_path))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn search_modpacks(
+    query: String,
+    provider: String,
+    loader: Option<String>,
+    game_version: Option<String>,
+    limit: Option<u32>,
+) -> Result<Vec<CoreModpackSearchResult>, String> {
+    let lim = limit.unwrap_or(20).clamp(1, 50);
+    let mut results = Vec::new();
+
+    let client = reqwest::Client::builder()
+        .user_agent("aethel-launcher/0.1.0 (Aethelis Projects)")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // 1. Modrinth
+    if provider == "modrinth" || provider == "all" {
+        let mut facets = vec![r#"["project_type:modpack"]"#.to_string()];
+        if let Some(ref gv) = game_version {
+            if !gv.is_empty() {
+                facets.push(format!(r#"["versions:{}"]"#, gv));
+            }
+        }
+        if let Some(ref ld) = loader {
+            if !ld.is_empty() && ld != "all" {
+                facets.push(format!(r#"["categories:{}"]"#, ld.to_lowercase()));
+            }
+        }
+        let facets_param = format!("[{}]", facets.join(","));
+        let url = format!(
+            "https://api.modrinth.com/v2/search?query={}&facets={}&limit={}",
+            urlencoding::encode(&query),
+            urlencoding::encode(&facets_param),
+            lim
+        );
+
+        if let Ok(resp) = client.get(&url).send().await {
+            if resp.status().is_success() {
+                if let Ok(val) = resp.json::<serde_json::Value>().await {
+                    if let Some(hits) = val["hits"].as_array() {
+                        for h in hits {
+                            let project_id = h["project_id"].as_str().unwrap_or_default().to_string();
+                            let title = h["title"].as_str().unwrap_or_default().to_string();
+                            let summary = h["description"].as_str().unwrap_or_default().to_string();
+                            let author = h["author"].as_str().unwrap_or_default().to_string();
+                            let downloads = h["downloads"].as_u64().unwrap_or(0);
+                            let icon_url = h["icon_url"].as_str().map(|s| s.to_string());
+                            let categories = h["categories"]
+                                .as_array()
+                                .map(|arr| arr.iter().filter_map(|c| c.as_str().map(String::from)).collect())
+                                .unwrap_or_default();
+                            let supported_game_versions = h["versions"]
+                                .as_array()
+                                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                                .unwrap_or_default();
+
+                            results.push(CoreModpackSearchResult {
+                                provider: "modrinth".to_string(),
+                                project_id,
+                                title,
+                                summary,
+                                author,
+                                downloads,
+                                icon_url,
+                                categories,
+                                latest_version: None,
+                                supported_game_versions,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. CurseForge
+    if provider == "curseforge" || provider == "all" {
+        let mut url = format!(
+            "https://api.curseforge.com/v1/mods/search?gameId=432&classId=4471&searchFilter={}&pageSize={}",
+            urlencoding::encode(&query),
+            lim
+        );
+        if let Some(ref gv) = game_version {
+            if !gv.is_empty() {
+                url.push_str(&format!("&gameVersion={}", urlencoding::encode(gv)));
+            }
+        }
+        if let Some(ref ld) = loader {
+            let mod_loader_type = match ld.to_lowercase().as_str() {
+                "forge" => Some(1),
+                "fabric" => Some(4),
+                "quilt" => Some(5),
+                "neoforge" => Some(6),
+                _ => None,
+            };
+            if let Some(mlt) = mod_loader_type {
+                url.push_str(&format!("&modLoaderType={mlt}"));
+            }
+        }
+
+        let resp = client
+            .get(&url)
+            .header("x-api-key", aethel_modding::DEFAULT_CURSEFORGE_KEY)
+            .send()
+            .await;
+
+        if let Ok(r) = resp {
+            if r.status().is_success() {
+                if let Ok(val) = r.json::<serde_json::Value>().await {
+                    if let Some(data) = val["data"].as_array() {
+                        for m in data {
+                            let project_id = m["id"].to_string();
+                            let title = m["name"].as_str().unwrap_or_default().to_string();
+                            let summary = m["summary"].as_str().unwrap_or_default().to_string();
+                            let author = m["authors"]
+                                .as_array()
+                                .and_then(|a| a.first())
+                                .and_then(|a| a["name"].as_str())
+                                .unwrap_or("Unknown")
+                                .to_string();
+                            let downloads = m["downloadCount"].as_u64().unwrap_or(0);
+                            let icon_url = m["logo"]["thumbnailUrl"].as_str().map(|s| s.to_string());
+                            let categories = m["categories"]
+                                .as_array()
+                                .map(|arr| arr.iter().filter_map(|c| c["name"].as_str().map(String::from)).collect())
+                                .unwrap_or_default();
+                            let latest_file_id = m["mainFileId"].to_string();
+
+                            results.push(CoreModpackSearchResult {
+                                provider: "curseforge".to_string(),
+                                project_id,
+                                title,
+                                summary,
+                                author,
+                                downloads,
+                                icon_url,
+                                categories,
+                                latest_version: Some(latest_file_id),
+                                supported_game_versions: vec![],
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(results)
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn install_online_modpack(
+    provider: String,
+    project_id: String,
+    version_id: Option<String>,
+    instance_name: String,
+) -> Result<Instance, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("aethel-launcher/0.1.0 (Aethelis Projects)")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let temp_dir = std::env::temp_dir().join("aethel_modpacks");
+    std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+
+    let (download_url, file_ext) = if provider == "curseforge" {
+        let file_id = version_id.ok_or_else(|| "CurseForge requires a file ID".to_string())?;
+        let url = format!(
+            "https://api.curseforge.com/v1/mods/{project_id}/files/{file_id}/download-url"
+        );
+        let resp = client
+            .get(&url)
+            .header("x-api-key", aethel_modding::DEFAULT_CURSEFORGE_KEY)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !resp.status().is_success() {
+            return Err(format!("CurseForge file API error: {}", resp.status()));
+        }
+
+        let val = resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+        let dl = val["data"].as_str().ok_or_else(|| "Missing download URL in CurseForge response".to_string())?;
+        (dl.to_string(), "zip")
+    } else {
+        let url = if let Some(ref vid) = version_id {
+            format!("https://api.modrinth.com/v2/version/{vid}")
+        } else {
+            format!("https://api.modrinth.com/v2/project/{project_id}/version")
+        };
+
+        let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!("Modrinth version API error: {}", resp.status()));
+        }
+
+        let val = resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+        let ver_obj = if val.is_array() {
+            val.as_array().and_then(|a| a.first()).ok_or_else(|| "No versions found for modpack".to_string())?
+        } else {
+            &val
+        };
+
+        let files = ver_obj["files"].as_array().ok_or_else(|| "Missing files array".to_string())?;
+        let primary_file = files.iter().find(|f| f["primary"].as_bool().unwrap_or(false)).or_else(|| files.first())
+            .ok_or_else(|| "No files in version".to_string())?;
+
+        let dl = primary_file["url"].as_str().ok_or_else(|| "Missing file URL".to_string())?;
+        (dl.to_string(), "mrpack")
+    };
+
+    let temp_archive_path = temp_dir.join(format!("{}.{}", uuid::Uuid::new_v4(), file_ext));
+    let resp = client.get(&download_url).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("Download failed with status: {}", resp.status()));
+    }
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    std::fs::write(&temp_archive_path, bytes).map_err(|e| e.to_string())?;
+
+    let inst = import_modpack(
+        temp_archive_path.to_string_lossy().to_string(),
+        Some(instance_name),
+    )
+    .await;
+
+    let _ = std::fs::remove_file(temp_archive_path);
+    inst
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn pick_file_dialog(
+    title: Option<String>,
+    filter_name: Option<String>,
+    filter_extensions: Vec<String>,
+) -> Result<Option<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let filter_str = if filter_extensions.is_empty() {
+            "All Files (*.*)|*.*".to_string()
+        } else {
+            let exts = filter_extensions
+                .iter()
+                .map(|e| format!("*.{}", e.trim_start_matches('.')))
+                .collect::<Vec<_>>()
+                .join(";");
+            let name = filter_name.unwrap_or_else(|| "Supported Files".to_string());
+            format!("{name} ({exts})|{exts}|All Files (*.*)|*.*")
+        };
+        let title_str = title.unwrap_or_else(|| "Select File".to_string());
+
+        let ps_script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms; \
+             $f = New-Object System.Windows.Forms.OpenFileDialog; \
+             $f.Title = '{title}'; \
+             $f.Filter = '{filter}'; \
+             if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ $f.FileName }}",
+            title = title_str.replace('\'', "''"),
+            filter = filter_str.replace('\'', "''")
+        );
+
+        let out = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        let res = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if res.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(res))
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (title, filter_name, filter_extensions);
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn prepare_silent_update_and_restart(
+    app: tauri::AppHandle,
+    download_url: Option<String>,
+) -> Result<(), String> {
+    let url = match download_url {
+        Some(u) if !u.trim().is_empty() => u,
+        _ => {
+            let info = check_for_updates_internal(None, None, env!("CARGO_PKG_VERSION"))
+                .await?
+                .ok_or_else(|| "No update available".to_string())?;
+            info.download_url.ok_or_else(|| "No download URL available".to_string())?
+        }
+    };
+
+    let client = reqwest::Client::builder()
+        .user_agent("aethel-launcher/0.1.0 (Aethelis Projects)")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let temp_dir = std::env::temp_dir().join("aethel_update");
+    std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+
+    let filename = url.split('/').next_back().unwrap_or("Aethel-Installer.exe");
+    let dest_installer = temp_dir.join(filename);
+
+    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("Download failed with status {}", resp.status()));
+    }
+    let installer_bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    std::fs::write(&dest_installer, installer_bytes).map_err(|e| e.to_string())?;
+
+    let launcher_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let launcher_pid = std::process::id();
+    let app_data = get_app_data_dir();
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let script_path = temp_dir.join("aethel_update.bat");
+        let script = format!(
+            r#"@echo off
+setlocal
+set "PID={pid}"
+set "INSTALLER={installer}"
+set "EXE={exe}"
+set "LOG={log}"
+
+:wait_loop
+tasklist /FI "PID eq %PID%" 2>NUL | find /I "%PID%" >NUL
+if not errorlevel 1 (
+    timeout /T 1 /NOBREAK >NUL
+    goto wait_loop
+)
+
+"%INSTALLER%" /S
+set "CODE=%ERRORLEVEL%"
+if %CODE% NEQ 0 (
+    echo Installer failed with %CODE% > "%LOG%"
+)
+
+start "" "%EXE%"
+del "%~f0" >NUL 2>&1
+exit /b %CODE%
+"#,
+            pid = launcher_pid,
+            installer = dest_installer.to_string_lossy(),
+            exe = launcher_exe.to_string_lossy(),
+            log = app_data.join("update_failed.log").to_string_lossy()
+        );
+        std::fs::write(&script_path, script).map_err(|e| e.to_string())?;
+
+        std::process::Command::new("cmd.exe")
+            .args(["/C", script_path.to_str().unwrap()])
+            .creation_flags(0x08000000 | 0x00000008)
+            .spawn()
+            .map_err(|e| format!("Failed to spawn updater: {e}"))?;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let script_path = temp_dir.join("aethel_update.sh");
+        let script = format!(
+            r#"#!/usr/bin/env sh
+PID={pid}
+INSTALLER="{installer}"
+EXE="{exe}"
+LOG="{log}"
+
+while kill -0 "$PID" 2>/dev/null; do
+    sleep 1
+done
+
+chmod +x "$INSTALLER" 2>/dev/null
+"$INSTALLER" --silent 2>"$LOG" || "$INSTALLER" 2>"$LOG"
+
+"$EXE" &
+rm -f "$0"
+"#,
+            pid = launcher_pid,
+            installer = dest_installer.to_string_lossy(),
+            exe = launcher_exe.to_string_lossy(),
+            log = app_data.join("update_failed.log").to_string_lossy()
+        );
+        std::fs::write(&script_path, &script).map_err(|e| e.to_string())?;
+        if let Ok(meta) = std::fs::metadata(&script_path) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o755);
+            let _ = std::fs::set_permissions(&script_path, perms);
+        }
+
+        std::process::Command::new("sh")
+            .arg(&script_path)
+            .spawn()
+            .map_err(|e| format!("Failed to spawn updater: {e}"))?;
+    }
+
+    app.exit(0);
+    Ok(())
+}
+
 pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
@@ -1558,7 +2060,20 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             update_instance_settings,
             get_effective_instance_settings,
             set_discord_rpc_enabled,
-            set_discord_rpc_activity
+            set_discord_rpc_activity,
+            open_instance_folder,
+            update_instance_name,
+            update_instance_icon,
+            get_instance_resourcepacks,
+            toggle_instance_resourcepack,
+            get_instance_shaderpacks,
+            set_instance_active_shaderpack,
+            get_instance_worlds,
+            inspect_modpack,
+            search_modpacks,
+            install_online_modpack,
+            pick_file_dialog,
+            prepare_silent_update_and_restart
         ])
         .events(tauri_specta::collect_events![BackendEvent])
 }
@@ -1795,8 +2310,8 @@ mod tests {
         assert_eq!(get_recommended_java("1.16.5".to_string()), 8);
         assert_eq!(get_recommended_java("1.20.4".to_string()), 17);
         assert_eq!(get_recommended_java("1.21.1".to_string()), 21);
-        assert_eq!(get_recommended_java("26.2".to_string()), 21);
-        assert_eq!(get_recommended_java("25w02a".to_string()), 21);
+        assert_eq!(get_recommended_java("26.2".to_string()), 25);
+        assert_eq!(get_recommended_java("25w02a".to_string()), 25);
 
         let temp = tempfile::tempdir().unwrap();
         std::env::set_var("AETHEL_DATA_DIR", temp.path().to_str().unwrap());
@@ -1848,6 +2363,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_two_level_settings_and_discord_rpc_commands() {
         let _lock = TEST_LOCK.blocking_lock();
         let temp = tempfile::tempdir().unwrap();
@@ -1888,10 +2404,10 @@ mod tests {
         update_instance_settings(target_id.clone(), InstanceSettings::default())
             .expect("reset instance settings to defaults");
 
-        // Effective settings must inherit from global (6144 MB, ZGC)
+        // Effective settings: memory defaults to per-instance fallback (4096 MB), GC to ZGC
         let effective_inherited =
             get_effective_instance_settings(target_id.clone()).expect("get effective settings");
-        assert_eq!(effective_inherited.memory_max_mb, 6144);
+        assert_eq!(effective_inherited.memory_max_mb, 4096);
         assert_eq!(effective_inherited.gc_preset, "ZGC");
         assert_eq!(
             effective_inherited.java_path.as_deref(),

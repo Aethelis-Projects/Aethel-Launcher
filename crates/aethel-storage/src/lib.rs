@@ -406,6 +406,59 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_instance_playtime(
+        &self,
+        id: &str,
+        session_seconds: u64,
+        last_played_iso: &str,
+    ) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE instances SET
+                    total_playtime_seconds = total_playtime_seconds + ?1,
+                    last_played_at = ?2
+                 WHERE id = ?3;",
+                params![session_seconds as i64, last_played_iso, id],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to update instance playtime: {e}"),
+                )
+            })?;
+        Ok(())
+    }
+
+    pub fn update_instance_name(&self, id: &str, name: &str) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE instances SET name = ?1 WHERE id = ?2;",
+                params![name, id],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to update instance name: {e}"),
+                )
+            })?;
+        Ok(())
+    }
+
+    pub fn update_instance_icon(&self, id: &str, icon_path: Option<&str>) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE instances SET icon_path = ?1 WHERE id = ?2;",
+                params![icon_path, id],
+            )
+            .map_err(|e| {
+                AppError::new(
+                    AppErrorCode::InternalError,
+                    format!("Failed to update instance icon: {e}"),
+                )
+            })?;
+        Ok(())
+    }
+
     pub fn delete_instance(&self, id: &str) -> Result<()> {
         self.conn
             .execute("DELETE FROM instances WHERE id = ?1;", params![id])
@@ -949,6 +1002,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_global_settings_persistence() {
         let db = Database::in_memory().expect("in memory db");
 
@@ -1026,5 +1080,41 @@ mod tests {
             .expect("delete account");
         let remaining = db.list_accounts().expect("list after delete");
         assert_eq!(remaining.len(), 0);
+    }
+
+    #[test]
+    fn test_instance_playtime_and_metadata_updates() {
+        let db = Database::in_memory().expect("in memory db");
+        let inst = Instance {
+            id: "inst-1".into(),
+            name: "Initial Name".into(),
+            game_version: "1.20.4".into(),
+            loader: None,
+            loader_version: None,
+            java_path: None,
+            memory_min_mb: None,
+            memory_max_mb: None,
+            jvm_args: None,
+            last_played_at: None,
+            total_playtime_seconds: 0,
+            icon_path: None,
+            banner_path: None,
+            created_at: "2026-09-05T00:00:00Z".into(),
+            last_mclo_gs_url: None,
+            last_mclo_gs_at: None,
+            settings_json: None,
+        };
+        db.insert_instance(&inst).expect("insert");
+
+        db.update_instance_name("inst-1", "Updated Name").expect("rename");
+        db.update_instance_icon("inst-1", Some("C:/icons/custom.png")).expect("icon");
+        db.update_instance_playtime("inst-1", 125, "2026-09-05T12:00:00Z").expect("playtime 1");
+        db.update_instance_playtime("inst-1", 75, "2026-09-05T14:00:00Z").expect("playtime 2");
+
+        let fetched = db.get_instance("inst-1").expect("get").expect("exists");
+        assert_eq!(fetched.name, "Updated Name");
+        assert_eq!(fetched.icon_path.as_deref(), Some("C:/icons/custom.png"));
+        assert_eq!(fetched.total_playtime_seconds, 200);
+        assert_eq!(fetched.last_played_at.as_deref(), Some("2026-09-05T14:00:00Z"));
     }
 }

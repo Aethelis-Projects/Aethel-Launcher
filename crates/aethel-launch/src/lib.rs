@@ -73,6 +73,31 @@ pub struct LaunchConfiguration {
     pub custom_jvm_args: Option<Vec<String>>,
 }
 
+/// Version-gated JVM flag specification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlagSpec {
+    pub prefix: &'static str,
+    pub min_java: u32,
+}
+
+/// Known JVM flags that are only supported starting from specific Java versions.
+pub const VERSION_GATED_FLAGS: &[FlagSpec] = &[
+    FlagSpec {
+        prefix: "--sun-misc-unsafe-memory-access",
+        min_java: 22,
+    },
+];
+
+/// Checks whether a JVM argument is allowed on the target Java version.
+pub fn is_flag_allowed_for_java(arg: &str, java_major: u32) -> bool {
+    for spec in VERSION_GATED_FLAGS {
+        if arg.starts_with(spec.prefix) && java_major < spec.min_java {
+            return false;
+        }
+    }
+    true
+}
+
 /// Replaces standard Minecraft template variables in argument strings.
 pub fn substitute_template(template: &str, vars: &HashMap<&str, String>) -> String {
     let mut result = template.to_string();
@@ -189,13 +214,20 @@ pub fn build_launch_receipt(
 
     // Custom JVM args
     if let Some(ref extra) = config.custom_jvm_args {
-        jvm_args.extend(extra.clone());
+        for arg in extra {
+            if is_flag_allowed_for_java(arg, config.java_version.major()) {
+                jvm_args.push(arg.clone());
+            }
+        }
     }
 
     // Version-defined JVM arguments
     let raw_jvm_args = config.version_package.jvm_arguments(&ctx);
     for raw in &raw_jvm_args {
-        jvm_args.push(substitute_template(raw, &vars));
+        let substituted = substitute_template(raw, &vars);
+        if is_flag_allowed_for_java(&substituted, config.java_version.major()) {
+            jvm_args.push(substituted);
+        }
     }
 
     // 3. Synthesize game arguments

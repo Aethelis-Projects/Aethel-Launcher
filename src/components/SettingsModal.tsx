@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
   X,
   Cpu,
-  HardDrive,
   RefreshCw,
   Sparkles,
   Loader2,
@@ -30,8 +29,6 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { t, i18n } = useTranslation();
   const {
-    minRamMb,
-    maxRamMb,
     gcPreset,
     javaPath,
     javaMode,
@@ -40,8 +37,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     theme,
     discordRpcEnabled,
     defaultJvmArgs,
-    setMinRamMb,
-    setMaxRamMb,
     setGcPreset,
     setJavaPath,
     setJavaMode,
@@ -188,62 +183,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
-          {/* Memory Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              <HardDrive className="w-4 h-4 text-cyan-400" />
-              <span>{t('settings.memory')}</span>
-            </div>
-
-            {/* Min RAM Slider */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-zinc-400">{t('settings.minRam')}</span>
-                <span className="font-mono text-cyan-400 font-semibold">
-                  {minRamMb} {t('settings.mb')}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="512"
-                max="8192"
-                step="256"
-                value={minRamMb}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  setMinRamMb(val);
-                  if (val > maxRamMb) setMaxRamMb(val);
-                }}
-                className="w-full accent-cyan-500 bg-zinc-800 rounded-lg cursor-pointer h-1.5"
-              />
-            </div>
-
-            {/* Max RAM Slider */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-zinc-400">{t('settings.maxRam')}</span>
-                <span className="font-mono text-indigo-400 font-semibold">
-                  {maxRamMb} {t('settings.mb')}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1024"
-                max="16384"
-                step="512"
-                value={maxRamMb}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  setMaxRamMb(val);
-                  if (val < minRamMb) setMinRamMb(val);
-                }}
-                className="w-full accent-indigo-500 bg-zinc-800 rounded-lg cursor-pointer h-1.5"
-              />
-            </div>
-          </div>
-
           {/* Java & Runtime Section */}
-          <div className="space-y-4 pt-4 border-t border-zinc-800/60">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
                 <Cpu className="w-4 h-4 text-indigo-400" />

@@ -314,6 +314,56 @@
     "successImport": "Modpack imported successfully!",
     "successExport": "Exported successfully",
     "errorImport": "Failed to import modpack",
-    "errorExport": "Failed to export modpack"
+    "errorExport": "Failed to export modpack",
+    "install": "Install Modpack",
+    "browse": "Browse File",
+    "preview": "Modpack Details",
+    "fileCount": "{{count}} files included",
+    "searchPlaceholder": "Search modpacks on Modrinth and CurseForge...",
+    "provider": "Provider",
+    "installButton": "Install Modpack",
+    "installingModpack": "Downloading & installing modpack...",
+    "installSuccess": "Modpack installed successfully!"
+  },
+  "instanceManager": {
+    "title": "Instance Manager",
+    "tabs": {
+      "overview": "Overview",
+      "mods": "Mods",
+      "resourcepacks": "Resource Packs",
+      "shaders": "Shaders",
+      "worlds": "Worlds",
+      "settings": "Settings"
+    },
+    "overview": {
+      "name": "Instance Name",
+      "changeIcon": "Change Icon",
+      "resetIcon": "Reset Icon",
+      "openFolder": "Open Folder",
+      "copyPath": "Copy Path",
+      "pathCopied": "Path copied to clipboard!",
+      "saveName": "Save",
+      "exportModpack": "Export Modpack",
+      "deleteInstance": "Delete Instance"
+    },
+    "resourcepacks": {
+      "empty": "No resource packs found in this instance.",
+      "openFolder": "Open Resourcepacks Folder",
+      "size": "Size"
+    },
+    "shaders": {
+      "empty": "No shader packs found in this instance.",
+      "openFolder": "Open Shaderpacks Folder",
+      "active": "Active",
+      "disableAll": "Disable Shaders (OFF)"
+    },
+    "worlds": {
+      "empty": "No worlds or saves found in this instance.",
+      "openFolder": "Open Saves Folder",
+      "seed": "Seed",
+      "lastPlayed": "Last Played",
+      "gameMode": "Mode"
+    }
   }
 }
+

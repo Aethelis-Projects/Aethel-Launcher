@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, X, FileArchive, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { commands, type Instance } from '../bindings';
+import {
+  Upload,
+  X,
+  FileArchive,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  FolderOpen,
+  Layers,
+  Package,
+  User,
+} from 'lucide-react';
+import { commands, type Instance, type ModpackInspectResult } from '../bindings';
 import { useInstanceStore } from '../store/instanceStore';
 
 interface ModpackImportModalProps {
@@ -21,10 +32,42 @@ export const ModpackImportModal: React.FC<ModpackImportModalProps> = ({
   const [filePath, setFilePath] = useState('');
   const [instanceName, setInstanceName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [isInspecting, setIsInspecting] = useState(false);
+  const [inspectResult, setInspectResult] = useState<ModpackInspectResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successInstance, setSuccessInstance] = useState<Instance | null>(null);
 
   if (!isOpen) return null;
+
+  const handleInspect = async (path: string) => {
+    if (!path.trim()) return;
+    setIsInspecting(true);
+    try {
+      const res = await commands.inspectModpack(path.trim());
+      if (res.status === 'ok') {
+        setInspectResult(res.data);
+        if (!instanceName || instanceName === '') {
+          setInstanceName(res.data.name);
+        }
+      }
+    } catch {
+      // Non-fatal if inspection fails (e.g. general zip)
+    } finally {
+      setIsInspecting(false);
+    }
+  };
+
+  const handleBrowseFile = async () => {
+    try {
+      const res = await commands.pickFileDialog('Select Modpack', 'Modpacks', ['mrpack', 'zip']);
+      if (res.status === 'ok' && res.data) {
+        setFilePath(res.data);
+        await handleInspect(res.data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +110,7 @@ export const ModpackImportModal: React.FC<ModpackImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div
         data-testid="modpack-import-modal"
         className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl relative overflow-hidden"
@@ -124,22 +167,87 @@ export const ModpackImportModal: React.FC<ModpackImportModalProps> = ({
               <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                 {t('modpack.selectFile')}
               </label>
-              <div className="relative">
+              <div className="flex gap-2">
                 <input
                   data-testid="import-file-path"
                   type="text"
                   value={filePath}
-                  onChange={(e) => setFilePath(e.target.value)}
+                  onChange={(e) => {
+                    setFilePath(e.target.value);
+                    if (e.target.value.endsWith('.mrpack') || e.target.value.endsWith('.zip')) {
+                      handleInspect(e.target.value);
+                    }
+                  }}
                   placeholder="C:/path/to/modpack.mrpack or backup.zip"
                   disabled={isImporting}
-                  className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 font-mono"
+                  className="flex-1 bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 font-mono"
                   required
                 />
+                <button
+                  type="button"
+                  data-testid="browse-modpack-file-btn"
+                  onClick={handleBrowseFile}
+                  disabled={isImporting}
+                  className="px-3 py-2 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center gap-1.5 shrink-0"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>{t('modpack.browse', 'Browse')}</span>
+                </button>
               </div>
               <p className="text-[11px] text-zinc-500 mt-1">
                 Supports Modrinth modpacks (.mrpack) and Aethel instance backups (.zip)
               </p>
             </div>
+
+            {/* Inspecting Indicator */}
+            {isInspecting && (
+              <div className="flex items-center gap-2 text-xs text-zinc-400 py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                <span>Inspecting modpack metadata...</span>
+              </div>
+            )}
+
+            {/* Preview Card */}
+            {inspectResult && (
+              <div className="p-4 bg-zinc-900/80 border border-cyan-500/30 rounded-xl space-y-2">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+                    {inspectResult.icon_base64 ? (
+                      <img src={inspectResult.icon_base64} alt={inspectResult.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Layers className="w-6 h-6 text-cyan-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-zinc-100 truncate">{inspectResult.name}</h4>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-cyan-400">
+                        {inspectResult.version}
+                      </span>
+                    </div>
+                    {inspectResult.summary && (
+                      <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2">{inspectResult.summary}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-2 text-[11px] text-zinc-400">
+                      <span className="flex items-center gap-1">
+                        <Package className="w-3 h-3 text-zinc-500" />
+                        <span>{inspectResult.game_version} ({inspectResult.loader})</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Layers className="w-3 h-3 text-zinc-500" />
+                        <span>{inspectResult.file_count} files</span>
+                      </span>
+                      {inspectResult.author && (
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3 text-zinc-500" />
+                          <span>{inspectResult.author}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-zinc-300 mb-1.5">

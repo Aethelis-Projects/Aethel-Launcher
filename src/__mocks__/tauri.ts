@@ -165,6 +165,97 @@ export const mockInvoke = vi.fn(async (cmd: string, args?: Record<string, unknow
     case 'set_discord_rpc_enabled':
     case 'set_discord_rpc_activity':
       return null;
+    case 'open_instance_folder':
+    case 'update_instance_name':
+    case 'update_instance_icon':
+      return null;
+    case 'get_instance_resourcepacks':
+      return [
+        {
+          file_name: 'test_pack.zip',
+          name: 'Test Pack',
+          description: 'A test pack',
+          icon_base64: null,
+          is_enabled: true,
+          size_bytes: 1048576,
+        },
+      ];
+    case 'toggle_instance_resourcepack':
+      return null;
+    case 'get_instance_shaderpacks':
+      return [
+        {
+          file_name: 'Complementary.zip',
+          name: 'Complementary Shaders',
+          is_active: false,
+          size_bytes: 2097152,
+        },
+      ];
+    case 'set_instance_active_shaderpack':
+      return null;
+    case 'get_instance_worlds':
+      return [
+        {
+          folder_name: 'New World',
+          level_name: 'New World',
+          seed: 123456789,
+          last_played: 1725500000000,
+          game_mode: 'Survival',
+          size_bytes: 10485760,
+          icon_base64: null,
+        },
+      ];
+    case 'inspect_modpack':
+      return {
+        name: 'Fabulously Optimized',
+        version: '5.8.0',
+        summary: 'Simple optimization pack',
+        game_version: '1.20.4',
+        loader: 'Fabric',
+        loader_version: '0.16.10',
+        file_count: 42,
+        author: 'Fabulously',
+        icon_base64: null,
+      };
+    case 'search_modpacks':
+      return [
+        {
+          provider: (args?.provider as string) || 'modrinth',
+          project_id: 'fo-123',
+          title: 'Fabulously Optimized',
+          summary: 'Simple optimization pack',
+          author: 'Robotkoer',
+          downloads: 1500000,
+          icon_url: null,
+          categories: ['Optimization'],
+          latest_version: '5.8.0',
+          supported_game_versions: ['1.20.4'],
+        },
+      ];
+    case 'install_online_modpack':
+      return {
+        id: 'inst-modpack-1',
+        name: 'Fabulously Optimized',
+        game_version: '1.20.4',
+        loader: 'Fabric',
+        loader_version: '0.16.10',
+        java_path: null,
+        memory_min_mb: null,
+        memory_max_mb: null,
+        jvm_args: null,
+        last_played_at: null,
+        total_playtime_seconds: 0,
+        icon_path: null,
+        banner_path: null,
+        created_at: '2026-09-05T12:00:00Z',
+        last_mclo_gs_url: null,
+        last_mclo_gs_at: null,
+        settings_json: null,
+      };
+    case 'pick_file_dialog':
+      return 'C:/mock/pack.mrpack';
+    case 'prepare_silent_update_and_restart':
+      return null;
     default:
       throw new Error(`Unmocked command: ${cmd} with args: ${JSON.stringify(args)}`);
   }

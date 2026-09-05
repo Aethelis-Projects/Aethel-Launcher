@@ -4,9 +4,9 @@ use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::debug;
 
-pub const DEFAULT_DISCORD_APP_ID: u64 = 1346857973957234718;
+pub const DEFAULT_DISCORD_APP_ID: u64 = 1545829310563360840;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RpcMessage {
     SetInLauncher {
         locale: String,
@@ -37,15 +37,19 @@ impl DiscordRpcService {
             .spawn(move || {
                 let mut client: Option<DiscordClient> = None;
                 let mut is_enabled = false;
+                let mut last_connect_attempt = std::time::Instant::now() - std::time::Duration::from_secs(60);
+                let mut backoff_duration = std::time::Duration::from_secs(5);
 
                 while let Ok(msg) = rx.recv() {
                     match msg {
                         RpcMessage::SetEnabled(enabled) => {
                             is_enabled = enabled;
+                            debug!("Discord RPC SetEnabled: {enabled}");
                             if !enabled {
                                 if let Some(ref mut c) = client {
                                     let _ = c.clear_activity();
                                 }
+                                client = None;
                             }
                         }
                         RpcMessage::Clear => {
@@ -63,7 +67,9 @@ impl DiscordRpcService {
                             if !is_enabled {
                                 continue;
                             }
-                            if client.is_none() {
+
+                            if client.is_none() && last_connect_attempt.elapsed() >= backoff_duration {
+                                last_connect_attempt = std::time::Instant::now();
                                 let mut c = DiscordClient::new(DEFAULT_DISCORD_APP_ID);
                                 c.start();
                                 client = Some(c);
@@ -79,8 +85,16 @@ impl DiscordRpcService {
                                         .details(details)
                                         .assets(|a| a.large_image("aethel_logo").large_text("Aethel Launcher"))
                                 });
-                                if let Err(e) = res {
-                                    debug!("Discord RPC set_activity error (graceful degradation): {e}");
+                                match res {
+                                    Ok(_) => {
+                                        backoff_duration = std::time::Duration::from_secs(5);
+                                        debug!("Discord RPC activity set to InLauncher successfully");
+                                    }
+                                    Err(e) => {
+                                        debug!("Discord RPC set_activity error (will retry with backoff): {e}");
+                                        client = None;
+                                        backoff_duration = (backoff_duration * 2).min(std::time::Duration::from_secs(30));
+                                    }
                                 }
                             }
                         }
@@ -94,7 +108,9 @@ impl DiscordRpcService {
                             if !is_enabled {
                                 continue;
                             }
-                            if client.is_none() {
+
+                            if client.is_none() && last_connect_attempt.elapsed() >= backoff_duration {
+                                last_connect_attempt = std::time::Instant::now();
                                 let mut c = DiscordClient::new(DEFAULT_DISCORD_APP_ID);
                                 c.start();
                                 client = Some(c);
@@ -115,8 +131,16 @@ impl DiscordRpcService {
                                         .timestamps(|t| t.start(start_time))
                                         .assets(|a| a.large_image("aethel_logo").large_text("Aethel Launcher"))
                                 });
-                                if let Err(e) = res {
-                                    debug!("Discord RPC set_activity error (graceful degradation): {e}");
+                                match res {
+                                    Ok(_) => {
+                                        backoff_duration = std::time::Duration::from_secs(5);
+                                        debug!("Discord RPC activity set to PlayingGame successfully: {state}");
+                                    }
+                                    Err(e) => {
+                                        debug!("Discord RPC set_activity error (will retry with backoff): {e}");
+                                        client = None;
+                                        backoff_duration = (backoff_duration * 2).min(std::time::Duration::from_secs(30));
+                                    }
                                 }
                             }
                         }

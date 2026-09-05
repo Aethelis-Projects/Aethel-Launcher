@@ -30,7 +30,9 @@ pub struct GlobalSettings {
     pub default_java_path: Option<String>,
     pub default_java_mode: String,
     pub default_java_provider: String,
+    #[deprecated(note = "RAM allocation is exclusively configured per-instance")]
     pub default_memory_min_mb: u32,
+    #[deprecated(note = "RAM allocation is exclusively configured per-instance")]
     pub default_memory_max_mb: u32,
     pub default_gc_preset: String,
     pub default_jvm_args: Option<String>,
@@ -38,6 +40,7 @@ pub struct GlobalSettings {
 
 impl Default for GlobalSettings {
     fn default() -> Self {
+        #[allow(deprecated)]
         Self {
             theme: "dark".to_string(),
             discord_rpc_enabled: false,
@@ -85,8 +88,8 @@ impl InstanceSettings {
                 .java_path
                 .clone()
                 .or_else(|| global.default_java_path.clone()),
-            memory_min_mb: self.memory_min_mb.unwrap_or(global.default_memory_min_mb),
-            memory_max_mb: self.memory_max_mb.unwrap_or(global.default_memory_max_mb),
+            memory_min_mb: self.memory_min_mb.unwrap_or(1024),
+            memory_max_mb: self.memory_max_mb.unwrap_or(4096),
             gc_preset: self
                 .gc_preset
                 .clone()
@@ -161,7 +164,64 @@ pub struct CrashReport {
     pub upload_url: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ResourcePackEntry {
+    pub file_name: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub icon_base64: Option<String>,
+    pub is_enabled: bool,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ShaderPackEntry {
+    pub file_name: String,
+    pub name: String,
+    pub is_active: bool,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct WorldEntry {
+    pub folder_name: String,
+    pub level_name: String,
+    pub seed: Option<i64>,
+    pub last_played: Option<u64>,
+    pub game_mode: Option<String>,
+    pub size_bytes: u64,
+    pub icon_base64: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ModpackInspectResult {
+    pub name: String,
+    pub version: String,
+    pub summary: Option<String>,
+    pub game_version: String,
+    pub loader: String,
+    pub loader_version: Option<String>,
+    pub file_count: usize,
+    pub author: Option<String>,
+    pub icon_base64: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ModpackSearchResult {
+    pub provider: String,
+    pub project_id: String,
+    pub title: String,
+    pub summary: String,
+    pub author: String,
+    pub downloads: u64,
+    pub icon_url: Option<String>,
+    pub categories: Vec<String>,
+    pub latest_version: Option<String>,
+    pub supported_game_versions: Vec<String>,
+}
+
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 

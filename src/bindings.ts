@@ -357,6 +357,110 @@ async setDiscordRpcActivity(locale: string) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async openInstanceFolder(instanceId: string, subfolder: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_instance_folder", { instanceId, subfolder }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateInstanceName(instanceId: string, name: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_instance_name", { instanceId, name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateInstanceIcon(instanceId: string, iconPath: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_instance_icon", { instanceId, iconPath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getInstanceResourcepacks(instanceId: string) : Promise<Result<ResourcePackEntry[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_instance_resourcepacks", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async toggleInstanceResourcepack(instanceId: string, packName: string, enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("toggle_instance_resourcepack", { instanceId, packName, enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getInstanceShaderpacks(instanceId: string) : Promise<Result<ShaderPackEntry[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_instance_shaderpacks", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setInstanceActiveShaderpack(instanceId: string, shaderName: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_instance_active_shaderpack", { instanceId, shaderName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getInstanceWorlds(instanceId: string) : Promise<Result<WorldEntry[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_instance_worlds", { instanceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async inspectModpack(filePath: string) : Promise<Result<ModpackInspectResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("inspect_modpack", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async searchModpacks(query: string, provider: string, loader: string | null, gameVersion: string | null, limit: number | null) : Promise<Result<ModpackSearchResult[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("search_modpacks", { query, provider, loader, gameVersion, limit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async installOnlineModpack(provider: string, projectId: string, versionId: string | null, instanceName: string) : Promise<Result<Instance, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_online_modpack", { provider, projectId, versionId, instanceName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async pickFileDialog(title: string | null, filterName: string | null, filterExtensions: string[]) : Promise<Result<string | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("pick_file_dialog", { title, filterName, filterExtensions }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async prepareSilentUpdateAndRestart(downloadUrl: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("prepare_silent_update_and_restart", { downloadUrl }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -384,7 +488,15 @@ export type DependencyConflict = { mod_a: string; mod_b: string; reason: string 
 export type DependencyType = "Required" | "Optional" | "Incompatible" | "Embedded"
 export type DownloadProgressItem = { task_id: string; current: number; total: number; speed_bps: number; file_name: string }
 export type EffectiveInstanceSettings = { java_path: string | null; memory_min_mb: number; memory_max_mb: number; gc_preset: string; jvm_args: string | null; has_overrides: boolean }
-export type GlobalSettings = { theme: string; discord_rpc_enabled: boolean; update_channel: string; default_java_path: string | null; default_java_mode: string; default_java_provider: string; default_memory_min_mb: number; default_memory_max_mb: number; default_gc_preset: string; default_jvm_args: string | null }
+export type GlobalSettings = { theme: string; discord_rpc_enabled: boolean; update_channel: string; default_java_path: string | null; default_java_mode: string; default_java_provider: string; 
+/**
+ * @deprecated RAM allocation is exclusively configured per-instance
+ */
+default_memory_min_mb: number; 
+/**
+ * @deprecated RAM allocation is exclusively configured per-instance
+ */
+default_memory_max_mb: number; default_gc_preset: string; default_jvm_args: string | null }
 export type InstalledMod = { id: string; name: string; version: string; file_name: string; enabled: boolean; description: string | null; authors: string[]; project_id: string | null }
 export type InstalledRuntime = { major: number; path: string; provider: string; version_str: string }
 export type Instance = { id: string; name: string; game_version: string; loader: string | null; loader_version: string | null; java_path: string | null; memory_min_mb: number | null; memory_max_mb: number | null; jvm_args: string | null; last_played_at: string | null; total_playtime_seconds: number; icon_path: string | null; banner_path: string | null; created_at: string; last_mclo_gs_url: string | null; last_mclo_gs_at: string | null; settings_json: string | null }
@@ -402,8 +514,13 @@ export type ModUpdate = { project_id: string; current_version: string; latest_ve
 export type ModVersion = { version_id: string; project_id: string; version_number: string; name: string; game_versions: string[]; loaders: string[]; files: ModFile[]; dependencies: ModDependency[]; date_published: string }
 export type ModloaderType = "Fabric" | "NeoForge" | "Quilt" | "Forge"
 export type ModloaderVersion = { loader: ModloaderType; version: string; game_version: string; stable: boolean }
+export type ModpackInspectResult = { name: string; version: string; summary: string | null; game_version: string; loader: string; loader_version: string | null; file_count: number; author: string | null; icon_base64: string | null }
+export type ModpackSearchResult = { provider: string; project_id: string; title: string; summary: string; author: string; downloads: number; icon_url: string | null; categories: string[]; latest_version: string | null; supported_game_versions: string[] }
 export type ResolutionResult = { to_install: ModVersion[]; optional_suggestions: ModVersion[]; conflicts: DependencyConflict[] }
+export type ResourcePackEntry = { file_name: string; name: string; description: string | null; icon_base64: string | null; is_enabled: boolean; size_bytes: number }
+export type ShaderPackEntry = { file_name: string; name: string; is_active: boolean; size_bytes: number }
 export type UpdateInfo = { version: string; date: string; body: string; download_size: number; download_url: string | null }
+export type WorldEntry = { folder_name: string; level_name: string; seed: number | null; last_played: number | null; game_mode: string | null; size_bytes: number; icon_base64: string | null }
 
 /** tauri-specta globals **/
 

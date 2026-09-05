@@ -314,6 +314,56 @@
     "successImport": "Модпак успешно импортирован!",
     "successExport": "Успешно экспортировано",
     "errorImport": "Ошибка импорта модпака",
-    "errorExport": "Ошибка экспорта модпака"
+    "errorExport": "Ошибка экспорта модпака",
+    "install": "Установить модпак",
+    "browse": "Выбрать файл",
+    "preview": "Сведения о модпаке",
+    "fileCount": "Включено файлов: {{count}}",
+    "searchPlaceholder": "Поиск модпаков на Modrinth и CurseForge...",
+    "provider": "Источник",
+    "installButton": "Установить модпак",
+    "installingModpack": "Скачивание и установка модпака...",
+    "installSuccess": "Модпак успешно установлен!"
+  },
+  "instanceManager": {
+    "title": "Управление сборкой",
+    "tabs": {
+      "overview": "Обзор",
+      "mods": "Моды",
+      "resourcepacks": "Текстуры",
+      "shaders": "Шейдеры",
+      "worlds": "Миры",
+      "settings": "Настройки"
+    },
+    "overview": {
+      "name": "Название сборки",
+      "changeIcon": "Сменить иконку",
+      "resetIcon": "Сбросить иконку",
+      "openFolder": "Открыть папку",
+      "copyPath": "Копировать путь",
+      "pathCopied": "Путь скопирован в буфер обмена!",
+      "saveName": "Сохранить",
+      "exportModpack": "Экспорт модпака",
+      "deleteInstance": "Удалить сборку"
+    },
+    "resourcepacks": {
+      "empty": "Текстур-паки в этой сборке не найдены.",
+      "openFolder": "Открыть папку текстур",
+      "size": "Размер"
+    },
+    "shaders": {
+      "empty": "Шейдеры в этой сборке не найдены.",
+      "openFolder": "Открыть папку шейдеров",
+      "active": "Активен",
+      "disableAll": "Отключить шейдеры (ВЫКЛ)"
+    },
+    "worlds": {
+      "empty": "Миры и сохранения в этой сборке не найдены.",
+      "openFolder": "Открыть папку сохранений",
+      "seed": "Сид",
+      "lastPlayed": "Последняя игра",
+      "gameMode": "Режим"
+    }
   }
 }
+

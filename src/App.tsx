@@ -93,6 +93,7 @@ export function App() {
             }
             case 'ProcessExited': {
               setLaunchStatus(e.data.instance_id, 'idle');
+              fetchInstances();
               const start = launchStartTimes.current.get(e.data.instance_id);
               launchStartTimes.current.delete(e.data.instance_id);
               if (start && (e.data.exit_code === 0 || e.data.exit_code === null)) {

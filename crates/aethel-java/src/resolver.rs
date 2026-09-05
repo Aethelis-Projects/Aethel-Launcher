@@ -69,9 +69,12 @@ impl JavaResolver {
     /// or modern releases and future snapshot strings (25w..., 26.x, etc.).
     pub fn fallback_version(mc_version: &str) -> u32 {
         let v = mc_version.trim();
-        // Modern 26.x or snapshot formats (e.g. 25w..., 26w...)
+        // Modern 25w/26w snapshots or 25.x, 26.x, 27.x+ releases require Java 25 (LTS+)
+        if v.starts_with("25") || v.starts_with("26") || v.starts_with("27") {
+            return 25;
+        }
         if v.starts_with('2') {
-            return 21;
+            return 25;
         }
         if v.starts_with("1.20.5")
             || v.starts_with("1.20.6")
@@ -637,8 +640,8 @@ mod tests {
         assert_eq!(JavaResolver::fallback_version("1.21"), 21);
         assert_eq!(JavaResolver::fallback_version("1.21.1"), 21);
         assert_eq!(JavaResolver::fallback_version("1.22"), 21);
-        assert_eq!(JavaResolver::fallback_version("26.2"), 21);
-        assert_eq!(JavaResolver::fallback_version("25w01a"), 21);
+        assert_eq!(JavaResolver::fallback_version("26.2"), 25);
+        assert_eq!(JavaResolver::fallback_version("25w01a"), 25);
     }
 
     #[test]
