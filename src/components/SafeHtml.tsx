@@ -77,27 +77,27 @@ function renderDomNode(node: Node, key: number): React.ReactNode {
     if (tagName === 'A') {
       props.target = '_blank';
       props.rel = 'noreferrer';
-      props.className = 'text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors';
+      props.className = 'text-[var(--accent)] hover:text-[var(--accent)] underline underline-offset-2 transition-colors';
     } else if (tagName === 'IMG') {
-      props.className = 'max-w-full rounded-xl border border-zinc-800 my-2';
+      props.className = 'max-w-full rounded-[var(--radius-md)] border border-[var(--line-subtle)] my-2';
       props.loading = 'lazy';
       return React.createElement(lowerTag, props);
     } else if (tagName === 'BR') {
       return React.createElement(lowerTag, props);
     } else if (tagName === 'UL') {
-      props.className = 'list-disc list-inside space-y-1 my-2 text-zinc-300';
+      props.className = 'list-disc list-inside space-y-1 my-2 text-[var(--text-secondary)]';
     } else if (tagName === 'OL') {
-      props.className = 'list-decimal list-inside space-y-1 my-2 text-zinc-300';
+      props.className = 'list-decimal list-inside space-y-1 my-2 text-[var(--text-secondary)]';
     } else if (tagName === 'BLOCKQUOTE') {
-      props.className = 'border-l-2 border-cyan-500/60 pl-3 py-1 my-2 bg-zinc-900/50 italic text-zinc-400 rounded-r';
+      props.className = 'border-l-2 border-[var(--accent-line)] pl-3 py-1 my-2 bg-[var(--surface-1)]/50 italic text-[var(--text-secondary)] rounded-r';
     } else if (tagName === 'H1') {
-      props.className = 'text-lg font-bold text-zinc-100 mt-4 mb-2';
+      props.className = 'text-lg font-bold text-[var(--text-primary)] mt-4 mb-2';
     } else if (tagName === 'H2') {
-      props.className = 'text-base font-bold text-zinc-200 mt-3 mb-1.5';
+      props.className = 'text-base font-bold text-[var(--text-primary)] mt-3 mb-1.5';
     } else if (tagName === 'H3' || tagName === 'H4') {
-      props.className = 'text-sm font-semibold text-zinc-300 mt-2 mb-1';
+      props.className = 'text-sm font-semibold text-[var(--text-secondary)] mt-2 mb-1';
     } else if (tagName === 'P') {
-      props.className = 'my-1.5 leading-relaxed text-zinc-300';
+      props.className = 'my-1.5 leading-relaxed text-[var(--text-secondary)]';
     }
 
     return React.createElement(lowerTag, props, children.length > 0 ? children : undefined);

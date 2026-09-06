@@ -150,28 +150,28 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs font-medium text-zinc-200 hover:border-zinc-700 hover:bg-zinc-800/80 transition-all min-w-[130px]"
+        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--surface-1)]/90 border border-[var(--line-subtle)] text-xs font-medium text-[var(--text-primary)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-3)]/80 transition-all min-w-[130px]"
       >
         <span className="flex items-center gap-1.5 truncate">
-          <Filter className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <Filter className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
           <span className="truncate">{currentLabel}</span>
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 text-[var(--text-secondary)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-1.5 w-56 max-h-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100">
+        <div className="absolute left-0 mt-1.5 w-56 max-h-72 bg-[var(--surface-2)] border border-[var(--line-subtle)] rounded-[var(--radius-md)] shadow-2xl z-50 flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100">
           {/* Search Box */}
-          <div className="p-2 border-b border-zinc-800/80 bg-zinc-900/40">
+          <div className="p-2 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/40">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('common.search', 'Search version...')}
-                className="w-full pl-8 pr-2.5 py-1 text-xs bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
+                className="w-full pl-8 pr-2.5 py-1 text-xs bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-line)]"
               />
             </div>
           </div>
@@ -187,14 +187,14 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({
                   setIsOpen(false);
                   setSearchQuery('');
                 }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg text-left transition-colors ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[var(--radius-sm)] text-left transition-colors ${
                   value === 'all'
-                    ? 'bg-cyan-950/60 text-cyan-300 font-semibold'
-                    : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-on-accent)]'
                 }`}
               >
                 <span>{t('modpack.allVersions', 'All Versions')}</span>
-                {value === 'all' && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
+                {value === 'all' && <Check className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />}
               </button>
             )}
 
@@ -209,26 +209,26 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({
                     setIsOpen(false);
                     setSearchQuery('');
                   }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg text-left transition-colors font-mono ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[var(--radius-sm)] text-left transition-colors font-mono ${
                     isSelected
-                      ? 'bg-cyan-950/60 text-cyan-300 font-semibold'
-                      : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-on-accent)]'
                   }`}
                 >
                   <span>{ver}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />}
                 </button>
               );
             })}
 
             {filteredVersions.length === 0 && searchQuery && (
-              <p className="text-[11px] text-zinc-500 text-center py-3">
+              <p className="text-[11px] text-[var(--text-muted)] text-center py-3">
                 {t('common.noResults', 'No versions found')}
               </p>
             )}
 
             {isLoading && (
-              <p className="text-[11px] text-zinc-500 text-center py-2">
+              <p className="text-[11px] text-[var(--text-muted)] text-center py-2">
                 {t('common.loading', 'Loading versions...')}
               </p>
             )}

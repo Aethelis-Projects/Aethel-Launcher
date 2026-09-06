@@ -118,16 +118,16 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
     (selectedLoader !== 'vanilla' && selectedVersion !== (currentLoaderVersion || ''));
 
   return (
-    <div className="bg-zinc-950/50 border border-zinc-800/80 rounded-xl p-4 space-y-4">
+    <div className="bg-[var(--surface-2)]/50 border border-[var(--line-subtle)] rounded-[var(--radius-md)] p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-cyan-400" />
-          <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
+          <Cpu className="w-4 h-4 text-[var(--accent)]" />
+          <h4 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider">
             {t('modloader.title')}
           </h4>
         </div>
         {success && (
-          <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+          <span className="flex items-center gap-1 text-[11px] text-[var(--success)] font-medium">
             <Check className="w-3.5 h-3.5" />
             {t('modloader.installed')}
           </span>
@@ -135,15 +135,15 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+        <div className="flex items-center gap-2 p-2.5 rounded-[var(--radius-sm)] bg-[var(--danger-soft)] border border-[var(--danger)]/40/60 text-[var(--danger)] text-xs">
+          <AlertCircle className="w-4 h-4 text-[var(--danger)] shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-[11px] text-zinc-400 mb-1.5 font-medium">
+          <label className="block text-[11px] text-[var(--text-secondary)] mb-1.5 font-medium">
             {t('modloader.select')}
           </label>
           <select
@@ -151,7 +151,7 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
             value={selectedLoader}
             onChange={(e) => setSelectedLoader(e.target.value)}
             disabled={isApplying}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 transition-colors"
+            className="w-full bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)] transition-colors"
           >
             <option value="vanilla">{t('modloader.vanilla')}</option>
             <option value="fabric">{t('modloader.fabric')}</option>
@@ -163,13 +163,13 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
 
         {selectedLoader !== 'vanilla' && (
           <div>
-            <label className="block text-[11px] text-zinc-400 mb-1.5 font-medium">
+            <label className="block text-[11px] text-[var(--text-secondary)] mb-1.5 font-medium">
               {t('modloader.version')}
             </label>
             <div className="relative">
               {isLoadingVersions ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-500">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] text-xs text-[var(--text-muted)]">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
                   <span>Loading versions...</span>
                 </div>
               ) : (
@@ -178,7 +178,7 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
                   value={selectedVersion}
                   onChange={(e) => setSelectedVersion(e.target.value)}
                   disabled={isApplying || availableVersions.length === 0}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 transition-colors"
+                  className="w-full bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)] transition-colors"
                 >
                   {availableVersions.map((v) => (
                     <option key={v.version} value={v.version}>
@@ -197,10 +197,10 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
           data-testid="modloader-apply-btn"
           onClick={handleApply}
           disabled={isApplying || !hasChanges}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
             hasChanges && !isApplying
-              ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white shadow-md shadow-cyan-950/50'
-              : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+              ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] hover:from-[var(--accent-from)] hover:to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-md shadow-black/30'
+              : 'bg-[var(--surface-3)] text-[var(--text-muted)] cursor-not-allowed'
           }`}
         >
           {isApplying ? (

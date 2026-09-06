@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   X,
   Package,
@@ -37,6 +38,7 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
   loaderVersion,
 }) => {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
 
   const [mods, setMods] = useState<InstalledMod[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -123,22 +125,32 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-        <div className="flex h-[85vh] w-full max-w-4xl flex-col rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
+      >
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
+          className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40"
+        >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-800/80 px-6 py-4 bg-zinc-900/40">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-950/60 border border-cyan-800/50 text-cyan-400">
-                <Package className="w-5 h-5" />
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/80 px-6 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent-from)]">
+                <Package className="h-5 w-5" />
               </div>
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-100">
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
                   {t('mods.title')} — {instanceName}
                 </h2>
-                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-zinc-400">
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                   <span>Minecraft {gameVersion}</span>
                   <span>•</span>
-                  <span className="font-medium text-cyan-400">
+                  <span className="font-medium text-[var(--accent)]">
                     {loader ? `${loader} ${loaderVersion || ''}` : 'Vanilla'}
                   </span>
                 </div>
@@ -146,21 +158,21 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           </div>
 
           {/* Action Toolbar */}
-          <div className="p-4 border-b border-zinc-800/60 bg-zinc-900/20 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-4">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 data-testid="browse-mods-btn"
                 onClick={() => setIsBrowserOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-medium shadow-md shadow-cyan-950/40 transition-all"
+                className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-3 py-1.5 text-xs font-medium text-[var(--text-on-accent)] transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98]"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="h-3.5 w-3.5" />
                 <span>{t('mods.browseMods')}</span>
               </button>
 
@@ -168,20 +180,23 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
                 data-testid="check-updates-btn"
                 onClick={handleCheckUpdates}
                 disabled={isCheckingUpdates || mods.length === 0}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] disabled:pointer-events-none disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-3.5 w-3.5 text-[var(--accent-from)]${isCheckingUpdates ? ' animate-spin' : ''}`}
+                />
                 <span>{isCheckingUpdates ? t('mods.checkingUpdates') : t('mods.checkUpdates')}</span>
               </button>
             </div>
 
-            <div className="text-xs text-zinc-400">
-              <span className="font-semibold text-zinc-200">{mods.length}</span> {t('mods.installedMods').toLowerCase()}
+            <div className="text-xs text-[var(--text-muted)]">
+              <span className="font-semibold tabular-nums text-[var(--text-primary)]">{mods.length}</span>{' '}
+              {t('mods.installedMods').toLowerCase()}
             </div>
           </div>
 
           {/* Body Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
             {/* Modloader Configuration Card */}
             <ModloaderSelector
               instanceId={instanceId}
@@ -196,16 +211,16 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
             {/* Updates Banner */}
             {updatesChecked && (
               <div
-                className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                className={`flex items-center justify-between rounded-[var(--radius-md)] border p-3 text-xs ${
                   updates.length > 0
-                    ? 'bg-amber-950/40 border-amber-800/60 text-amber-200'
-                    : 'bg-emerald-950/40 border-emerald-800/60 text-emerald-200'
+                    ? 'border-[var(--warning)]/40 bg-[var(--warning-soft)] text-[var(--warning)]'
+                    : 'border-[var(--success)]/40 bg-[var(--success-soft)] text-[var(--success)]'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   {updates.length > 0 ? (
                     <>
-                      <ArrowUpCircle className="w-4 h-4 text-amber-400" />
+                      <ArrowUpCircle className="h-4 w-4 shrink-0 text-[var(--warning)]" />
                       <span>
                         {updates.length} {t('mods.updateAvailable')}:{' '}
                         {updates.map((u) => `${u.project_id} -> ${u.latest_version}`).join(', ')}
@@ -213,7 +228,7 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--success)]" />
                       <span>{t('mods.upToDate')}</span>
                     </>
                   )}
@@ -223,96 +238,108 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
 
             {/* Error Message */}
             {error && (
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] p-3 text-xs text-[var(--danger)]">
+                <AlertCircle className="h-4 w-4 shrink-0 text-[var(--danger)]" />
                 <span>{error}</span>
               </div>
             )}
 
             {/* Installed Mods List */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-                {t('mods.installedMods')}
-              </h3>
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                <Package className="h-4 w-4 text-[var(--accent-from)]" />
+                <span>{t('mods.installedMods')}</span>
+              </div>
 
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-12 text-zinc-500 space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+                <div className="flex flex-col items-center justify-center space-y-2 py-12 text-[var(--text-muted)]">
+                  <Loader2 className="h-6 w-6 animate-spin text-[var(--accent-from)]" />
                   <span className="text-xs">Loading installed mods...</span>
                 </div>
               ) : mods.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-zinc-500 border border-dashed border-zinc-800 rounded-xl p-8 space-y-3">
-                  <Package className="w-10 h-10 text-zinc-700" />
+                <div className="flex flex-col items-center justify-center space-y-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--line-strong)] p-8">
+                  <Package className="h-8 w-8 text-[var(--text-muted)]" />
                   <div className="text-center">
-                    <p className="text-xs font-medium text-zinc-300">{t('mods.noModsInstalled')}</p>
-                    <p className="text-[11px] text-zinc-500 mt-1">
+                    <p className="text-xs font-medium text-[var(--text-primary)]">{t('mods.noModsInstalled')}</p>
+                    <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
                       Download mods directly from Modrinth to enhance your gameplay.
                     </p>
                   </div>
                   <button
                     onClick={() => setIsBrowserOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-900/60 border border-cyan-800/80 text-cyan-200 text-xs hover:bg-cyan-900 transition-colors"
+                    className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="h-3.5 w-3.5 text-[var(--accent-from)]" />
                     <span>{t('mods.browseMods')}</span>
                   </button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {mods.map((mod) => {
+                  {mods.map((mod, index) => {
                     const hasUpdate = updates.find((u) => u.project_id === mod.id);
 
                     return (
-                      <div
+                      <motion.div
                         key={mod.file_name}
-                        className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-4 ${
+                        data-motion-element
+                        initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.16,
+                          ease: 'easeOut',
+                          delay: Math.min(index * 0.03, 0.18),
+                        }}
+                        className={`flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--line-subtle)] p-3.5 transition-colors ${
                           mod.enabled
-                            ? 'bg-zinc-900/60 border-zinc-800/80'
-                            : 'bg-zinc-950/40 border-zinc-900 opacity-60'
+                            ? 'bg-[var(--surface-1)]/80 hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'
+                            : 'bg-[var(--surface-0)]/40 opacity-60'
                         }`}
                       >
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-semibold text-zinc-100 truncate">
+                            <h4
+                              className="min-w-0 truncate text-xs font-semibold text-[var(--text-primary)]"
+                              title={mod.name}
+                            >
                               {mod.name}
                             </h4>
-                            <span className="px-1.5 py-0.2 rounded bg-zinc-800 text-[10px] text-zinc-400 font-mono">
+                            <span className="shrink-0 rounded bg-[var(--surface-3)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
                               v{mod.version}
                             </span>
                             {hasUpdate && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-950 border border-amber-800/60 text-[10px] text-amber-300">
+                              <span className="shrink-0 rounded border border-[var(--warning)]/40 bg-[var(--warning-soft)] px-1.5 py-0.5 text-[10px] text-[var(--warning)]">
                                 {t('mods.updateTo', { version: hasUpdate.latest_version })}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-1 text-[11px] text-zinc-500">
-                            <span className="font-mono text-[10px] text-zinc-400 truncate">
+                          <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+                            <span className="truncate font-mono text-[10px] text-[var(--text-muted)]">
                               {mod.file_name}
                             </span>
                             {mod.authors.length > 0 && (
-                              <span>• {mod.authors.join(', ')}</span>
+                              <span className="truncate">• {mod.authors.join(', ')}</span>
                             )}
                           </div>
                           {mod.description && (
-                            <p className="text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
+                            <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">
                               {mod.description}
                             </p>
                           )}
                         </div>
 
                         {/* Controls */}
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex shrink-0 items-center gap-3">
                           {/* Enable/Disable Toggle */}
                           <button
                             data-testid={`toggle-mod-${mod.file_name}`}
                             onClick={() => handleToggleMod(mod.file_name, mod.enabled)}
-                            className="text-zinc-400 hover:text-zinc-200 transition-colors"
+                            className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
                             title={mod.enabled ? t('mods.enabled') : t('mods.disabled')}
                           >
                             {mod.enabled ? (
-                              <ToggleRight className="w-6 h-6 text-cyan-400" />
+                              <ToggleRight className="h-6 w-6 text-[var(--accent)]" />
                             ) : (
-                              <ToggleLeft className="w-6 h-6 text-zinc-600" />
+                              <ToggleLeft className="h-6 w-6 text-[var(--text-muted)]" />
                             )}
                           </button>
 
@@ -321,13 +348,13 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => handleDeleteMod(mod.file_name)}
-                                className="px-2 py-1 rounded bg-red-800 hover:bg-red-700 text-white text-[11px] font-medium"
+                                className="rounded-[var(--radius-sm)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-2 py-1 text-[11px] font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/25"
                               >
                                 Confirm
                               </button>
                               <button
                                 onClick={() => setDeletingFileName(null)}
-                                className="px-2 py-1 rounded bg-zinc-800 text-zinc-300 text-[11px]"
+                                className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-2 py-1 text-[11px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
                               >
                                 Cancel
                               </button>
@@ -336,22 +363,22 @@ export const ModManagerModal: React.FC<ModManagerModalProps> = ({
                             <button
                               data-testid={`delete-mod-${mod.file_name}`}
                               onClick={() => setDeletingFileName(mod.file_name)}
-                              className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                              className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
                               title={t('mods.delete')}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Embedded Mod Browser Modal */}
       <ModBrowserModal
