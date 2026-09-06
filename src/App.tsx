@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MotionConfig } from 'framer-motion';
 import { Gamepad2, Terminal, Settings, Coffee } from 'lucide-react';
 import { TitleBar } from './components/TitleBar';
 import { InstanceGrid } from './components/InstanceGrid';
@@ -153,7 +154,8 @@ export function App() {
   ]);
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-zinc-950 text-zinc-100 antialiased font-sans select-none overflow-hidden">
+    <MotionConfig reducedMotion="user">
+    <div className="flex h-screen w-screen flex-col bg-[var(--surface-0)] text-[var(--text-primary)] antialiased font-sans select-none overflow-hidden">
       {/* Frameless TitleBar */}
       <TitleBar
         activeTab={activeTab}
@@ -165,15 +167,15 @@ export function App() {
       {/* Main Workspace Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Navigation Sidebar */}
-        <aside className="w-56 border-r border-zinc-800/80 bg-zinc-950/80 p-3 flex flex-col justify-between select-none">
+        <aside className="w-56 border-r border-[var(--line-subtle)] bg-[var(--surface-1)]/95 p-3 flex flex-col justify-between select-none backdrop-blur-md">
           <div className="space-y-4">
             <nav className="space-y-1">
               <button
                 onClick={() => setActiveTab('instances')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
                   activeTab === 'instances'
-                    ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-md shadow-cyan-950/40'
-                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                    ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-[var(--shadow-glow)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <Gamepad2 className="w-4 h-4" />
@@ -182,10 +184,10 @@ export function App() {
 
               <button
                 onClick={() => setActiveTab('logs')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
                   activeTab === 'logs'
-                    ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-md shadow-cyan-950/40'
-                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                    ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-[var(--shadow-glow)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <Terminal className="w-4 h-4" />
@@ -194,20 +196,20 @@ export function App() {
 
               <button
                 onClick={() => setIsJavaManagerOpen(true)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)] transition-colors"
                 title={t('javaManager.title', 'Java Runtime Manager')}
               >
-                <Coffee className="w-4 h-4 text-cyan-400" />
+                <Coffee className="w-4 h-4 text-[var(--accent-from)]" />
                 <span>Java</span>
               </button>
             </nav>
           </div>
 
           {/* Bottom Settings Trigger */}
-          <div className="pt-2 border-t border-zinc-800/60">
+          <div className="pt-2 border-t border-[var(--line-subtle)]">
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)] transition-colors"
             >
               <Settings className="w-4 h-4" />
               <span>{t('nav.settings')}</span>
@@ -216,7 +218,7 @@ export function App() {
         </aside>
 
         {/* Tab Content Area */}
-        <main className="flex-1 flex flex-col bg-zinc-900/30 overflow-hidden relative">
+        <main className="flex-1 flex flex-col bg-[var(--surface-0)] overflow-hidden relative">
           {activeTab === 'instances' ? <InstanceGrid /> : <LogViewer />}
 
           {/* Slide-out Download Drawer */}
@@ -255,12 +257,12 @@ export function App() {
       {toast && (
         <div
           data-testid="process-event-toast"
-          className={`fixed bottom-6 right-6 z-50 max-w-sm p-3.5 rounded-xl border shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+          className={`fixed bottom-6 right-6 z-50 max-w-sm p-3.5 rounded-[var(--radius-md)] border shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-bottom-4 duration-300 ${
             toast.type === 'success'
-              ? 'bg-emerald-950/95 border-emerald-500/40 text-emerald-100 shadow-emerald-950/50'
+              ? 'bg-[var(--success-soft)] border-[var(--success)]/40 text-[var(--text-primary)] shadow-[var(--shadow-glow)]'
               : toast.type === 'error'
-              ? 'bg-rose-950/95 border-rose-500/40 text-rose-100 shadow-rose-950/50'
-              : 'bg-zinc-900/95 border-zinc-700/50 text-zinc-100 shadow-zinc-950/50'
+              ? 'bg-[var(--danger-soft)] border-[var(--danger)]/40 text-[var(--text-primary)] shadow-[var(--shadow-glow)]'
+              : 'bg-[var(--surface-2)]/95 border-[var(--line-strong)] text-[var(--text-primary)] shadow-[var(--shadow-glow)]'
           }`}
         >
           <div className="text-xs font-semibold">{toast.title}</div>
@@ -270,6 +272,7 @@ export function App() {
         </div>
       )}
     </div>
+    </MotionConfig>
   );
 }
 
