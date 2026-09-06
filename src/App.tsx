@@ -155,7 +155,7 @@ export function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="flex h-screen w-screen flex-col bg-[var(--surface-0)] text-[var(--text-primary)] antialiased font-sans select-none overflow-hidden">
+    <div className="flex h-screen w-screen flex-col text-[var(--text-primary)] antialiased font-sans select-none overflow-hidden">
       {/* Frameless TitleBar */}
       <TitleBar
         activeTab={activeTab}
@@ -167,40 +167,42 @@ export function App() {
       {/* Main Workspace Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Navigation Sidebar */}
-        <aside className="w-56 border-r border-[var(--line-subtle)] bg-[var(--surface-1)]/95 p-3 flex flex-col justify-between select-none backdrop-blur-md">
+        <aside className="w-[60px] lg:w-56 shrink-0 border-r border-[var(--line-subtle)] bg-[var(--surface-1)]/95 p-2 lg:p-3 flex flex-col justify-between select-none backdrop-blur-md transition-[width] duration-200 ease-[var(--ease-out-soft)]">
           <div className="space-y-4">
             <nav className="space-y-1">
               <button
                 onClick={() => setActiveTab('instances')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
+                title={t('nav.instances')}
+                className={`w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-2.5 px-0 lg:px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
                   activeTab === 'instances'
                     ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-[var(--shadow-glow)]'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <Gamepad2 className="w-4 h-4" />
-                <span>{t('nav.instances')}</span>
+                <Gamepad2 className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline">{t('nav.instances')}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('logs')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
+                title={t('nav.logs')}
+                className={`w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-2.5 px-0 lg:px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
                   activeTab === 'logs'
                     ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-[var(--shadow-glow)]'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <Terminal className="w-4 h-4" />
-                <span>{t('nav.logs')}</span>
+                <Terminal className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline">{t('nav.logs')}</span>
               </button>
 
               <button
                 onClick={() => setIsJavaManagerOpen(true)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)] transition-colors"
+                className="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-2.5 px-0 lg:px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)] transition-colors"
                 title={t('javaManager.title', 'Java Runtime Manager')}
               >
-                <Coffee className="w-4 h-4 text-[var(--accent-from)]" />
-                <span>Java</span>
+                <Coffee className="w-4 h-4 shrink-0 text-[var(--accent-from)]" />
+                <span className="hidden lg:inline">Java</span>
               </button>
             </nav>
           </div>
@@ -209,16 +211,17 @@ export function App() {
           <div className="pt-2 border-t border-[var(--line-subtle)]">
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)] transition-colors"
+              title={t('nav.settings')}
+              className="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-2.5 px-0 lg:px-3 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)] transition-colors"
             >
-              <Settings className="w-4 h-4" />
-              <span>{t('nav.settings')}</span>
+              <Settings className="w-4 h-4 shrink-0" />
+              <span className="hidden lg:inline">{t('nav.settings')}</span>
             </button>
           </div>
         </aside>
 
         {/* Tab Content Area */}
-        <main className="flex-1 flex flex-col bg-[var(--surface-0)] overflow-hidden relative">
+        <main className="flex-1 flex flex-col overflow-hidden relative">
           {activeTab === 'instances' ? <InstanceGrid /> : <LogViewer />}
 
           {/* Slide-out Download Drawer */}

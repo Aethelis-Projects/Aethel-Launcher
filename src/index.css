@@ -1,42 +1,88 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, 'SFMono-Regular', Menlo,
+    monospace;
+}
+
 @layer base {
   :root {
     color-scheme: dark;
-    --surface-0: #07090e;
-    --surface-1: #0b0e15;
-    --surface-2: #10141c;
-    --surface-3: #151a24;
+
+    /* Surfaces — cool layered graphite */
+    --surface-0: #05070c;
+    --surface-1: #090c13;
+    --surface-2: #0e121b;
+    --surface-3: #151a25;
+
+    /* Lines */
     --line-subtle: rgba(255, 255, 255, 0.06);
     --line-strong: rgba(255, 255, 255, 0.12);
-    --text-primary: #f4f7fb;
-    --text-secondary: #a9b4c3;
-    --text-muted: #707c8e;
+
+    /* Text hierarchy */
+    --text-primary: #f2f6fc;
+    --text-secondary: #a3aec0;
+    --text-muted: #6b7789;
     --text-on-accent: #ffffff;
+
+    /* Accent — approved cyan→indigo */
     --accent-from: #06b6d4;
     --accent-to: #6366f1;
-    --accent-soft: rgba(6, 182, 212, 0.12);
-    --accent-line: rgba(6, 182, 212, 0.38);
+    --accent: #22d3ee;
+    --accent-soft: rgba(6, 182, 212, 0.1);
+    --accent-line: rgba(6, 182, 212, 0.35);
+
+    /* Status */
     --success: #34d399;
     --success-soft: rgba(52, 211, 153, 0.12);
+    --warning: #fbbf24;
+    --warning-soft: rgba(251, 191, 36, 0.12);
     --danger: #fb7185;
     --danger-soft: rgba(251, 113, 133, 0.12);
+
+    /* Elevation */
+    --shadow-sm: 0 1px 2px rgba(1, 4, 9, 0.5);
+    --shadow-md: 0 8px 24px rgba(1, 4, 9, 0.45);
+    --shadow-lg: 0 24px 64px rgba(1, 4, 9, 0.6);
+    --shadow-glow: 0 8px 28px rgba(6, 182, 212, 0.16), 0 2px 10px rgba(99, 102, 241, 0.12);
+
+    /* Radii — only three */
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
-    --ring: 0 0 0 2px rgba(6, 182, 212, 0.35);
-    --shadow-glow: 0 12px 30px rgba(6, 182, 212, 0.1);
+
+    /* Focus — double ring with surface gap */
+    --ring: 0 0 0 2px var(--surface-0), 0 0 0 4px rgba(6, 182, 212, 0.55);
+
+    /* Motion */
+    --ease-out-soft: cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  html,
+  body {
+    height: 100%;
   }
 
   body {
     margin: 0;
     padding: 0;
-    background-color: var(--surface-0);
+    /* Ambient depth: fixed soft glows over the base surface */
+    background:
+      radial-gradient(1200px 800px at 85% -10%, rgba(99, 102, 241, 0.08), transparent 60%),
+      radial-gradient(1000px 700px at -10% 110%, rgba(6, 182, 212, 0.06), transparent 55%),
+      var(--surface-0);
+    background-attachment: fixed;
     color: var(--text-primary);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     user-select: none;
     overflow: hidden;
-    height: 100vh;
   }
 
   #root {
@@ -45,10 +91,48 @@
     flex-direction: column;
   }
 
+  ::selection {
+    background: rgba(6, 182, 212, 0.3);
+    color: var(--text-primary);
+  }
+
+  /* Thin, quiet scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   button:focus-visible,
-  [role='button']:focus-visible {
+  [role='button']:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
     outline: none;
     box-shadow: var(--ring);
+  }
+
+  /* Inputs and logs are readable/interactive content */
+  input,
+  textarea,
+  select {
+    user-select: text;
   }
 }
 
