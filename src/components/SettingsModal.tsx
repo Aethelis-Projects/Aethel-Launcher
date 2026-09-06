@@ -63,14 +63,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 bg-[var(--surface-0)]/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="bg-[var(--surface-2)] border border-[var(--line-strong)] rounded-[var(--radius-lg)] w-full max-w-xl overflow-hidden shadow-2xl shadow-black/40 animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between">
-          <h3 className="font-bold text-zinc-100 text-base">{t('settings.title')}</h3>
+        <div className="p-4 border-b border-[var(--line-subtle)] flex items-center justify-between bg-[var(--surface-1)]/80">
+          <h3 className="font-bold text-[var(--text-primary)] text-base">{t('settings.title')}</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+            className="p-1 rounded-[var(--radius-sm)] hover:bg-[var(--surface-3)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -80,25 +80,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Java & Runtime Section */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              <Coffee className="w-4 h-4 text-cyan-400" />
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              <Coffee className="w-4 h-4 text-[var(--accent-from)]" />
               <span>{t('settings.java', 'Java & Runtime')}</span>
             </div>
 
             {/* Preferred Java Vendor */}
-            <div className="flex items-center justify-between gap-4 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800/60">
+            <div className="flex items-center justify-between gap-4 p-3 bg-[var(--surface-1)]/80 rounded-[var(--radius-md)] border border-[var(--line-subtle)]">
               <div>
-                <label className="text-xs font-medium text-zinc-300 block">
+                <label className="text-xs font-medium text-[var(--text-secondary)] block">
                   {t('settings.javaProvider', 'Preferred Java Vendor')}
                 </label>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
+                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
                   Distributor used for auto-downloading JRE runtimes
                 </p>
               </div>
               <select
                 value={preferredProvider}
                 onChange={(e) => setPreferredProvider(e.target.value as PreferredJavaProvider)}
-                className="px-3 py-1.5 bg-zinc-900 border border-zinc-700/80 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--surface-3)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-from)] cursor-pointer"
               >
                 <option value="Adoptium">Eclipse Adoptium (Temurin)</option>
                 <option value="Zulu">Azul Zulu</option>
@@ -106,12 +106,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             </div>
 
             {/* Quick Link to Dedicated Java Manager */}
-            <div className="flex items-center justify-between p-3.5 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
+            <div className="flex items-center justify-between p-3.5 bg-[var(--surface-1)]/60 border border-[var(--line-subtle)] rounded-[var(--radius-md)]">
               <div>
-                <div className="text-xs font-semibold text-zinc-200">
+                <div className="text-xs font-semibold text-[var(--text-primary)]">
                   {t('settings.javaManagerTitle', 'Java Runtime Manager')}
                 </div>
-                <p className="text-[11px] text-zinc-400 mt-0.5">
+                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                   {t(
                     'settings.javaManagerDesc',
                     'Scan system runtimes, verify compatibility matrix, and test JVM binaries.'
@@ -124,18 +124,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                   onClose();
                   onOpenJavaManager?.();
                 }}
-                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg border border-zinc-700/80 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--surface-3)] hover:bg-[var(--accent-soft)] text-[var(--text-primary)] text-xs font-medium rounded-[var(--radius-sm)] border border-[var(--line-subtle)] hover:border-[var(--accent-line)] transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
-                <Coffee className="w-3.5 h-3.5 text-cyan-400" />
+                <Coffee className="w-3.5 h-3.5 text-[var(--accent-from)]" />
                 <span>{t('settings.openJavaManager', 'Manage Runtimes')}</span>
               </button>
             </div>
           </div>
 
           {/* Appearance & Integrations Section */}
-          <div className="space-y-4 pt-4 border-t border-zinc-800/60">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              <Palette className="w-4 h-4 text-cyan-400" />
+          <div className="space-y-4 pt-4 border-t border-[var(--line-subtle)]">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              <Palette className="w-4 h-4 text-[var(--accent-from)]" />
               <span>{t('settings.appearance', 'Appearance & Integrations')}</span>
             </div>
 
