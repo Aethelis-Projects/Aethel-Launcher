@@ -36,6 +36,10 @@
 Светлая тема в будущем = подмена значений переменных. Поэтому в компонентах
 ЗАПРЕЩЕНЫ сырые цвета (`bg-zinc-900`, `text-cyan-400` и т.п.).
 
+Фоновые эффекты `body` (заданы в `index.css`): ambient radial-glow (два фиксированных
+свечения поверх `--surface-0`), тонкие скроллбары (webkit), `::selection` на accent-soft,
+двойной focus-ring через `--ring` (кольцо с зазором цвета поверхности).
+
 ## 3. Canonical Patterns (копировать как есть)
 - Заголовок секции:
   `flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]`
@@ -53,6 +57,13 @@
   `useReducedMotion()` → `initial={false}`.
 - Toggle: peer-механика, off `bg-[var(--surface-3)]`, on `bg-[var(--accent-to)]`.
 
+### Адаптивные паттерны (точка `lg` = 1024px)
+- Сайдбар: при < lg — иконка-рейл `w-[60px]` (лейблы `hidden lg:inline` + `title`-тултипы), при ≥ lg — полный `w-56`.
+- Тулбары: `flex-wrap gap-2/3`; панель вкладок: `overflow-x-auto`; контент модалок: `overflow-y-auto min-h-0`.
+- Числа (время, размеры, проценты, счётчики): `tabular-nums`; версии/пути/файлы: `font-mono`.
+- Логи и стектрейсы: `select-text` (единственное место с выделением текста).
+- Длинные имена: `min-w-0 truncate` + `title`; сетки: `repeat(auto-fill,minmax(260px,1fr))`.
+
 ## 4. Per-file changelog (было → стало)
 - `index.css`: сырая палитра → семантические токены + focus-ring + reduced-motion + ambient-glow + тонкие скроллбары + elevation-шкала + warning-статус + @theme шрифты.
 - `App.tsx`: фон/лейаут на токенах; адаптивный сайдбар — иконка-рейл `w-[60px]` при < lg, полный `w-56` при ≥ lg.
@@ -67,6 +78,7 @@
 - `InstanceManagerModal.tsx`: все 6 вкладок на токенах; вкладки с accent-подчёркиванием + overflow-x-auto; таблицы/списки по канону; motion-вход.
 
 Редизайн завершён: во всех компонентах src/ ноль сырых цветов (проверено regex-сканом), `npx tsc -b && npm run lint && npm test && npm run build` — зелёные.
+- **Full redesign: 22 components → tokens; commits `11a87a4…1f0096d`; regex-verified zero raw colors.**
 
 ## 5. Rules (do / don't)
 DO: токены; канонические паттерны; lucide-react; motion-бюджет (карточки/CTA/модалки);
