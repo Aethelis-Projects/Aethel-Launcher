@@ -117,6 +117,7 @@ export const InstanceGrid: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <motion.button
+            data-motion-element
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.98 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
@@ -128,6 +129,7 @@ export const InstanceGrid: React.FC = () => {
             <span>{t('instances.create', '+ Создать инстанс')}</span>
           </motion.button>
           <motion.button
+            data-motion-element
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.98 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
@@ -170,6 +172,7 @@ export const InstanceGrid: React.FC = () => {
           return (
             <motion.div
               key={instance.id}
+              data-motion-element
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.18), ease: 'easeOut' }}
@@ -240,6 +243,7 @@ export const InstanceGrid: React.FC = () => {
                 </button>
 
                 <motion.button
+                  data-motion-element
                   whileHover={isLaunching ? undefined : { y: -1 }}
                   whileTap={isLaunching ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.18, ease: 'easeOut' }}
