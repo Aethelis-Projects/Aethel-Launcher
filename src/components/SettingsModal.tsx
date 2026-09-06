@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   X,
   Coffee,
@@ -26,6 +27,7 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onOpenJavaManager }) => {
   const { t, i18n } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const {
     preferredProvider,
     updateChannel,
@@ -61,44 +63,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     }
   };
 
-
   return (
-    <div className="fixed inset-0 bg-[var(--surface-0)]/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--surface-2)] border border-[var(--line-strong)] rounded-[var(--radius-lg)] w-full max-w-xl overflow-hidden shadow-2xl shadow-black/40 animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40"
+      >
         {/* Header */}
-        <div className="p-4 border-b border-[var(--line-subtle)] flex items-center justify-between bg-[var(--surface-1)]/80">
-          <h3 className="font-bold text-[var(--text-primary)] text-base">{t('settings.title')}</h3>
+        <div className="flex items-center justify-between border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
+          <h3 className="text-base font-bold text-[var(--text-primary)]">{t('settings.title')}</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-[var(--radius-sm)] hover:bg-[var(--surface-3)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            className="rounded-[var(--radius-sm)] p-1 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        <div className="flex-1 space-y-6 overflow-y-auto p-6">
           {/* Java & Runtime Section */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-              <Coffee className="w-4 h-4 text-[var(--accent-from)]" />
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <Coffee className="h-4 w-4 text-[var(--accent-from)]" />
               <span>{t('settings.java', 'Java & Runtime')}</span>
             </div>
 
             {/* Preferred Java Vendor */}
-            <div className="flex items-center justify-between gap-4 p-3 bg-[var(--surface-1)]/80 rounded-[var(--radius-md)] border border-[var(--line-subtle)]">
+            <div className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-3">
               <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)] block">
+                <label className="block text-xs font-medium text-[var(--text-secondary)]">
                   {t('settings.javaProvider', 'Preferred Java Vendor')}
                 </label>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                   Distributor used for auto-downloading JRE runtimes
                 </p>
               </div>
               <select
                 value={preferredProvider}
                 onChange={(e) => setPreferredProvider(e.target.value as PreferredJavaProvider)}
-                className="px-3 py-1.5 bg-[var(--surface-3)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-from)] cursor-pointer"
+                className="cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
               >
                 <option value="Adoptium">Eclipse Adoptium (Temurin)</option>
                 <option value="Zulu">Azul Zulu</option>
@@ -106,12 +117,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             </div>
 
             {/* Quick Link to Dedicated Java Manager */}
-            <div className="flex items-center justify-between p-3.5 bg-[var(--surface-1)]/60 border border-[var(--line-subtle)] rounded-[var(--radius-md)]">
+            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-3.5">
               <div>
                 <div className="text-xs font-semibold text-[var(--text-primary)]">
                   {t('settings.javaManagerTitle', 'Java Runtime Manager')}
                 </div>
-                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
                   {t(
                     'settings.javaManagerDesc',
                     'Scan system runtimes, verify compatibility matrix, and test JVM binaries.'
@@ -124,29 +135,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                   onClose();
                   onOpenJavaManager?.();
                 }}
-                className="px-3 py-1.5 bg-[var(--surface-3)] hover:bg-[var(--accent-soft)] text-[var(--text-primary)] text-xs font-medium rounded-[var(--radius-sm)] border border-[var(--line-subtle)] hover:border-[var(--accent-line)] transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)]"
               >
-                <Coffee className="w-3.5 h-3.5 text-[var(--accent-from)]" />
+                <Coffee className="h-3.5 w-3.5 text-[var(--accent-from)]" />
                 <span>{t('settings.openJavaManager', 'Manage Runtimes')}</span>
               </button>
             </div>
           </div>
 
           {/* Appearance & Integrations Section */}
-          <div className="space-y-4 pt-4 border-t border-[var(--line-subtle)]">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-              <Palette className="w-4 h-4 text-[var(--accent-from)]" />
+          <div className="space-y-4 border-t border-[var(--line-subtle)] pt-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <Palette className="h-4 w-4 text-[var(--accent-from)]" />
               <span>{t('settings.appearance', 'Appearance & Integrations')}</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Theme */}
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-400">{t('settings.theme', 'Interface Theme')}</label>
+                <label className="text-xs text-[var(--text-secondary)]">{t('settings.theme', 'Interface Theme')}</label>
                 <select
                   value={theme}
                   onChange={(e) => setTheme(e.target.value as Theme)}
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                  className="w-full cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                 >
                   <option value="system">{t('settings.themeSystem', 'System Default')}</option>
                   <option value="dark">{t('settings.themeDark', 'Dark')}</option>
@@ -156,7 +167,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
               {/* Language */}
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-400">{t('settings.language', 'Language')}</label>
+                <label className="text-xs text-[var(--text-secondary)]">{t('settings.language', 'Language')}</label>
                 <select
                   value={i18n.language}
                   onChange={(e) => {
@@ -166,7 +177,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                       commands.setDiscordRpcActivity(newLang).catch(() => {});
                     }
                   }}
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                  className="w-full cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                 >
                   <option value="ru">Русский</option>
                   <option value="en">English</option>
@@ -175,65 +186,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             </div>
 
             {/* Discord Rich Presence Card */}
-            <div className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-3">
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mt-0.5">
-                  <Radio className="w-4 h-4" />
+                <div className="mt-0.5 rounded-[var(--radius-sm)] border border-[var(--accent-line)] bg-[var(--accent-soft)] p-2 text-[var(--accent-from)]">
+                  <Radio className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-medium text-zinc-200">{t('settings.discordRpc', 'Discord Rich Presence')}</div>
-                  <div className="text-[11px] text-zinc-400 mt-0.5">{t('settings.discordRpcDesc', 'Display launcher and playing status in your Discord profile')}</div>
+                  <div className="text-xs font-medium text-[var(--text-primary)]">
+                    {t('settings.discordRpc', 'Discord Rich Presence')}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                    {t('settings.discordRpcDesc', 'Display launcher and playing status in your Discord profile')}
+                  </div>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                 <input
                   type="checkbox"
                   data-testid="discord-rpc-toggle"
                   checked={discordRpcEnabled}
                   onChange={(e) => setDiscordRpcEnabled(e.target.checked, i18n.language)}
-                  className="sr-only peer"
+                  className="peer sr-only"
                 />
-                <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                <div className="h-5 w-9 rounded-full border border-[var(--line-subtle)] bg-[var(--surface-3)] peer-focus:outline-none peer-checked:border-transparent peer-checked:bg-[var(--accent-to)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[var(--line-strong)] after:bg-white after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
               </label>
             </div>
           </div>
 
           {/* Application Updates Section */}
-          <div className="space-y-4 pt-4 border-t border-zinc-800/60">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
+          <div className="space-y-4 border-t border-[var(--line-subtle)] pt-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <Sparkles className="h-4 w-4 text-[var(--accent-from)]" />
               <span>{t('update.title')}</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-400">{t('update.channel')}</label>
+                <label className="text-xs text-[var(--text-secondary)]">{t('update.channel')}</label>
                 <select
                   value={updateChannel}
                   onChange={(e) => setUpdateChannel(e.target.value as 'stable' | 'beta')}
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                  className="w-full cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                 >
                   <option value="stable">{t('update.stable')}</option>
                   <option value="beta">{t('update.beta')}</option>
                 </select>
               </div>
 
-              <div className="space-y-1.5 flex flex-col justify-end">
+              <div className="flex flex-col justify-end space-y-1.5">
                 <button
                   type="button"
                   data-testid="manual-update-check-btn"
                   onClick={handleCheckForUpdates}
                   disabled={isCheckingUpdate}
-                  className="w-full py-2 px-3 rounded-lg text-xs font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/60 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-50"
                 >
                   {isCheckingUpdate ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--accent-from)]" />
                       <span>{t('update.checking')}</span>
                     </>
                   ) : (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                      <RefreshCw className="h-3.5 w-3.5 text-[var(--accent-from)]" />
                       <span>{t('update.checkForUpdates')}</span>
                     </>
                   )}
@@ -244,9 +259,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             {updateStatus && (
               <div
                 data-testid="update-status-msg"
-                className="p-2.5 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs flex items-center gap-2 text-zinc-300"
+                className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-2.5 text-xs text-[var(--text-secondary)]"
               >
-                <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--accent-from)]" />
                 <span>{updateStatus}</span>
               </div>
             )}
@@ -254,15 +269,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-zinc-800/80 flex justify-end bg-zinc-950/60">
+        <div className="flex justify-end border-t border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-xs font-medium transition-colors"
+            className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)]"
           >
             {t('settings.close')}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
