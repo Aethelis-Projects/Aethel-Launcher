@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   X,
   Coffee,
@@ -48,6 +49,7 @@ const DOWNLOADABLE_MAJORS = [
 
 export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const { preferredProvider, setPreferredProvider } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<'installed' | 'matrix' | 'download'>('installed');
@@ -78,7 +80,7 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
     try {
       const res = await commands.detectSystemJavas();
       if (res.status === 'ok') {
-        setJavas(res.data);
+        setJavas(Array.isArray(res.data) ? res.data : []);
       } else {
         setError(res.error);
       }
@@ -180,34 +182,41 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
     }
   };
 
-  const managedCount = javas.filter((j) => j.source === 'Managed').length;
-  const systemCount = javas.filter((j) => j.source === 'System').length;
+  const javaList = Array.isArray(javas) ? javas : [];
+  const managedCount = javaList.filter((j) => j.source === 'Managed').length;
+  const systemCount = javaList.filter((j) => j.source === 'System').length;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4"
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
       onClick={onClose}
     >
-      <div
-        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/40">
+        <div className="flex items-center justify-between border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-950/80 border border-cyan-800/60 flex items-center justify-center text-cyan-400">
-              <Coffee className="w-5 h-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent-from)]">
+              <Coffee className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-zinc-100">
+                <h2 className="text-sm font-bold text-[var(--text-primary)]">
                   {t('javaManager.title', 'Java Runtime Manager')}
                 </h2>
-                <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-mono">
+                <span className="rounded-full border border-[var(--line-subtle)] bg-[var(--surface-3)] px-2 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">
                   {javas.length} total ({managedCount} managed, {systemCount} system)
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-[11px] text-[var(--text-secondary)]">
                 {t('javaManager.subtitle', 'Configure Java environments, check compatibility, and test runtimes')}
               </p>
             </div>
@@ -217,85 +226,85 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
             <button
               onClick={refreshJavas}
               disabled={isLoading}
-              className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-50"
+              className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] p-1.5 text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] disabled:opacity-50 cursor-pointer"
               title={t('common.refresh', 'Refresh')}
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-cyan-400' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin text-[var(--accent-from)]' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)] cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 px-4 py-2 bg-zinc-900/20 border-b border-zinc-800/60 text-xs">
+        <div className="flex items-center gap-1 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/60 px-4 py-2 text-xs">
           <button
             onClick={() => setActiveTab('installed')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            className={`flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-1.5 font-medium transition-all cursor-pointer ${
               activeTab === 'installed'
-                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-sm'
-                : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] font-semibold text-[var(--text-on-accent)] shadow-sm'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <Server className="w-3.5 h-3.5" />
+            <Server className="h-3.5 w-3.5" />
             <span>{t('javaManager.installedTab', 'Installed Runtimes')} ({javas.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('matrix')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            className={`flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-1.5 font-medium transition-all cursor-pointer ${
               activeTab === 'matrix'
-                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-sm'
-                : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] font-semibold text-[var(--text-on-accent)] shadow-sm'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="h-3.5 w-3.5" />
             <span>{t('javaManager.matrixTab', 'Compatibility Matrix')}</span>
           </button>
           <button
             onClick={() => setActiveTab('download')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            className={`flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-1.5 font-medium transition-all cursor-pointer ${
               activeTab === 'download'
-                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-sm'
-                : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] font-semibold text-[var(--text-on-accent)] shadow-sm'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="h-3.5 w-3.5" />
             <span>{t('javaManager.downloadTab', 'Download Java')}</span>
           </button>
         </div>
 
         {/* Error Notification */}
         {error && (
-          <div className="mx-4 mt-3 p-2.5 bg-rose-950/40 border border-rose-800/60 rounded-xl text-xs text-rose-300 flex items-center justify-between">
+          <div className="mx-4 mt-3 flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] p-2.5 text-xs text-[var(--danger)]">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200">
-              <X className="w-3.5 h-3.5" />
+            <button onClick={() => setError(null)} className="text-[var(--danger)] hover:opacity-80 cursor-pointer">
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
 
         {/* Content Area */}
-        <div className="p-4 overflow-y-auto flex-1 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {/* TAB 1: INSTALLED RUNTIMES */}
           {activeTab === 'installed' && (
             <div className="space-y-3">
               {isLoading && javas.length === 0 ? (
-                <div className="py-16 text-center text-zinc-400 flex flex-col items-center gap-3">
-                  <Loader2 className="w-7 h-7 animate-spin text-cyan-400" />
+                <div className="flex flex-col items-center gap-3 py-16 text-center text-[var(--text-secondary)]">
+                  <Loader2 className="h-7 w-7 animate-spin text-[var(--accent-from)]" />
                   <span className="text-xs">{t('javaManager.scanning', 'Scanning system & launcher runtimes...')}</span>
                 </div>
               ) : javas.length === 0 ? (
-                <div className="py-12 text-center text-zinc-500 space-y-2">
+                <div className="space-y-2 py-12 text-center text-[var(--text-muted)]">
                   <p className="text-xs">{t('javaManager.noneFound', 'No Java runtimes found on this system.')}</p>
                   <button
                     onClick={() => setActiveTab('download')}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs rounded-lg font-medium transition-colors inline-flex items-center gap-1.5"
+                    className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-3 py-1.5 text-xs font-semibold text-[var(--text-on-accent)] shadow-sm transition-all hover:brightness-110 active:scale-95 cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
+                    <Download className="h-3.5 w-3.5" />
                     <span>{t('javaManager.downloadPrompt', 'Download Recommended Java 21')}</span>
                   </button>
                 </div>
@@ -308,70 +317,70 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
                     return (
                       <div
                         key={j.path}
-                        className={`p-3 rounded-xl border transition-colors flex items-center justify-between gap-3 ${
+                        className={`flex items-center justify-between gap-3 rounded-[var(--radius-md)] border p-3 transition-colors ${
                           isManaged
-                            ? 'bg-zinc-900/70 border-cyan-900/40 hover:border-cyan-700/60'
-                            : 'bg-zinc-900/40 border-zinc-800/80 hover:border-zinc-700'
+                            ? 'border-[var(--accent-line)] bg-[var(--surface-1)]/90 hover:border-[var(--accent-from)]'
+                            : 'border-[var(--line-subtle)] bg-[var(--surface-1)]/60 hover:border-[var(--line-strong)]'
                         }`}
                       >
                         {/* Info Left */}
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-xs text-zinc-100 flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                              <span className="h-2 w-2 rounded-full bg-[var(--accent-from)]" />
                               Java {j.major}
                             </span>
-                            <span className="text-[11px] text-zinc-400 font-mono">
+                            <span className="font-mono text-[11px] text-[var(--text-secondary)]">
                               v{j.version}
                             </span>
                             {j.vendor && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 font-medium">
+                              <span className="rounded-full bg-[var(--surface-3)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
                                 {j.vendor}
                               </span>
                             )}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">
+                            <span className="rounded bg-[var(--surface-3)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
                               {j.arch}
                             </span>
                             {isManaged ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/70 font-semibold">
+                              <span className="rounded-full border border-[var(--accent-line)] bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent-from)]">
                                 Managed
                               </span>
                             ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800/80 text-zinc-400 border border-zinc-700/60">
+                              <span className="rounded-full border border-[var(--line-subtle)] bg-[var(--surface-3)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
                                 System
                               </span>
                             )}
                           </div>
 
                           {/* Path with Copy */}
-                          <div className="flex items-center gap-2 group">
+                          <div className="group flex items-center gap-2">
                             <code
-                              className="text-[10px] font-mono text-zinc-400 truncate max-w-lg select-all bg-zinc-950/60 px-1.5 py-0.5 rounded border border-zinc-800/60"
+                              className="max-w-lg truncate select-all rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]"
                               title={j.path}
                             >
                               {j.path}
                             </code>
                             <button
                               onClick={() => handleCopyPath(j.path)}
-                              className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 cursor-pointer"
+                              className="cursor-pointer p-1 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
                               title={t('common.copy', 'Copy path')}
                             >
                               {copiedPath === j.path ? (
-                                <Check className="w-3 h-3 text-emerald-400" />
+                                <Check className="h-3 w-3 text-[var(--success)]" />
                               ) : (
-                                <Copy className="w-3 h-3" />
+                                <Copy className="h-3 w-3" />
                               )}
                             </button>
                           </div>
                         </div>
 
                         {/* Actions Right */}
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex shrink-0 items-center gap-2">
                           <button
                             onClick={() => handleTestJava(j.path)}
-                            className="px-2.5 py-1 text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 border border-zinc-700/80 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            className="flex cursor-pointer items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)]"
                           >
-                            <Terminal className="w-3 h-3 text-cyan-400" />
+                            <Terminal className="h-3 w-3 text-[var(--accent-from)]" />
                             <span>{t('javaManager.test', 'Test')}</span>
                           </button>
 
@@ -379,15 +388,15 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
                             <button
                               onClick={() => handleDelete(j.major)}
                               disabled={isDeleting}
-                              className="px-2 py-1 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/40 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                              className="flex cursor-pointer items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-2 py-1 text-xs text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]/80 disabled:opacity-50"
                               title={t('common.delete', 'Delete managed runtime')}
                               aria-label="Delete managed runtime"
                               data-testid={`delete-runtime-${j.major}`}
                             >
                               {isDeleting ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="h-3 w-3" />
                               )}
                             </button>
                           )}
@@ -403,12 +412,12 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
           {/* TAB 2: COMPATIBILITY MATRIX */}
           {activeTab === 'matrix' && (
             <div className="space-y-4">
-              <div className="p-3 bg-zinc-900/40 border border-zinc-800/80 rounded-xl text-xs text-zinc-300 space-y-1">
-                <div className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="space-y-1 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-3.5 text-xs text-[var(--text-secondary)]">
+                <div className="flex items-center gap-1.5 font-semibold text-[var(--text-primary)]">
+                  <Sparkles className="h-3.5 w-3.5 text-[var(--accent-from)]" />
                   <span>{t('javaManager.matrixGuideTitle', 'Minecraft Java Version Compatibility')}</span>
                 </div>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-[11px] text-[var(--text-muted)]">
                   {t(
                     'javaManager.matrixGuideDesc',
                     'Aethel Launcher automatically provisions and selects the exact Java runtime required by your Minecraft version. You can verify coverage below.'
@@ -416,9 +425,9 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
                 </p>
               </div>
 
-              <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
+              <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/40">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-900/80 text-zinc-400 font-semibold border-b border-zinc-800 text-[11px] uppercase tracking-wider">
+                  <thead className="border-b border-[var(--line-subtle)] bg-[var(--surface-3)] text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
                     <tr>
                       <th className="p-3">{t('javaManager.colMinecraft', 'Minecraft Version')}</th>
                       <th className="p-3">{t('javaManager.colRequired', 'Required Java')}</th>
@@ -426,22 +435,22 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
                       <th className="p-3 text-right">{t('javaManager.colStatus', 'Status')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/60 text-zinc-300 text-xs">
+                  <tbody className="divide-y divide-[var(--line-subtle)] text-xs text-[var(--text-secondary)]">
                     {COMPATIBILITY_ROWS.map((row) => {
                       const matches = javas.filter((j) => j.major === row.major);
                       const isReady = matches.length > 0;
                       const isDownloading = downloadingMajor === row.major;
 
                       return (
-                        <tr key={row.major} className="hover:bg-zinc-900/40 transition-colors">
+                        <tr key={row.major} className="transition-colors hover:bg-[var(--surface-3)]/40">
                           <td className="p-3">
-                            <div className="font-semibold text-zinc-100">{row.gameRange}</div>
-                            <div className="text-[10px] text-zinc-500">{row.note}</div>
+                            <div className="font-semibold text-[var(--text-primary)]">{row.gameRange}</div>
+                            <div className="text-[10px] text-[var(--text-muted)]">{row.note}</div>
                           </td>
                           <td className="p-3">
-                            <span className="font-bold text-cyan-400">Java {row.major}</span>
+                            <span className="font-bold text-[var(--accent-from)]">Java {row.major}</span>
                             {row.isLts && (
-                              <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                              <span className="ml-1 rounded bg-[var(--surface-3)] px-1.5 py-0.5 text-[9px] text-[var(--text-muted)]">
                                 LTS
                               </span>
                             )}
@@ -450,48 +459,48 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
                             {isReady ? (
                               <div className="space-y-0.5">
                                 {matches.slice(0, 2).map((m) => (
-                                  <div key={m.path} className="text-[11px] flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                    <span className="text-zinc-200">
+                                  <div key={m.path} className="flex items-center gap-1.5 text-[11px]">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+                                    <span className="text-[var(--text-primary)]">
                                       {m.vendor || 'Java'} {m.version}
                                     </span>
-                                    <span className="text-[9px] px-1 rounded bg-zinc-800 text-zinc-400">
+                                    <span className="rounded bg-[var(--surface-3)] px-1 text-[9px] text-[var(--text-muted)]">
                                       {m.source}
                                     </span>
                                   </div>
                                 ))}
                                 {matches.length > 2 && (
-                                  <div className="text-[10px] text-zinc-500">
+                                  <div className="text-[10px] text-[var(--text-muted)]">
                                     +{matches.length - 2} more
                                   </div>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-[11px] text-zinc-500 italic">
+                              <span className="text-[11px] italic text-[var(--text-muted)]">
                                 {t('javaManager.noRuntimeInstalled', 'Not found')}
                               </span>
                             )}
                           </td>
                           <td className="p-3 text-right">
                             {isReady ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
-                                <CheckCircle2 className="w-3 h-3" />
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--success)]/40 bg-[var(--success-soft)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                                <CheckCircle2 className="h-3 w-3" />
                                 <span>{t('javaManager.ready', 'Ready')}</span>
                               </span>
                             ) : (
                               <button
                                 onClick={() => handleDownload(row.major)}
                                 disabled={isDownloading}
-                                className="px-2.5 py-1 text-[11px] font-medium bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-all inline-flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                                className="inline-flex cursor-pointer items-center gap-1 rounded-[var(--radius-sm)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-on-accent)] shadow-sm transition-all hover:brightness-110 active:scale-95 disabled:opacity-50"
                               >
                                 {isDownloading ? (
                                   <>
-                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    <Loader2 className="h-3 w-3 animate-spin" />
                                     <span>{t('common.downloading', 'Downloading...')}</span>
                                   </>
                                 ) : (
                                   <>
-                                    <Download className="w-3 h-3" />
+                                    <Download className="h-3 w-3" />
                                     <span>{t('common.download', 'Download')}</span>
                                   </>
                                 )}
@@ -511,19 +520,19 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
           {activeTab === 'download' && (
             <div className="space-y-4">
               {/* Vendor Selector */}
-              <div className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-3">
                 <div>
-                  <label className="text-xs font-semibold text-zinc-200 block">
+                  <label className="block text-xs font-semibold text-[var(--text-primary)]">
                     {t('settings.javaProvider', 'Preferred Java Vendor')}
                   </label>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">
+                  <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                     Choose vendor for clean JDK builds with verified SHA-256 checksums
                   </p>
                 </div>
                 <select
                   value={preferredProvider}
                   onChange={(e) => setPreferredProvider(e.target.value as PreferredJavaProvider)}
-                  className="px-3 py-1.5 bg-zinc-900 border border-zinc-700/80 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  className="cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                 >
                   <option value="Adoptium">Eclipse Adoptium (Temurin)</option>
                   <option value="Zulu">Azul Zulu</option>
@@ -531,7 +540,7 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
               </div>
 
               {/* Download Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {DOWNLOADABLE_MAJORS.map((item) => {
                   const installed = javas.find((j) => j.major === item.major && j.source === 'Managed');
                   const isDownloading = downloadingMajor === item.major;
@@ -539,39 +548,39 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
                   return (
                     <div
                       key={item.major}
-                      className="p-4 bg-zinc-900/50 border border-zinc-800/80 rounded-xl flex flex-col justify-between gap-3 hover:border-zinc-700 transition-colors"
+                      className="flex flex-col justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4 transition-colors hover:border-[var(--line-strong)]"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-sm text-zinc-100">{item.title}</span>
+                          <span className="text-sm font-bold text-[var(--text-primary)]">{item.title}</span>
                           {installed ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800/50">
-                              <CheckCircle2 className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--success)]/40 bg-[var(--success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                              <CheckCircle2 className="h-3 w-3" />
                               Installed
                             </span>
                           ) : (
-                            <span className="text-[10px] text-zinc-500 bg-zinc-800/80 px-2 py-0.5 rounded-full">
+                            <span className="rounded-full border border-[var(--line-subtle)] bg-[var(--surface-3)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
                               Not installed
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-zinc-400">{item.subtitle}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">{item.subtitle}</p>
                       </div>
 
-                      <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between">
-                        <span className="text-[11px] text-zinc-500 font-mono">
+                      <div className="flex items-center justify-between border-t border-[var(--line-subtle)] pt-2">
+                        <span className="font-mono text-[11px] text-[var(--text-muted)]">
                           {preferredProvider}
                         </span>
                         {installed ? (
                           <button
                             onClick={() => handleDelete(item.major)}
                             disabled={deletingMajor === item.major}
-                            className="px-3 py-1 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/40 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-1 text-xs text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]/80"
                           >
                             {deletingMajor === item.major ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="h-3 w-3" />
                             )}
                             <span>Reinstall</span>
                           </button>
@@ -579,16 +588,16 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
                           <button
                             onClick={() => handleDownload(item.major)}
                             disabled={isDownloading}
-                            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-3.5 py-1.5 text-xs font-semibold text-[var(--text-on-accent)] shadow-[var(--shadow-glow)] transition-all hover:brightness-110 active:scale-95 disabled:opacity-50"
                           >
                             {isDownloading ? (
                               <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                 <span>Downloading...</span>
                               </>
                             ) : (
                               <>
-                                <Download className="w-3.5 h-3.5" />
+                                <Download className="h-3.5 w-3.5" />
                                 <span>Download</span>
                               </>
                             )}
@@ -604,104 +613,104 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between text-xs text-zinc-400">
+        <div className="flex items-center justify-between border-t border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-3 text-xs text-[var(--text-muted)]">
           <span>{javas.length} runtime(s) registered in launcher</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors font-medium cursor-pointer"
+            className="cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-4 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)]"
           >
             {t('common.close', 'Close')}
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Test Output Modal Dialog (Prism-Style) */}
       {testState.isOpen && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
           onClick={() => setTestState((prev) => ({ ...prev, isOpen: false }))}
         >
           <div
-            className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-xl flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40 animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/50">
+            <div className="flex items-center justify-between border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
               <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-cyan-400" />
-                <h3 className="text-sm font-semibold text-zinc-100">
+                <Terminal className="h-4 w-4 text-[var(--accent-from)]" />
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   {t('javaManager.testDialogTitle', 'Java Verification Output')}
                 </h3>
               </div>
               <button
                 onClick={() => setTestState((prev) => ({ ...prev, isOpen: false }))}
-                className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                className="cursor-pointer rounded-[var(--radius-sm)] p-1 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="space-y-3 p-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                   Tested Binary
                 </label>
-                <code className="text-xs font-mono text-zinc-300 block bg-zinc-900/80 p-2 rounded-lg border border-zinc-800 break-all select-all">
+                <code className="block select-all break-all rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] p-2 font-mono text-xs text-[var(--text-primary)]">
                   {testState.testingPath}
                 </code>
               </div>
 
               {testState.isTesting ? (
-                <div className="py-8 text-center text-zinc-400 flex flex-col items-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+                <div className="flex flex-col items-center gap-2 py-8 text-center text-[var(--text-secondary)]">
+                  <Loader2 className="h-6 w-6 animate-spin text-[var(--accent-from)]" />
                   <span className="text-xs">Running java -version...</span>
                 </div>
               ) : testState.result ? (
                 <div className="space-y-3">
                   {/* Status Badges */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-2">
                     {testState.result.valid ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-700/60">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--success)]/40 bg-[var(--success-soft)] px-2.5 py-0.5 text-xs font-semibold text-[var(--success)]">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                         Valid Java Binary
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-950 text-rose-300 border border-rose-700/60">
-                        <AlertCircle className="w-3.5 h-3.5" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-2.5 py-0.5 text-xs font-semibold text-[var(--danger)]">
+                        <AlertCircle className="h-3.5 w-3.5" />
                         Invalid / Incompatible
                       </span>
                     )}
 
                     {testState.result.version && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 font-mono">
+                      <span className="rounded bg-[var(--surface-3)] px-2 py-0.5 font-mono text-xs text-[var(--text-secondary)]">
                         Version: {testState.result.version}
                       </span>
                     )}
 
                     {testState.result.major && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 font-semibold border border-cyan-800/60">
+                      <span className="rounded border border-[var(--accent-line)] bg-[var(--accent-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--accent-from)]">
                         Major: Java {testState.result.major}
                       </span>
                     )}
 
                     {testState.result.vendor && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                      <span className="rounded bg-[var(--surface-3)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
                         {testState.result.vendor}
                       </span>
                     )}
                   </div>
 
                   {testState.result.error && (
-                    <div className="p-2.5 bg-rose-950/40 border border-rose-800/60 rounded-lg text-xs text-rose-300">
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] p-2.5 text-xs text-[var(--danger)]">
                       {testState.result.error}
                     </div>
                   )}
 
                   {/* Terminal Raw Output */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                       Standard Output / Error
                     </label>
-                    <pre className="p-3 bg-zinc-950 text-zinc-300 rounded-xl font-mono text-[11px] leading-relaxed overflow-x-auto max-h-48 border border-zinc-800/80 whitespace-pre-wrap select-all">
+                    <pre className="max-h-48 select-all overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-0)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-secondary)]">
                       {testState.result.output || '(No output produced)'}
                     </pre>
                   </div>
@@ -709,10 +718,10 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
               ) : null}
             </div>
 
-            <div className="p-3 border-t border-zinc-800/80 bg-zinc-900/30 flex justify-end">
+            <div className="flex justify-end border-t border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-3">
               <button
                 onClick={() => setTestState((prev) => ({ ...prev, isOpen: false }))}
-                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs rounded-lg font-medium transition-colors cursor-pointer"
+                className="cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-4 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)]"
               >
                 Close
               </button>
@@ -720,6 +729,6 @@ export const JavaManagerModal: React.FC<JavaManagerModalProps> = ({ isOpen, onCl
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
