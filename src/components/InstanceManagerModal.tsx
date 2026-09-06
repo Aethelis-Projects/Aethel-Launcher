@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
   X,
@@ -60,6 +61,7 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
   onDelete,
 }) => {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const global = useSettingsStore();
   const { fetchInstances } = useInstanceStore();
 
@@ -431,12 +433,23 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        data-motion-element
+        className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/80 bg-zinc-900/50 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/50 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-600 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-inner overflow-hidden">
+            <div className="w-10 h-10 flex items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-gradient-to-br from-[var(--accent-from)] to-[var(--accent-to)] font-bold text-lg text-[var(--text-on-accent)] shadow-inner">
               {instance.icon_path ? (
                 <img src={instance.icon_path} alt={instance.name} className="w-full h-full object-cover" />
               ) : (
@@ -445,15 +458,15 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-zinc-100">{instance.name}</h2>
-                <span className="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-zinc-800 text-cyan-400 border border-zinc-700/60">
+                <h2 className="text-base font-bold text-[var(--text-primary)]">{instance.name}</h2>
+                <span className="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-[var(--surface-3)] text-[var(--accent)] border border-[var(--line-subtle)]">
                   {instance.game_version}
                 </span>
-                <span className="px-2 py-0.5 rounded text-[11px] bg-zinc-800/80 text-zinc-400 border border-zinc-700/40">
+                <span className="px-2 py-0.5 rounded text-[11px] bg-[var(--surface-3)]/80 text-[var(--text-secondary)] border border-[var(--line-subtle)]">
                   {instance.loader || 'Vanilla'}
                 </span>
               </div>
-              <p className="text-xs text-zinc-500 mt-0.5">
+              <p className="mt-0.5 text-xs tabular-nums text-[var(--text-muted)]">
                 {t('instances.playtime')}: {Math.floor(instance.total_playtime_seconds / 3600)}h {Math.floor((instance.total_playtime_seconds % 3600) / 60)}m
               </p>
             </div>
@@ -461,20 +474,20 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+            className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 px-6 border-b border-zinc-800/80 bg-zinc-900/30 shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1 px-6 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/30 shrink-0 overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex items-center gap-2 px-3.5 py-3 border-b-2 text-xs font-medium transition-colors ${
               activeTab === 'overview'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                ? 'border-[var(--accent-from)] text-[var(--text-primary)]'
+                : 'rounded-t-[var(--radius-sm)] border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -485,14 +498,14 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             onClick={() => setActiveTab('mods')}
             className={`flex items-center gap-2 px-3.5 py-3 border-b-2 text-xs font-medium transition-colors ${
               activeTab === 'mods'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                ? 'border-[var(--accent-from)] text-[var(--text-primary)]'
+                : 'rounded-t-[var(--radius-sm)] border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
             <Package className="w-3.5 h-3.5" />
             <span>{t('instanceManager.tabs.mods', 'Mods')}</span>
             {mods.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800 text-zinc-300">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[var(--surface-3)] text-[var(--text-secondary)] tabular-nums">
                 {mods.length}
               </span>
             )}
@@ -502,14 +515,14 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             onClick={() => setActiveTab('resourcepacks')}
             className={`flex items-center gap-2 px-3.5 py-3 border-b-2 text-xs font-medium transition-colors ${
               activeTab === 'resourcepacks'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                ? 'border-[var(--accent-from)] text-[var(--text-primary)]'
+                : 'rounded-t-[var(--radius-sm)] border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
             <span>{t('instanceManager.tabs.resourcepacks', 'Resource Packs')}</span>
             {resourcePacks.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800 text-zinc-300">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[var(--surface-3)] text-[var(--text-secondary)] tabular-nums">
                 {resourcePacks.length}
               </span>
             )}
@@ -519,14 +532,14 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             onClick={() => setActiveTab('shaders')}
             className={`flex items-center gap-2 px-3.5 py-3 border-b-2 text-xs font-medium transition-colors ${
               activeTab === 'shaders'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                ? 'border-[var(--accent-from)] text-[var(--text-primary)]'
+                : 'rounded-t-[var(--radius-sm)] border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>{t('instanceManager.tabs.shaders', 'Shaders')}</span>
             {shaderPacks.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800 text-zinc-300">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[var(--surface-3)] text-[var(--text-secondary)] tabular-nums">
                 {shaderPacks.length}
               </span>
             )}
@@ -536,14 +549,14 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             onClick={() => setActiveTab('worlds')}
             className={`flex items-center gap-2 px-3.5 py-3 border-b-2 text-xs font-medium transition-colors ${
               activeTab === 'worlds'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                ? 'border-[var(--accent-from)] text-[var(--text-primary)]'
+                : 'rounded-t-[var(--radius-sm)] border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
             <Globe className="w-3.5 h-3.5" />
             <span>{t('instanceManager.tabs.worlds', 'Worlds')}</span>
             {worlds.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800 text-zinc-300">
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[var(--surface-3)] text-[var(--text-secondary)] tabular-nums">
                 {worlds.length}
               </span>
             )}
@@ -553,8 +566,8 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-2 px-3.5 py-3 border-b-2 text-xs font-medium transition-colors ${
               activeTab === 'settings'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                ? 'border-[var(--accent-from)] text-[var(--text-primary)]'
+                : 'rounded-t-[var(--radius-sm)] border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]'
             }`}
           >
             <Settings className="w-3.5 h-3.5" />
@@ -563,13 +576,13 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
         </div>
 
         {/* Tab Content Body */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6 max-w-3xl">
               {/* Instance Name & Rename */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 space-y-4">
-                <label className="text-xs font-semibold text-zinc-200 uppercase tracking-wider block">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 space-y-4">
+                <label className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider block">
                   {t('instanceManager.overview.name', 'Instance Name')}
                 </label>
                 <div className="flex items-center gap-3">
@@ -577,17 +590,17 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                     type="text"
                     value={instanceName}
                     onChange={(e) => setInstanceName(e.target.value)}
-                    className="flex-1 px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-zinc-100 focus:outline-none focus:border-cyan-500"
+                    className="flex-1 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3.5 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                   />
                   <button
                     disabled={isSavingName || instanceName === instance.name}
                     onClick={handleSaveName}
-                    className="px-4 py-2 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                    className="px-4 py-2 rounded-[var(--radius-sm)] text-xs font-medium bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] flex items-center gap-1.5 transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                   >
                     {isSavingName ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : nameSavedSuccess ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-300" />
+                      <Check className="w-3.5 h-3.5 text-[var(--success)]" />
                     ) : null}
                     <span>{nameSavedSuccess ? t('common.saved', 'Saved!') : t('instanceManager.overview.saveName', 'Save')}</span>
                   </button>
@@ -595,31 +608,31 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {/* Custom Icon */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 flex items-center justify-between gap-4">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-[var(--radius-md)] bg-[var(--surface-3)] border border-[var(--line-subtle)] flex items-center justify-center overflow-hidden">
                     {instance.icon_path ? (
                       <img src={instance.icon_path} alt="Icon" className="w-full h-full object-cover" />
                     ) : (
-                      <ImageIcon className="w-6 h-6 text-zinc-500" />
+                      <ImageIcon className="w-6 h-6 text-[var(--text-muted)]" />
                     )}
                   </div>
                   <div>
-                    <h4 className="text-xs font-semibold text-zinc-200">{t('instanceManager.overview.changeIcon', 'Instance Icon')}</h4>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">Custom PNG/JPG icon for your instance card</p>
+                    <h4 className="text-xs font-semibold text-[var(--text-primary)]">{t('instanceManager.overview.changeIcon', 'Instance Icon')}</h4>
+                    <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Custom PNG/JPG icon for your instance card</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleChangeIcon}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors"
+                    className="px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                   >
                     {t('instanceManager.overview.changeIcon', 'Change Icon')}
                   </button>
                   {instance.icon_path && (
                     <button
                       onClick={handleResetIcon}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800/60 hover:bg-red-950/60 text-zinc-400 hover:text-red-400 border border-zinc-700/60 transition-colors"
+                      className="px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)]/60 text-[var(--text-secondary)] transition-colors hover:border-[var(--danger)]/40 hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
                     >
                       {t('instanceManager.overview.resetIcon', 'Reset')}
                     </button>
@@ -628,23 +641,23 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {/* Path & Folder */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 space-y-3">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-semibold text-zinc-200">Instance Directory</h4>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">Game files, saves, configurations, and logs</p>
+                    <h4 className="text-xs font-semibold text-[var(--text-primary)]">Instance Directory</h4>
+                    <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Game files, saves, configurations, and logs</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleCopyPath}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                     >
-                      {copiedPath ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedPath ? <Check className="w-3.5 h-3.5 text-[var(--success)]" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copiedPath ? t('instanceManager.overview.pathCopied', 'Copied!') : t('instanceManager.overview.copyPath', 'Copy Path')}</span>
                     </button>
                     <button
                       onClick={() => handleOpenFolder(null)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-600/90 hover:bg-cyan-500 text-white transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98]"
                     >
                       <FolderOpen className="w-3.5 h-3.5" />
                       <span>{t('instanceManager.overview.openFolder', 'Open Folder')}</span>
@@ -654,7 +667,7 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {/* Modloader Configuration */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5">
                 <ModloaderSelector
                   instanceId={instance.id}
                   gameVersion={instance.game_version}
@@ -665,25 +678,25 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {/* Actions: Export / Delete */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 flex items-center justify-between">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 flex items-center justify-between">
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-200">Instance Actions</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Export to Modrinth modpack or delete instance</p>
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)]">Instance Actions</h4>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Export to Modrinth modpack or delete instance</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {onExport && (
                     <button
                       onClick={() => onExport(instance)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                     >
-                      <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                      <Upload className="w-3.5 h-3.5 text-[var(--accent-to)]" />
                       <span>{t('instanceManager.overview.exportModpack', 'Export Modpack')}</span>
                     </button>
                   )}
                   {onDelete && (
                     <button
                       onClick={() => onDelete(instance.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-950/40 hover:bg-red-900/50 text-red-300 border border-red-800/50 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium bg-[var(--danger-soft)] text-[var(--danger)] border border-[var(--danger)]/40 transition-colors hover:bg-[var(--danger)]/20"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>{t('instanceManager.overview.deleteInstance', 'Delete')}</span>
@@ -705,13 +718,13 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                     placeholder="Search installed mods..."
                     value={modSearch}
                     onChange={(e) => setModSearch(e.target.value)}
-                    className="w-full px-3.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3.5 py-1.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--accent-from)] focus:outline-none"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsBrowserOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-600 hover:bg-cyan-500 text-white transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98]"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{t('mods.browseMods', 'Add Mod')}</span>
@@ -719,14 +732,14 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                   <button
                     onClick={handleCheckModUpdates}
                     disabled={isCheckingUpdates}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
                     <span>{t('mods.checkUpdates', 'Check Updates')}</span>
                   </button>
                   <button
                     onClick={() => handleOpenFolder('mods')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                   >
                     <FolderOpen className="w-3.5 h-3.5" />
                     <span>Open Mods Folder</span>
@@ -735,13 +748,13 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {modsLoading ? (
-                <div className="py-16 flex flex-col items-center justify-center text-zinc-500 text-xs gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                <div className="py-16 flex flex-col items-center justify-center text-[var(--text-muted)] text-xs gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
                   <span>Loading mods...</span>
                 </div>
               ) : filteredMods.length === 0 ? (
-                <div className="py-16 text-center text-zinc-500 text-xs bg-zinc-900/30 rounded-xl border border-zinc-800/50">
-                  <Package className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
+                <div className="py-16 text-center text-[var(--text-muted)] text-xs rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/30">
+                  <Package className="w-8 h-8 mx-auto text-[var(--text-muted)] mb-2" />
                   <span>{mods.length === 0 ? t('mods.noModsInstalled', 'No mods installed yet') : 'No mods matching search'}</span>
                 </div>
               ) : (
@@ -749,14 +762,14 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                   {filteredMods.map((mod) => (
                     <div
                       key={mod.file_name}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors ${
+                      className={`flex items-center justify-between p-3.5 rounded-[var(--radius-md)] border transition-colors ${
                         mod.enabled
-                          ? 'bg-zinc-900/60 border-zinc-800/80 hover:border-zinc-700'
-                          : 'bg-zinc-950/40 border-zinc-900/80 opacity-60'
+                          ? 'bg-[var(--surface-1)]/60 border-[var(--line-subtle)] hover:border-[var(--line-strong)]'
+                          : 'bg-[var(--surface-1)]/40 border-[var(--line-subtle)] opacity-60'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/50 flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-[var(--surface-3)] border border-[var(--line-subtle)] flex items-center justify-center overflow-hidden shrink-0">
                           {modIcons[mod.file_name] ? (
                             <img
                               src={modIcons[mod.file_name]!}
@@ -764,40 +777,40 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <Package className="w-4 h-4 text-cyan-400" />
+                            <Package className="w-4 h-4 text-[var(--accent)]" />
                           )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-semibold text-zinc-200">{mod.name}</h4>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                            <h4 className="text-xs font-semibold text-[var(--text-primary)]">{mod.name}</h4>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--text-secondary)]">
                               v{mod.version}
                             </span>
                             {!mod.enabled && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--text-muted)]">
                                 Disabled
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-zinc-500 font-mono mt-0.5">{mod.file_name}</p>
+                          <p className="text-[11px] text-[var(--text-muted)] font-mono mt-0.5">{mod.file_name}</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleToggleMod(mod.file_name, mod.enabled)}
-                          className="p-1 text-zinc-400 hover:text-cyan-400 transition-colors"
+                          className="p-1 text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)]"
                           title={mod.enabled ? 'Disable' : 'Enable'}
                         >
                           {mod.enabled ? (
-                            <ToggleRight className="w-6 h-6 text-cyan-400" />
+                            <ToggleRight className="w-6 h-6 text-[var(--accent)]" />
                           ) : (
-                            <ToggleLeft className="w-6 h-6 text-zinc-600" />
+                            <ToggleLeft className="w-6 h-6 text-[var(--text-muted)]" />
                           )}
                         </button>
                         <button
                           onClick={() => handleDeleteMod(mod.file_name)}
-                          className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800/50 transition-colors"
+                          className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -815,12 +828,12 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-semibold text-zinc-200">Resource Packs</h3>
-                  <p className="text-[11px] text-zinc-400">Custom textures, audio, and language files</p>
+                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">Resource Packs</h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">Custom textures, audio, and language files</p>
                 </div>
                 <button
                   onClick={() => handleOpenFolder('resourcepacks')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                 >
                   <FolderOpen className="w-3.5 h-3.5" />
                   <span>{t('instanceManager.resourcepacks.openFolder', 'Open Folder')}</span>
@@ -828,13 +841,13 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {resourcePacksLoading ? (
-                <div className="py-16 flex flex-col items-center justify-center text-zinc-500 text-xs gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                <div className="py-16 flex flex-col items-center justify-center text-[var(--text-muted)] text-xs gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
                   <span>Scanning resource packs...</span>
                 </div>
               ) : resourcePacks.length === 0 ? (
-                <div className="py-16 text-center text-zinc-500 text-xs bg-zinc-900/30 rounded-xl border border-zinc-800/50">
-                  <Layers className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
+                <div className="py-16 text-center text-[var(--text-muted)] text-xs rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/30">
+                  <Layers className="w-8 h-8 mx-auto text-[var(--text-muted)] mb-2" />
                   <span>{t('instanceManager.resourcepacks.empty', 'No resource packs found in this instance.')}</span>
                 </div>
               ) : (
@@ -842,42 +855,42 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                   {resourcePacks.map((pack) => (
                     <div
                       key={pack.file_name}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors ${
+                      className={`flex items-center justify-between p-3.5 rounded-[var(--radius-md)] border transition-colors ${
                         pack.is_enabled
-                          ? 'bg-zinc-900/70 border-cyan-500/40 shadow-sm shadow-cyan-950/20'
-                          : 'bg-zinc-900/40 border-zinc-800/80 hover:border-zinc-700'
+                          ? 'bg-[var(--surface-1)]/70 border-[var(--accent-line)] shadow-[var(--shadow-sm)]'
+                          : 'bg-[var(--surface-1)]/40 border-[var(--line-subtle)] hover:border-[var(--line-strong)]'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="w-10 h-10 rounded-[var(--radius-sm)] bg-[var(--surface-3)] border border-[var(--line-subtle)] flex items-center justify-center overflow-hidden shrink-0">
                           {pack.icon_base64 ? (
                             <img src={pack.icon_base64} alt={pack.name} className="w-full h-full object-cover" />
                           ) : (
-                            <Layers className="w-5 h-5 text-cyan-400" />
+                            <Layers className="w-5 h-5 text-[var(--accent)]" />
                           )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-semibold text-zinc-100">{pack.name}</h4>
-                            <span className="text-[10px] text-zinc-500 font-mono">
+                            <h4 className="text-xs font-semibold text-[var(--text-primary)]">{pack.name}</h4>
+                            <span className="font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
                               {(pack.size_bytes / (1024 * 1024)).toFixed(1)} MB
                             </span>
                           </div>
                           {pack.description && (
-                            <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">{pack.description}</p>
+                            <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 line-clamp-1">{pack.description}</p>
                           )}
                         </div>
                       </div>
 
                       <button
                         onClick={() => handleToggleResourcePack(pack.file_name, !pack.is_enabled)}
-                        className="p-1 text-zinc-400 hover:text-cyan-400 transition-colors"
+                        className="p-1 text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)]"
                         title={pack.is_enabled ? 'Disable' : 'Enable'}
                       >
                         {pack.is_enabled ? (
-                          <ToggleRight className="w-6 h-6 text-cyan-400" />
+                          <ToggleRight className="w-6 h-6 text-[var(--accent)]" />
                         ) : (
-                          <ToggleLeft className="w-6 h-6 text-zinc-600" />
+                          <ToggleLeft className="w-6 h-6 text-[var(--text-muted)]" />
                         )}
                       </button>
                     </div>
@@ -892,19 +905,19 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-semibold text-zinc-200">Shaders</h3>
-                  <p className="text-[11px] text-zinc-400">OptiFine / Iris / Oculus shader packs</p>
+                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">Shaders</h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">OptiFine / Iris / Oculus shader packs</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleSetActiveShader(null)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 transition-colors"
+                    className="px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                   >
                     {t('instanceManager.shaders.disableAll', 'Disable Shaders (OFF)')}
                   </button>
                   <button
                     onClick={() => handleOpenFolder('shaderpacks')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                   >
                     <FolderOpen className="w-3.5 h-3.5" />
                     <span>{t('instanceManager.shaders.openFolder', 'Open Folder')}</span>
@@ -913,13 +926,13 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {shadersLoading ? (
-                <div className="py-16 flex flex-col items-center justify-center text-zinc-500 text-xs gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                <div className="py-16 flex flex-col items-center justify-center text-[var(--text-muted)] text-xs gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
                   <span>Scanning shader packs...</span>
                 </div>
               ) : shaderPacks.length === 0 ? (
-                <div className="py-16 text-center text-zinc-500 text-xs bg-zinc-900/30 rounded-xl border border-zinc-800/50">
-                  <Sparkles className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
+                <div className="py-16 text-center text-[var(--text-muted)] text-xs rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/30">
+                  <Sparkles className="w-8 h-8 mx-auto text-[var(--text-muted)] mb-2" />
                   <span>{t('instanceManager.shaders.empty', 'No shader packs found in this instance.')}</span>
                 </div>
               ) : (
@@ -928,35 +941,35 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                     <div
                       key={pack.file_name}
                       onClick={() => handleSetActiveShader(pack.is_active ? null : pack.file_name)}
-                      className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-colors ${
+                      className={`flex items-center justify-between p-3.5 rounded-[var(--radius-md)] border cursor-pointer transition-colors ${
                         pack.is_active
-                          ? 'bg-zinc-900/80 border-cyan-500/50 shadow-md shadow-cyan-950/30 ring-1 ring-cyan-500/30'
-                          : 'bg-zinc-900/40 border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/60'
+                          ? 'bg-[var(--surface-1)]/80 border-[var(--accent-line)] shadow-[var(--shadow-sm)] ring-1 ring-[var(--accent-line)]'
+                          : 'bg-[var(--surface-1)]/40 border-[var(--line-subtle)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]/60'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400">
-                          <Sparkles className="w-4 h-4 text-cyan-400" />
+                        <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)]">
+                          <Sparkles className="w-4 h-4 text-[var(--accent)]" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-semibold text-zinc-100">{pack.name}</h4>
-                            <span className="text-[10px] text-zinc-500 font-mono">
+                            <h4 className="text-xs font-semibold text-[var(--text-primary)]">{pack.name}</h4>
+                            <span className="font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
                               {(pack.size_bytes / (1024 * 1024)).toFixed(1)} MB
                             </span>
                           </div>
-                          <p className="text-[11px] text-zinc-500 font-mono mt-0.5">{pack.file_name}</p>
+                          <p className="text-[11px] text-[var(--text-muted)] font-mono mt-0.5">{pack.file_name}</p>
                         </div>
                       </div>
 
                       <div>
                         {pack.is_active ? (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-cyan-950/80 text-cyan-300 border border-cyan-800 flex items-center gap-1">
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent-line)] flex items-center gap-1">
                             <Check className="w-3 h-3" />
                             <span>{t('instanceManager.shaders.active', 'Active')}</span>
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-800/60 text-zinc-400 border border-zinc-700/40">
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--surface-3)]/60 text-[var(--text-secondary)] border border-[var(--line-subtle)]">
                             Select
                           </span>
                         )}
@@ -973,12 +986,12 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-semibold text-zinc-200">Worlds & Saves</h3>
-                  <p className="text-[11px] text-zinc-400">Singleplayer maps and progress</p>
+                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">Worlds & Saves</h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">Singleplayer maps and progress</p>
                 </div>
                 <button
                   onClick={() => handleOpenFolder('saves')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                 >
                   <FolderOpen className="w-3.5 h-3.5" />
                   <span>{t('instanceManager.worlds.openFolder', 'Open Saves Folder')}</span>
@@ -986,13 +999,13 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {worldsLoading ? (
-                <div className="py-16 flex flex-col items-center justify-center text-zinc-500 text-xs gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                <div className="py-16 flex flex-col items-center justify-center text-[var(--text-muted)] text-xs gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--accent)]" />
                   <span>Reading world saves...</span>
                 </div>
               ) : worlds.length === 0 ? (
-                <div className="py-16 text-center text-zinc-500 text-xs bg-zinc-900/30 rounded-xl border border-zinc-800/50">
-                  <Globe className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
+                <div className="py-16 text-center text-[var(--text-muted)] text-xs rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/30">
+                  <Globe className="w-8 h-8 mx-auto text-[var(--text-muted)] mb-2" />
                   <span>{t('instanceManager.worlds.empty', 'No worlds found in this instance.')}</span>
                 </div>
               ) : (
@@ -1005,40 +1018,40 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                     return (
                       <div
                         key={world.folder_name}
-                        className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 flex items-start gap-3 transition-colors"
+                        className="p-4 rounded-[var(--radius-md)] bg-[var(--surface-1)]/60 border border-[var(--line-subtle)] hover:border-[var(--line-strong)] flex items-start gap-3 transition-colors"
                       >
-                        <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="w-12 h-12 rounded-[var(--radius-sm)] bg-[var(--surface-3)] border border-[var(--line-subtle)] flex items-center justify-center overflow-hidden shrink-0">
                           {world.icon_base64 ? (
                             <img src={world.icon_base64} alt={world.level_name} className="w-full h-full object-cover" />
                           ) : (
-                            <Globe className="w-6 h-6 text-cyan-400" />
+                            <Globe className="w-6 h-6 text-[var(--accent)]" />
                           )}
                         </div>
 
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center justify-between gap-1">
-                            <h4 className="text-xs font-bold text-zinc-100 truncate">{world.level_name}</h4>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-300">
+                            <h4 className="text-xs font-bold text-[var(--text-primary)] truncate">{world.level_name}</h4>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--surface-3)] text-[var(--text-secondary)] tabular-nums">
                               {world.game_mode || 'Survival'}
                             </span>
                           </div>
 
-                          <div className="text-[11px] text-zinc-400 space-y-0.5">
-                            <div className="flex items-center justify-between text-zinc-500">
+                          <div className="text-[11px] text-[var(--text-secondary)] space-y-0.5">
+                            <div className="flex items-center justify-between text-[var(--text-muted)]">
                               <span>Folder:</span>
-                              <span className="font-mono text-zinc-400 truncate max-w-[120px]">{world.folder_name}</span>
+                              <span className="font-mono text-[var(--text-secondary)] truncate max-w-[120px]">{world.folder_name}</span>
                             </div>
                             {world.seed !== null && (
-                              <div className="flex items-center justify-between text-zinc-500">
+                              <div className="flex items-center justify-between text-[var(--text-muted)]">
                                 <span>Seed:</span>
-                                <span className="font-mono text-zinc-400">{world.seed}</span>
+                                <span className="font-mono text-[var(--text-secondary)]">{world.seed}</span>
                               </div>
                             )}
-                            <div className="flex items-center justify-between text-zinc-500">
+                            <div className="flex items-center justify-between text-[var(--text-muted)]">
                               <span>Played:</span>
                               <span>{lastPlayedFormatted}</span>
                             </div>
-                            <div className="flex items-center justify-between text-zinc-500">
+                            <div className="flex items-center justify-between text-[var(--text-muted)]">
                               <span>Size:</span>
                               <span>{(world.size_bytes / (1024 * 1024)).toFixed(1)} MB</span>
                             </div>
@@ -1055,10 +1068,10 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
           {/* TAB 6: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-3xl">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--line-subtle)]">
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-100">Instance Overrides</h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Instance Overrides</h3>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                     Configure custom RAM, Java path, and JVM arguments specific to this instance
                   </p>
                 </div>
@@ -1066,42 +1079,42 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                   type="button"
                   onClick={handleResetSettings}
                   disabled={settingsSaving}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition-colors"
+                  className="px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                 >
                   Reset to Defaults
                 </button>
               </div>
 
               {/* Memory Allocation */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 space-y-4">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <HardDrive className="w-4 h-4 text-cyan-400" />
+                    <HardDrive className="w-4 h-4 text-[var(--accent)]" />
                     <div>
-                      <h4 className="text-xs font-semibold text-zinc-200">Memory Allocation (RAM)</h4>
-                      <p className="text-[11px] text-zinc-500">Minimum and maximum heap size</p>
+                      <h4 className="text-xs font-semibold text-[var(--text-primary)]">Memory Allocation (RAM)</h4>
+                      <p className="text-[11px] text-[var(--text-muted)]">Minimum and maximum heap size</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     data-testid="override-memory-toggle"
                     onClick={() => setOverrideMemory(!overrideMemory)}
-                    className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                    className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   >
                     <span>{overrideMemory ? 'Custom Override' : 'Default (1024 - 4096 MB)'}</span>
                     {overrideMemory ? (
-                      <ToggleRight className="w-6 h-6 text-cyan-400" />
+                      <ToggleRight className="w-6 h-6 text-[var(--accent)]" />
                     ) : (
-                      <ToggleLeft className="w-6 h-6 text-zinc-600" />
+                      <ToggleLeft className="w-6 h-6 text-[var(--text-muted)]" />
                     )}
                   </button>
                 </div>
 
                 <div className={`space-y-4 ${overrideMemory ? '' : 'opacity-40 pointer-events-none'}`}>
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs text-zinc-400">
+                    <div className="flex justify-between text-xs text-[var(--text-secondary)]">
                       <span>Maximum Memory (Xmx)</span>
-                      <span className="font-mono text-cyan-400">{memoryMaxMb} MB</span>
+                      <span className="font-mono text-[var(--accent)]">{memoryMaxMb} MB</span>
                     </div>
                     <input
                       type="range"
@@ -1110,32 +1123,32 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                       step={512}
                       value={memoryMaxMb}
                       onChange={(e) => setMemoryMaxMb(Number(e.target.value))}
-                      className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                      className="w-full h-1.5 bg-[var(--surface-3)] rounded-[var(--radius-sm)] appearance-none cursor-pointer accent-[var(--accent-from)]"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Java Runtime */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 space-y-4">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-cyan-400" />
+                    <Cpu className="w-4 h-4 text-[var(--accent)]" />
                     <div>
-                      <h4 className="text-xs font-semibold text-zinc-200">Java Runtime</h4>
-                      <p className="text-[11px] text-zinc-500">Override Java executable for this instance</p>
+                      <h4 className="text-xs font-semibold text-[var(--text-primary)]">Java Runtime</h4>
+                      <p className="text-[11px] text-[var(--text-muted)]">Override Java executable for this instance</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOverrideJava(!overrideJava)}
-                    className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                    className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   >
                     <span>{overrideJava ? 'Custom Override' : 'Inherited (Auto)'}</span>
                     {overrideJava ? (
-                      <ToggleRight className="w-6 h-6 text-cyan-400" />
+                      <ToggleRight className="w-6 h-6 text-[var(--accent)]" />
                     ) : (
-                      <ToggleLeft className="w-6 h-6 text-zinc-600" />
+                      <ToggleLeft className="w-6 h-6 text-[var(--text-muted)]" />
                     )}
                   </button>
                 </div>
@@ -1147,13 +1160,13 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                       placeholder="C:/Program Files/Java/bin/javaw.exe"
                       value={javaPath}
                       onChange={(e) => setJavaPath(e.target.value)}
-                      className="flex-1 px-3.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 font-mono focus:outline-none focus:border-cyan-500"
+                      className="flex-1 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3.5 py-1.5 font-mono text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                     />
                     <button
                       type="button"
                       onClick={handleDetectJava}
                       disabled={isDetectingJava}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors"
+                      className="px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                     >
                       {isDetectingJava ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Auto-Detect'}
                     </button>
@@ -1162,25 +1175,25 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {/* GC Preset */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 space-y-4">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-cyan-400" />
+                    <Sliders className="w-4 h-4 text-[var(--accent)]" />
                     <div>
-                      <h4 className="text-xs font-semibold text-zinc-200">Garbage Collector</h4>
-                      <p className="text-[11px] text-zinc-500">Tune GC flags for optimal frametimes</p>
+                      <h4 className="text-xs font-semibold text-[var(--text-primary)]">Garbage Collector</h4>
+                      <p className="text-[11px] text-[var(--text-muted)]">Tune GC flags for optimal frametimes</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOverrideGc(!overrideGc)}
-                    className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                    className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   >
                     <span>{overrideGc ? 'Custom Override' : `Inherited (${global.gcPreset})`}</span>
                     {overrideGc ? (
-                      <ToggleRight className="w-6 h-6 text-cyan-400" />
+                      <ToggleRight className="w-6 h-6 text-[var(--accent)]" />
                     ) : (
-                      <ToggleLeft className="w-6 h-6 text-zinc-600" />
+                      <ToggleLeft className="w-6 h-6 text-[var(--text-muted)]" />
                     )}
                   </button>
                 </div>
@@ -1191,10 +1204,10 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                       key={preset}
                       type="button"
                       onClick={() => setGcPreset(preset)}
-                      className={`p-2 rounded-lg border text-xs font-medium transition-colors ${
+                      className={`p-2 rounded-[var(--radius-sm)] border text-xs font-medium transition-colors ${
                         gcPreset === preset
-                          ? 'bg-cyan-950/60 border-cyan-500/60 text-cyan-300'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                          ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                          : 'border-[var(--line-subtle)] bg-[var(--surface-3)]/50 text-[var(--text-secondary)] hover:border-[var(--line-strong)] hover:text-[var(--text-primary)]'
                       }`}
                     >
                       {preset}
@@ -1204,25 +1217,25 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
               </div>
 
               {/* Custom JVM Arguments */}
-              <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 space-y-4">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-cyan-400" />
+                    <Terminal className="w-4 h-4 text-[var(--accent)]" />
                     <div>
-                      <h4 className="text-xs font-semibold text-zinc-200">JVM Arguments</h4>
-                      <p className="text-[11px] text-zinc-500">Additional flags passed to the java binary</p>
+                      <h4 className="text-xs font-semibold text-[var(--text-primary)]">JVM Arguments</h4>
+                      <p className="text-[11px] text-[var(--text-muted)]">Additional flags passed to the java binary</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOverrideJvmArgs(!overrideJvmArgs)}
-                    className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                    className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   >
                     <span>{overrideJvmArgs ? 'Custom Override' : 'Inherited'}</span>
                     {overrideJvmArgs ? (
-                      <ToggleRight className="w-6 h-6 text-cyan-400" />
+                      <ToggleRight className="w-6 h-6 text-[var(--accent)]" />
                     ) : (
-                      <ToggleLeft className="w-6 h-6 text-zinc-600" />
+                      <ToggleLeft className="w-6 h-6 text-[var(--text-muted)]" />
                     )}
                   </button>
                 </div>
@@ -1233,7 +1246,7 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                     placeholder="-XX:+AlwaysPreTouch"
                     value={jvmArgs}
                     onChange={(e) => setJvmArgs(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-100 focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3.5 py-2 font-mono text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                   />
                 </div>
               </div>
@@ -1245,7 +1258,7 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
                   data-testid="save-instance-settings-btn"
                   onClick={handleSaveSettings}
                   disabled={settingsSaving}
-                  className="px-6 py-2 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-950 transition-colors flex items-center gap-2"
+                  className="px-6 py-2 rounded-[var(--radius-sm)] text-xs font-semibold bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] flex items-center gap-2 transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                 >
                   {settingsSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   <span>Save Settings</span>
@@ -1254,7 +1267,7 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Submodal for ModBrowser */}
       {isBrowserOpen && (
@@ -1291,6 +1304,6 @@ export const InstanceManagerModal: React.FC<InstanceManagerModalProps> = ({
         onConfirm={executeResetSettings}
         onCancel={() => setShowResetConfirm(false)}
       />
-    </div>
+    </motion.div>
   );
 };
