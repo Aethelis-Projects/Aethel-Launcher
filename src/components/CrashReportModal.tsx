@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   AlertTriangle,
   X,
@@ -31,6 +32,7 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
   instanceId,
 }) => {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const [showFullLog, setShowFullLog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
@@ -83,20 +85,31 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-950 border border-red-900/50 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="p-4 bg-red-950/30 border-b border-red-900/40 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30">
-              <AlertTriangle className="w-5 h-5" />
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        data-motion-element
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40"
+      >
+        {/* Header — error banner */}
+        <div className="flex items-center justify-between border-b border-[var(--danger)]/40 bg-[var(--danger-soft)] p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="rounded-[var(--radius-md)] border border-[var(--danger)]/40 bg-[var(--danger)]/15 p-2 text-[var(--danger)]">
+              <AlertTriangle className="h-5 w-5" />
             </div>
-            <div>
-              <h3 className="font-bold text-zinc-100 text-base">
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">
                 {t('crash.title', 'Game Crashed')}
               </h3>
               {instanceName && (
-                <p className="text-xs text-zinc-400">
+                <p className="truncate text-xs tabular-nums text-[var(--text-secondary)]">
                   {instanceName} {report.exit_code !== null && `(Exit code: ${report.exit_code})`}
                 </p>
               )}
@@ -104,48 +117,48 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 transition-colors"
+            className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
           {/* Diagnosis Card */}
-          <div className="p-4 bg-red-950/20 border border-red-900/30 rounded-xl space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">
+          <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--danger)]">
                 {t('crash.diagnosis', 'Diagnosis')}
               </span>
-              <span className="px-2 py-0.5 bg-red-900/40 text-red-300 rounded font-mono text-[10px]">
+              <span className="rounded-[var(--radius-sm)] border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-2 py-0.5 font-mono text-[10px] tabular-nums text-[var(--danger)]">
                 {getPatternLabel()}
               </span>
             </div>
-            <p className="text-zinc-200 leading-relaxed font-medium">
+            <p className="font-medium leading-relaxed text-[var(--text-primary)] text-pretty">
               {report.diagnosis}
             </p>
           </div>
 
           {/* Suggestion Card */}
-          <div className="p-4 bg-amber-950/20 border border-amber-900/30 rounded-xl space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 font-semibold">
-              <Lightbulb className="w-4 h-4" />
+          <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--warning)]/30 bg-[var(--warning-soft)] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--warning)]">
+              <Lightbulb className="h-3.5 w-3.5" />
               <span>{t('crash.suggestion', 'Recommendation')}</span>
             </div>
-            <p className="text-zinc-300 leading-relaxed">
+            <p className="leading-relaxed text-[var(--text-secondary)] text-pretty">
               {report.suggestion}
             </p>
           </div>
 
           {/* Privacy Notice Banner (User Refinement 3) */}
-          <div className="p-3 bg-zinc-900/70 border border-zinc-800 rounded-xl flex items-start gap-2.5 text-zinc-400">
-            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2.5 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-3 text-[var(--text-secondary)]">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning)]" />
             <div className="space-y-1">
-              <span className="font-semibold text-zinc-300 block">
+              <span className="block text-xs font-semibold text-[var(--text-primary)]">
                 {t('crash.privacyTitle', 'Privacy Notice')}
               </span>
-              <p className="text-[11px] leading-relaxed text-zinc-400">
+              <p className="text-[11px] leading-relaxed text-[var(--text-secondary)] text-pretty">
                 {t(
                   'crash.privacyNotice',
                   'Logs may contain local file paths, system usernames, and hardware details. Only upload to mclo.gs if you consent to sharing this log.'
@@ -156,37 +169,37 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
 
           {/* Mclo.gs Upload Status / Link */}
           {uploadUrl ? (
-            <div className="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-xl flex items-center justify-between">
-              <div className="space-y-0.5">
-                <span className="text-[11px] font-semibold text-emerald-400 block">
+            <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--success)]/40 bg-[var(--success-soft)] p-3">
+              <div className="min-w-0 space-y-0.5">
+                <span className="block text-[11px] font-semibold text-[var(--success)]">
                   {t('crash.uploadedSuccessfully', 'Uploaded to mclo.gs')}
                 </span>
                 <a
                   href={uploadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-cyan-400 hover:underline font-mono inline-flex items-center gap-1"
+                  className="inline-flex items-center gap-1 font-mono text-xs text-[var(--accent)] hover:underline"
                 >
-                  {uploadUrl}
-                  <ExternalLink className="w-3 h-3" />
+                  <span className="truncate">{uploadUrl}</span>
+                  <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               </div>
               <button
                 onClick={handleCopyLink}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-800/50 hover:bg-emerald-700/50 text-emerald-200 rounded-lg transition-colors font-medium"
+                className="flex shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--success)]/40 bg-[var(--success)]/10 px-3 py-1.5 font-medium text-[var(--success)] transition-colors hover:bg-[var(--success)]/20"
               >
-                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copied ? t('crash.copied', 'Copied!') : t('crash.copyLink', 'Copy Link')}</span>
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <button
                 onClick={handleUpload}
                 disabled={isUploading}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-100 rounded-lg font-medium transition-colors border border-zinc-700/60"
+                className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-4 py-2 font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] disabled:pointer-events-none disabled:opacity-50"
               >
-                <Upload className="w-4 h-4 text-cyan-400" />
+                <Upload className="h-4 w-4 text-[var(--accent-from)]" />
                 <span>
                   {isUploading
                     ? t('crash.uploading', 'Uploading...')
@@ -194,33 +207,33 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
                 </span>
               </button>
               {uploadError && (
-                <span className="text-red-400 text-xs">{uploadError}</span>
+                <span className="text-xs text-[var(--danger)]">{uploadError}</span>
               )}
             </div>
           )}
 
           {/* Full Log Accordion */}
-          <div className="border border-zinc-800 rounded-xl overflow-hidden">
+          <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--line-subtle)]">
             <button
               onClick={() => setShowFullLog(!showFullLog)}
-              className="w-full px-4 py-2.5 bg-zinc-900/90 hover:bg-zinc-900 text-zinc-300 flex items-center justify-between text-xs font-semibold transition-colors"
+              className="flex w-full items-center justify-between bg-[var(--surface-1)] px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
             >
               <span>{t('crash.viewFullLog', 'View Full Log')}</span>
               <div className="flex items-center gap-2">
-                {showFullLog ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {showFullLog ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </div>
             </button>
             {showFullLog && (
-              <div className="p-3 bg-zinc-950 border-t border-zinc-800 relative">
+              <div className="relative border-t border-[var(--line-subtle)] p-3">
                 <button
                   onClick={handleCopyLog}
-                  className="absolute top-4 right-4 p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded border border-zinc-700 flex items-center gap-1 text-[11px]"
+                  className="absolute right-6 top-6 z-10 flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-2 py-1 text-[11px] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                   title={t('crash.copyLog', 'Copy log')}
                 >
-                  {logCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {logCopied ? <Check className="h-3 w-3 text-[var(--success)]" /> : <Copy className="h-3 w-3" />}
                   <span>{logCopied ? t('crash.copied', 'Copied') : t('crash.copy', 'Copy')}</span>
                 </button>
-                <pre className="text-[11px] font-mono text-zinc-400 overflow-x-auto max-h-60 p-2 whitespace-pre-wrap leading-relaxed select-text">
+                <pre className="max-h-60 select-text overflow-y-auto overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-[var(--surface-1)] p-3 pr-16 font-mono text-[11px] leading-relaxed text-[var(--text-secondary)]">
                   {report.full_log || t('crash.noLogs', 'No logs recorded.')}
                 </pre>
               </div>
@@ -229,15 +242,15 @@ export const CrashReportModal: React.FC<CrashReportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-zinc-800/80 flex justify-end bg-zinc-950/80">
+        <div className="flex justify-end border-t border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-xs font-medium transition-colors"
+            className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
           >
             {t('crash.close', 'Close')}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

@@ -1,5 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
 import { X, User, Shield, Trash2, Check, ExternalLink, Plus, Server, AlertCircle, Loader2 } from 'lucide-react';
 import { useAccountStore } from '../store/accountStore';
 
@@ -10,6 +11,7 @@ interface AccountModalProps {
 
 export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const {
     accounts,
     activeAccount,
@@ -74,72 +76,62 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
     }
   };
 
+  const tabButtonClass = (active: boolean) =>
+    `border-b-2 px-2.5 pb-2 font-medium transition-colors ${
+      active
+        ? 'border-[var(--accent-from)] text-[var(--accent)]'
+        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+    }`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        data-motion-element
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40"
+      >
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 bg-zinc-900/40">
+        <div className="flex items-center justify-between border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/80 px-5 py-3.5">
           <div className="flex items-center gap-2.5">
-            <User className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-sm font-semibold text-zinc-100">{t('auth.title')}</h2>
+            <User className="h-4 w-4 text-[var(--accent-from)]" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t('auth.title')}</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+            className="rounded-[var(--radius-sm)] p-1 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-zinc-800/80 bg-zinc-900/20 px-5 pt-2 gap-2 text-xs">
-          <button
-            onClick={() => setActiveTab('accounts')}
-            className={`pb-2 px-2.5 font-medium transition-colors border-b-2 ${
-              activeTab === 'accounts'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            {t('auth.accounts')} ({accounts.length})
+        <div className="flex gap-2 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/40 px-5 pt-2 text-xs">
+          <button onClick={() => setActiveTab('accounts')} className={tabButtonClass(activeTab === 'accounts')}>
+            <span className="tabular-nums">{t('auth.accounts')} ({accounts.length})</span>
           </button>
-          <button
-            onClick={() => setActiveTab('microsoft')}
-            className={`pb-2 px-2.5 font-medium transition-colors border-b-2 ${
-              activeTab === 'microsoft'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
+          <button onClick={() => setActiveTab('microsoft')} className={tabButtonClass(activeTab === 'microsoft')}>
             Microsoft
           </button>
-          <button
-            onClick={() => setActiveTab('offline')}
-            className={`pb-2 px-2.5 font-medium transition-colors border-b-2 ${
-              activeTab === 'offline'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
+          <button onClick={() => setActiveTab('offline')} className={tabButtonClass(activeTab === 'offline')}>
             Offline
           </button>
-          <button
-            onClick={() => setActiveTab('authlib')}
-            className={`pb-2 px-2.5 font-medium transition-colors border-b-2 ${
-              activeTab === 'authlib'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
+          <button onClick={() => setActiveTab('authlib')} className={tabButtonClass(activeTab === 'authlib')}>
             Ely.by / Custom
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5 text-xs">
           {(error || localError) && (
-            <div className="rounded-lg bg-red-950/40 border border-red-800/80 p-3 text-red-300 flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 rounded-[var(--radius-md)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] p-3 text-[var(--text-primary)]">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--danger)]" />
               <span>{localError || error}</span>
             </div>
           )}
@@ -148,64 +140,70 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
           {activeTab === 'accounts' && (
             <div className="space-y-3">
               {accounts.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500 space-y-2">
-                  <User className="w-8 h-8 mx-auto text-zinc-600 stroke-[1.5]" />
+                <div className="space-y-2 py-8 text-center text-[var(--text-secondary)]">
+                  <User className="mx-auto h-8 w-8 stroke-[1.5] text-[var(--text-muted)]" />
                   <p className="font-medium">{t('auth.noAccounts')}</p>
-                  <p className="text-[11px] text-zinc-600">Add a Microsoft, Offline, or Ely.by account above.</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">Add a Microsoft, Offline, or Ely.by account above.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {accounts.map((acc) => {
+                  {accounts.map((acc, index) => {
                     const isActive = acc.uuid === activeAccount.uuid;
                     return (
-                      <div
+                      <motion.div
                         key={acc.uuid}
-                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                        data-motion-element
+                        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.16, ease: 'easeOut', delay: Math.min(index * 0.03, 0.18) }}
+                        className={`flex items-center justify-between gap-3 rounded-[var(--radius-md)] border p-3 transition-colors ${
                           isActive
-                            ? 'bg-cyan-950/20 border-cyan-800/80'
-                            : 'bg-zinc-900/40 border-zinc-800 hover:border-zinc-700'
+                            ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] ring-1 ring-[var(--accent-line)]'
+                            : 'border-[var(--line-subtle)] bg-[var(--surface-1)]/80 hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-zinc-300 text-xs">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-gradient-to-br from-[var(--accent-from)] to-[var(--accent-to)] text-xs font-bold text-[var(--text-on-accent)]">
                             {acc.username.slice(0, 2).toUpperCase()}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-zinc-200 text-xs">{acc.username}</span>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-400 uppercase tracking-wider">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="truncate font-semibold text-[var(--text-primary)]" title={acc.username}>
+                                {acc.username}
+                              </span>
+                              <span className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-secondary)]">
                                 {acc.account_type}
                               </span>
                               {isActive && (
-                                <span className="flex items-center gap-1 text-[10px] font-medium text-cyan-400 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800">
-                                  <Check className="w-2.5 h-2.5" /> {t('auth.active')}
+                                <span className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--accent-line)] bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]">
+                                  <Check className="h-2.5 w-2.5" /> {t('auth.active')}
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] text-zinc-500 truncate max-w-xs font-mono mt-0.5">
+                            <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-muted)]">
                               {acc.uuid}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex shrink-0 items-center gap-1.5">
                           {!isActive && (
                             <button
                               onClick={() => setActiveAccount(acc.uuid)}
-                              className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors text-[11px] font-medium"
+                              className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
                             >
                               {t('auth.switch')}
                             </button>
                           )}
                           <button
                             onClick={() => logout(acc.uuid)}
-                            className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+                            className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
                             title={t('auth.remove')}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -216,28 +214,28 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
           {/* Microsoft Login View */}
           {activeTab === 'microsoft' && (
             <div className="space-y-4">
-              <div className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-zinc-200 font-semibold">
-                  <Shield className="w-4 h-4 text-cyan-400" />
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                  <Shield className="h-4 w-4 text-[var(--accent-from)]" />
                   <span>{t('auth.microsoft.title')}</span>
                 </div>
-                <p className="text-zinc-400 text-xs leading-relaxed">
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)] text-pretty">
                   {t('auth.microsoft.description')}
                 </p>
                 <div className="pt-2">
                   <button
                     onClick={handleMicrosoftLogin}
                     disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-medium shadow-md shadow-cyan-950/50 transition-all disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-4 py-2.5 font-medium text-[var(--text-on-accent)] transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         <span>{t('auth.microsoft.signingIn')}</span>
                       </>
                     ) : (
                       <>
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="h-4 w-4" />
                         <span>{t('auth.microsoft.button')}</span>
                       </>
                     )}
@@ -250,12 +248,12 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
           {/* Offline Login View */}
           {activeTab === 'offline' && (
             <form onSubmit={handleOfflineLogin} className="space-y-4">
-              <div className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-zinc-200 font-semibold">
-                  <User className="w-4 h-4 text-cyan-400" />
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                  <User className="h-4 w-4 text-[var(--accent-from)]" />
                   <span>{t('auth.offline.title')}</span>
                 </div>
-                <p className="text-zinc-400 text-xs leading-relaxed">
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)] text-pretty">
                   {t('auth.offline.description')}
                 </p>
                 <div className="space-y-1.5 pt-1">
@@ -265,15 +263,15 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
                     onChange={(e) => setOfflineUsername(e.target.value)}
                     placeholder={t('auth.offline.placeholder')}
                     maxLength={16}
-                    className="w-full rounded-lg bg-zinc-950 border border-zinc-800 px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-hidden focus:border-cyan-500 font-mono text-xs"
+                    className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-from)] focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isLoading || !offlineUsername.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium transition-colors disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-4 py-2 font-medium text-[var(--text-on-accent)] transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="h-3.5 w-3.5" />
                   <span>{t('auth.offline.button')}</span>
                 </button>
               </div>
@@ -283,12 +281,12 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
           {/* Authlib-Injector / Ely.by Login View */}
           {activeTab === 'authlib' && (
             <form onSubmit={handleAuthlibLogin} className="space-y-4">
-              <div className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-zinc-200 font-semibold">
-                  <Server className="w-4 h-4 text-cyan-400" />
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                  <Server className="h-4 w-4 text-[var(--accent-from)]" />
                   <span>{t('auth.authlib.title')}</span>
                 </div>
-                <p className="text-zinc-400 text-xs leading-relaxed">
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)] text-pretty">
                   {t('auth.authlib.description')}
                 </p>
                 <div className="space-y-2 pt-1">
@@ -297,22 +295,22 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
                     value={authlibServer}
                     onChange={(e) => setAuthlibServer(e.target.value)}
                     placeholder={t('auth.authlib.serverPlaceholder')}
-                    className="w-full rounded-lg bg-zinc-950 border border-zinc-800 px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-hidden focus:border-cyan-500 font-mono text-xs"
+                    className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 font-mono text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-from)] focus:outline-none"
                   />
                   <input
                     type="text"
                     value={authlibUsername}
                     onChange={(e) => setAuthlibUsername(e.target.value)}
                     placeholder={t('auth.authlib.usernamePlaceholder')}
-                    className="w-full rounded-lg bg-zinc-950 border border-zinc-800 px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-hidden focus:border-cyan-500 text-xs"
+                    className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-from)] focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isLoading || !authlibServer.trim() || !authlibUsername.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium transition-colors disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-4 py-2 font-medium text-[var(--text-on-accent)] transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="h-3.5 w-3.5" />
                   <span>{t('auth.authlib.button')}</span>
                 </button>
               </div>
@@ -321,15 +319,15 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) =
         </div>
 
         {/* Modal Footer */}
-        <div className="border-t border-zinc-800/80 bg-zinc-900/40 px-5 py-3 flex justify-end">
+        <div className="flex justify-end border-t border-[var(--line-subtle)] bg-[var(--surface-1)]/60 px-5 py-3">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium transition-colors text-xs"
+            className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
           >
             {t('auth.close')}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Info, Loader2 } from 'lucide-react';
 
 export interface ConfirmDialogProps {
@@ -26,6 +27,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isLoading = false,
 }) => {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -55,22 +57,28 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     switch (variant) {
       case 'danger':
         return {
-          icon: <AlertTriangle className="w-5 h-5 text-red-400" />,
-          iconBg: 'bg-red-950/60 border-red-800/50 text-red-400',
-          confirmBtn: 'bg-red-600 hover:bg-red-500 text-white shadow-sm shadow-red-950/50',
+          icon: <AlertTriangle className="h-5 w-5" />,
+          iconWrap:
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--danger-soft)] text-[var(--danger)]',
+          confirmBtn:
+            'border border-[var(--danger)] bg-[var(--danger)] text-[var(--text-on-accent)] hover:shadow-[var(--shadow-md)] active:scale-[0.98]',
         };
       case 'warning':
         return {
-          icon: <AlertTriangle className="w-5 h-5 text-amber-400" />,
-          iconBg: 'bg-amber-950/60 border-amber-800/50 text-amber-400',
-          confirmBtn: 'bg-amber-600 hover:bg-amber-500 text-white shadow-sm shadow-amber-950/50',
+          icon: <AlertTriangle className="h-5 w-5" />,
+          iconWrap:
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--warning-soft)] text-[var(--warning)]',
+          confirmBtn:
+            'border border-[var(--warning)]/40 bg-[var(--warning-soft)] text-[var(--warning)] hover:bg-[var(--warning)]/20 active:scale-[0.98]',
         };
       case 'info':
       default:
         return {
-          icon: <Info className="w-5 h-5 text-cyan-400" />,
-          iconBg: 'bg-cyan-950/60 border-cyan-800/50 text-cyan-400',
-          confirmBtn: 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm shadow-cyan-950/50',
+          icon: <Info className="h-5 w-5" />,
+          iconWrap:
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent-from)]',
+          confirmBtn:
+            'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] hover:shadow-[var(--shadow-glow)] active:scale-[0.98]',
         };
     }
   };
@@ -78,23 +86,33 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const styles = getVariantStyles();
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div
-        className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        data-motion-element
+        className="w-full max-w-md space-y-4 rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] p-6 shadow-2xl shadow-black/40"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc"
       >
         <div className="flex items-start gap-4">
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${styles.iconBg}`}>
-            {styles.icon}
-          </div>
-          <div className="space-y-1.5 flex-1 min-w-0">
-            <h3 id="confirm-dialog-title" className="text-sm font-semibold text-zinc-100">
+          <div className={styles.iconWrap}>{styles.icon}</div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <h3 id="confirm-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
               {title}
             </h3>
-            <p id="confirm-dialog-desc" className="text-xs text-zinc-400 leading-relaxed break-words">
+            <p
+              id="confirm-dialog-desc"
+              className="break-words text-xs leading-relaxed text-[var(--text-secondary)] text-pretty"
+            >
               {message}
             </p>
           </div>
@@ -106,7 +124,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="px-3.5 py-1.5 rounded-xl border border-zinc-700/80 bg-zinc-900 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50"
+            className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] disabled:pointer-events-none disabled:opacity-50"
           >
             {cancelText || t('common.cancel', 'Cancel')}
           </button>
@@ -114,13 +132,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             type="button"
             onClick={onConfirm}
             disabled={isLoading}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 disabled:opacity-50 ${styles.confirmBtn}`}
+            className={`flex items-center gap-1.5 rounded-[var(--radius-sm)] px-3.5 py-1.5 text-xs font-medium transition-all disabled:pointer-events-none disabled:opacity-50 ${styles.confirmBtn}`}
           >
-            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             <span>{confirmText || t('common.confirm', 'Confirm')}</span>
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
