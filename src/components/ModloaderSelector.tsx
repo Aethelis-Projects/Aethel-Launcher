@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cpu, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Cpu, Check, ChevronDown, Loader2, AlertCircle } from 'lucide-react';
 import { commands, type ModloaderVersion } from '../bindings';
 import { useInstanceStore } from '../store/instanceStore';
 
@@ -118,74 +118,78 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
     (selectedLoader !== 'vanilla' && selectedVersion !== (currentLoaderVersion || ''));
 
   return (
-    <div className="bg-[var(--surface-2)]/50 border border-[var(--line-subtle)] rounded-[var(--radius-md)] p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-[var(--accent)]" />
-          <h4 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider">
-            {t('modloader.title')}
-          </h4>
+    <div className="space-y-4 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          <Cpu className="h-4 w-4 text-[var(--accent-from)]" />
+          <h4>{t('modloader.title')}</h4>
         </div>
         {success && (
-          <span className="flex items-center gap-1 text-[11px] text-[var(--success)] font-medium">
-            <Check className="w-3.5 h-3.5" />
+          <span className="flex items-center gap-1 text-[11px] font-medium text-[var(--success)]">
+            <Check className="h-3.5 w-3.5" />
             {t('modloader.installed')}
           </span>
         )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-2.5 rounded-[var(--radius-sm)] bg-[var(--danger-soft)] border border-[var(--danger)]/40/60 text-[var(--danger)] text-xs">
-          <AlertCircle className="w-4 h-4 text-[var(--danger)] shrink-0" />
+        <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] p-2.5 text-xs text-[var(--danger)]">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-[11px] text-[var(--text-secondary)] mb-1.5 font-medium">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="min-w-0">
+          <label className="mb-1.5 block text-[11px] font-medium text-[var(--text-secondary)]">
             {t('modloader.select')}
           </label>
-          <select
-            data-testid="modloader-type-select"
-            value={selectedLoader}
-            onChange={(e) => setSelectedLoader(e.target.value)}
-            disabled={isApplying}
-            className="w-full bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)] transition-colors"
-          >
-            <option value="vanilla">{t('modloader.vanilla')}</option>
-            <option value="fabric">{t('modloader.fabric')}</option>
-            <option value="neoforge">{t('modloader.neoforge')}</option>
-            <option value="quilt">{t('modloader.quilt')}</option>
-            <option value="forge">{t('modloader.forge')}</option>
-          </select>
+          <div className="relative">
+            <select
+              data-testid="modloader-type-select"
+              value={selectedLoader}
+              onChange={(e) => setSelectedLoader(e.target.value)}
+              disabled={isApplying}
+              className="w-full cursor-pointer appearance-none rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 pr-8 text-xs text-[var(--text-primary)] transition-colors focus:border-[var(--accent-from)] focus:outline-none disabled:opacity-50"
+            >
+              <option value="vanilla">{t('modloader.vanilla')}</option>
+              <option value="fabric">{t('modloader.fabric')}</option>
+              <option value="neoforge">{t('modloader.neoforge')}</option>
+              <option value="quilt">{t('modloader.quilt')}</option>
+              <option value="forge">{t('modloader.forge')}</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
+          </div>
         </div>
 
         {selectedLoader !== 'vanilla' && (
-          <div>
-            <label className="block text-[11px] text-[var(--text-secondary)] mb-1.5 font-medium">
+          <div className="min-w-0">
+            <label className="mb-1.5 block text-[11px] font-medium text-[var(--text-secondary)]">
               {t('modloader.version')}
             </label>
             <div className="relative">
               {isLoadingVersions ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] text-xs text-[var(--text-muted)]">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
+                <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-muted)]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--accent-from)]" />
                   <span>Loading versions...</span>
                 </div>
               ) : (
-                <select
-                  data-testid="modloader-version-select"
-                  value={selectedVersion}
-                  onChange={(e) => setSelectedVersion(e.target.value)}
-                  disabled={isApplying || availableVersions.length === 0}
-                  className="w-full bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)] transition-colors"
-                >
-                  {availableVersions.map((v) => (
-                    <option key={v.version} value={v.version}>
-                      {v.version} {v.stable ? '' : '(beta)'}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    data-testid="modloader-version-select"
+                    value={selectedVersion}
+                    onChange={(e) => setSelectedVersion(e.target.value)}
+                    disabled={isApplying || availableVersions.length === 0}
+                    className="w-full cursor-pointer appearance-none rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 pr-8 font-mono text-xs text-[var(--text-primary)] transition-colors focus:border-[var(--accent-from)] focus:outline-none disabled:opacity-50"
+                  >
+                    {availableVersions.map((v) => (
+                      <option key={v.version} value={v.version}>
+                        {v.version} {v.stable ? '' : '(beta)'}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
+                </>
               )}
             </div>
           </div>
@@ -197,15 +201,15 @@ export const ModloaderSelector: React.FC<ModloaderSelectorProps> = ({
           data-testid="modloader-apply-btn"
           onClick={handleApply}
           disabled={isApplying || !hasChanges}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
+          className={`flex items-center gap-2 rounded-[var(--radius-sm)] px-3.5 py-1.5 text-xs font-medium transition-all ${
             hasChanges && !isApplying
-              ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] hover:from-[var(--accent-from)] hover:to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-md shadow-black/30'
-              : 'bg-[var(--surface-3)] text-[var(--text-muted)] cursor-not-allowed'
+              ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] hover:shadow-[var(--shadow-glow)] active:scale-[0.98]'
+              : 'cursor-not-allowed border border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--text-muted)]'
           }`}
         >
           {isApplying ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
               <span>{t('modloader.applying')}</span>
             </>
           ) : (

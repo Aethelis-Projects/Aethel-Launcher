@@ -77,9 +77,9 @@ function renderDomNode(node: Node, key: number): React.ReactNode {
     if (tagName === 'A') {
       props.target = '_blank';
       props.rel = 'noreferrer';
-      props.className = 'text-[var(--accent)] hover:text-[var(--accent)] underline underline-offset-2 transition-colors';
+      props.className = 'text-[var(--accent)] underline underline-offset-2 transition-colors hover:text-[var(--accent-from)]';
     } else if (tagName === 'IMG') {
-      props.className = 'max-w-full rounded-[var(--radius-md)] border border-[var(--line-subtle)] my-2';
+      props.className = 'my-2 max-w-full rounded-[var(--radius-md)] border border-[var(--line-subtle)]';
       props.loading = 'lazy';
       return React.createElement(lowerTag, props);
     } else if (tagName === 'BR') {
@@ -89,7 +89,7 @@ function renderDomNode(node: Node, key: number): React.ReactNode {
     } else if (tagName === 'OL') {
       props.className = 'list-decimal list-inside space-y-1 my-2 text-[var(--text-secondary)]';
     } else if (tagName === 'BLOCKQUOTE') {
-      props.className = 'border-l-2 border-[var(--accent-line)] pl-3 py-1 my-2 bg-[var(--surface-1)]/50 italic text-[var(--text-secondary)] rounded-r';
+      props.className = 'rounded-r-[var(--radius-sm)] border-l-2 border-[var(--accent-line)] bg-[var(--surface-2)]/50 pl-3 py-1 my-2 italic text-[var(--text-muted)]';
     } else if (tagName === 'H1') {
       props.className = 'text-lg font-bold text-[var(--text-primary)] mt-4 mb-2';
     } else if (tagName === 'H2') {

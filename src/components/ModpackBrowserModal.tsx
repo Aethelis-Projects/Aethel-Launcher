@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   X,
   Search,
@@ -14,6 +15,8 @@ import {
   ArrowRight,
   ChevronLeft,
   Layers,
+  FileText,
+  SlidersHorizontal,
   Image as ImageIcon,
 } from 'lucide-react';
 import { commands, type Instance, type ModpackSearchResult } from '../bindings';
@@ -43,6 +46,7 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
   onInstallSuccess,
 }) => {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const { fetchInstances } = useInstanceStore();
 
   const [provider, setProvider] = useState<'modrinth' | 'curseforge'>('modrinth');
@@ -223,16 +227,24 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.16 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 p-4 backdrop-blur-md"
+    >
+      <motion.div
         data-testid="modpack-browser-modal"
-        className="w-full max-w-5xl h-[88vh] rounded-[var(--radius-lg)] border border-[var(--line-subtle)] bg-[var(--surface-2)] shadow-2xl flex flex-col overflow-hidden"
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--surface-2)] shadow-2xl shadow-black/40"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/50 shrink-0">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/80 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-[var(--radius-md)] bg-gradient-to-br from-[var(--accent-from)] to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-inner">
-              <Sparkles className="w-5 h-5" />
+            <div className="rounded-[var(--radius-md)] bg-gradient-to-br from-[var(--accent-from)] to-[var(--accent-to)] p-2 text-[var(--text-on-accent)]">
+              <Sparkles className="h-5 w-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-[var(--text-primary)]">{t('modpack.install', 'Modpack Browser')}</h3>
@@ -241,82 +253,80 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-3)]/60 hover:text-[var(--text-primary)] transition-colors"
+            className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Search, Provider Tabs & Version Filters */}
-        <div className="px-6 py-3 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/30 shrink-0 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Provider Tabs */}
-            <div className="flex items-center gap-1.5 bg-[var(--surface-2)] p-1 rounded-[var(--radius-md)] border border-[var(--line-subtle)]">
-              <button
-                onClick={() => {
-                  setProvider('modrinth');
-                  setSelectedPack(null);
-                  setSelectedCategory(null);
-                }}
-                className={`px-3.5 py-1 rounded-[var(--radius-sm)] text-xs font-semibold transition-colors ${
-                  provider === 'modrinth'
-                    ? 'bg-[var(--success)] text-[var(--text-on-accent)] shadow-sm'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                Modrinth
-              </button>
-              <button
-                onClick={() => {
-                  setProvider('curseforge');
-                  setSelectedPack(null);
-                  setSelectedCategory(null);
-                }}
-                className={`px-3.5 py-1 rounded-[var(--radius-sm)] text-xs font-semibold transition-colors ${
-                  provider === 'curseforge'
-                    ? 'bg-[var(--warning)] text-[var(--text-on-accent)] shadow-sm'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                CurseForge
-              </button>
-            </div>
-
-            {/* Game Version Filter */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5 text-[var(--accent)]" />
-                <span>Version:</span>
-              </label>
-              <VersionSelector
-                value={selectedGameVersion}
-                onChange={setSelectedGameVersion}
-                provider={provider}
-              />
-            </div>
-          </div>
-
+        {/* Search, Provider Tabs & Version Filters — single flex-wrap toolbar */}
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--line-subtle)] bg-[var(--surface-1)]/40 px-5 py-3">
           {/* Search Input */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-[var(--text-secondary)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('modpack.searchPlaceholder', 'Search modpacks by name, theme, or author...')}
-              className="w-full pl-10 pr-4 py-2 bg-[var(--surface-1)] border border-[var(--line-subtle)] rounded-[var(--radius-md)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)] placeholder-[var(--text-muted)]"
+              className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] py-2 pl-9 pr-3 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-from)] focus:outline-none"
+            />
+          </div>
+
+          {/* Provider Tabs */}
+          <div className="flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-0)]/60 p-1">
+            <button
+              onClick={() => {
+                setProvider('modrinth');
+                setSelectedPack(null);
+                setSelectedCategory(null);
+              }}
+              className={`rounded-[var(--radius-sm)] px-3.5 py-1 text-xs font-semibold transition-colors ${
+                provider === 'modrinth'
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent-from)] shadow-sm'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              Modrinth
+            </button>
+            <button
+              onClick={() => {
+                setProvider('curseforge');
+                setSelectedPack(null);
+                setSelectedCategory(null);
+              }}
+              className={`rounded-[var(--radius-sm)] px-3.5 py-1 text-xs font-semibold transition-colors ${
+                provider === 'curseforge'
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent-from)] shadow-sm'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              CurseForge
+            </button>
+          </div>
+
+          {/* Game Version Filter */}
+          <div className="flex shrink-0 items-center gap-2">
+            <label className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+              <Layers className="h-3.5 w-3.5 text-[var(--accent-from)]" />
+              <span>Version:</span>
+            </label>
+            <VersionSelector
+              value={selectedGameVersion}
+              onChange={setSelectedGameVersion}
+              provider={provider}
             />
           </div>
 
           {/* Dynamic Categories Chips */}
           {availableCategories.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
+            <div className="flex w-full flex-wrap items-center gap-1.5">
               <button
                 onClick={() => setSelectedCategory(null)}
-                className={`px-2.5 py-0.5 rounded-full whitespace-nowrap transition-colors ${
+                className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
                   selectedCategory === null
-                    ? 'bg-[var(--accent-from)] text-[var(--text-on-accent)] font-medium'
-                    : 'bg-[var(--surface-3)]/80 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-3)]'
+                    ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] font-medium text-[var(--accent-from)]'
+                    : 'border-transparent bg-[var(--surface-3)] text-[var(--text-secondary)] hover:border-[var(--accent-line)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 All
@@ -325,10 +335,10 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
-                  className={`px-2.5 py-0.5 rounded-full whitespace-nowrap transition-colors ${
+                  className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
                     selectedCategory === cat
-                      ? 'bg-[var(--accent-from)] text-[var(--text-on-accent)] font-medium'
-                      : 'bg-[var(--surface-3)]/80 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-3)]'
+                      ? 'border-[var(--accent-line)] bg-[var(--accent-soft)] font-medium text-[var(--accent-from)]'
+                      : 'border-transparent bg-[var(--surface-3)] text-[var(--text-secondary)] hover:border-[var(--accent-line)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   {cat}
@@ -340,73 +350,73 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
 
         {/* Error Banner */}
         {error && (
-          <div className="mx-6 mt-4 p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/40 rounded-[var(--radius-sm)] flex items-start gap-2 text-xs text-[var(--danger)]">
-            <AlertCircle className="w-4 h-4 text-[var(--danger)] mt-0.5 shrink-0" />
+          <div className="mx-5 mt-4 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] p-3 text-xs text-[var(--text-primary)]">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--danger)]" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {installSuccess ? (
-            <div className="max-w-md mx-auto py-12 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[var(--success-soft)] border border-[var(--success)]/40 flex items-center justify-center text-[var(--success)] mx-auto">
-                <CheckCircle2 className="w-8 h-8" />
+            <div className="mx-auto max-w-md space-y-4 py-12 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[var(--success)]/40 bg-[var(--success-soft)] text-[var(--success)]">
+                <CheckCircle2 className="h-8 w-8" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)]">{t('modpack.installSuccess', 'Modpack installed successfully!')}</h3>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Instance <span className="text-[var(--accent)] font-semibold">{installSuccess.name}</span> is ready to launch.
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  Instance <span className="font-semibold text-[var(--accent)]">{installSuccess.name}</span> is ready to launch.
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="px-6 py-2 rounded-[var(--radius-md)] text-xs font-semibold bg-[var(--accent-from)] hover:bg-[var(--accent)]/90 text-[var(--text-on-accent)] transition-colors"
+                className="rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-6 py-2 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-line)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)]"
               >
                 {t('mods.close', 'Close')}
               </button>
             </div>
           ) : selectedPack ? (
             /* Selected Modpack Full Detail View */
-            <div className="space-y-6">
+            <div className="space-y-5">
               <button
                 onClick={() => setSelectedPack(null)}
-                className="text-xs text-[var(--accent)] hover:text-[var(--accent)] flex items-center gap-1.5 group"
+                className="group flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-primary)]"
               >
-                <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                <ChevronLeft className="h-4 w-4 text-[var(--accent-from)] transition-transform group-hover:-translate-x-0.5" />
                 <span>Back to modpack browser</span>
               </button>
 
               {/* Banner & Summary Header */}
-              <div className="p-5 bg-[var(--surface-1)]/60 border border-[var(--line-subtle)] rounded-[var(--radius-lg)] flex flex-col md:flex-row items-start gap-5">
-                <div className="w-[120px] h-[68px] rounded-[var(--radius-md)] bg-[var(--surface-3)] border border-[var(--line-subtle)] flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+              <div className="flex flex-col items-start gap-5 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4 md:flex-row">
+                <div className="flex aspect-video w-[140px] shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)]">
                   {selectedPack.icon_url ? (
-                    <img src={selectedPack.icon_url} alt={selectedPack.title} className="w-full h-full object-cover" />
+                    <img src={selectedPack.icon_url} alt={selectedPack.title} className="h-full w-full object-cover ring-1 ring-white/10" />
                   ) : (
-                    <Package className="w-8 h-8 text-[var(--accent)]" />
+                    <Package className="h-8 w-8 text-[var(--accent-from)]" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <h3 className="text-base font-bold text-[var(--text-primary)]">{selectedPack.title}</h3>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--surface-3)] text-[var(--text-secondary)] uppercase">
+                    <span className="rounded bg-[var(--surface-3)] px-2 py-0.5 font-mono text-[11px] uppercase text-[var(--text-secondary)]">
                       {selectedPack.provider}
                     </span>
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">{selectedPack.summary}</p>
-                  <div className="flex flex-wrap items-center gap-4 mt-3 text-[11px] text-[var(--text-muted)]">
+                  <p className="mt-1.5 text-pretty text-xs leading-relaxed text-[var(--text-secondary)]">{selectedPack.summary}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-[var(--text-muted)]">
                     <span className="flex items-center gap-1">
-                      <User className="w-3.5 h-3.5" />
+                      <User className="h-3.5 w-3.5" />
                       <span>{selectedPack.author}</span>
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Download className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-1 tabular-nums">
+                      <Download className="h-3.5 w-3.5" />
                       <span>{selectedPack.downloads.toLocaleString()} downloads</span>
                     </span>
                     {selectedPack.categories && (
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {selectedPack.categories.map((c) => (
-                          <span key={c} className="px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[10px] text-[var(--text-secondary)]">
+                          <span key={c} className="rounded bg-[var(--surface-3)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
                             {c}
                           </span>
                         ))}
@@ -419,62 +429,68 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
               {/* Screenshots Gallery */}
               {packScreenshots.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 text-[var(--accent)]" />
+                  <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                    <ImageIcon className="h-4 w-4 text-[var(--accent-from)]" />
                     <span>Screenshots</span>
                   </h4>
-                  <div className="flex items-center gap-3 overflow-x-auto pb-2">
+                  <div className="flex gap-3 overflow-x-auto pb-2">
                     {packScreenshots.map((img, i) => (
-                      <a
+                      <motion.a
                         key={i}
+                        data-motion-element
+                        initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.16, delay: Math.min(i * 0.03, 0.18), ease: 'easeOut' }}
                         href={img}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-48 h-28 rounded-[var(--radius-md)] overflow-hidden border border-[var(--line-subtle)] hover:border-[var(--accent-line)] transition-colors shrink-0 bg-[var(--surface-1)]"
+                        className="h-28 w-48 shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)] transition-colors hover:border-[var(--accent-line)]"
                       >
-                        <img src={img} alt={`Screenshot ${i + 1}`} className="w-full h-full object-cover" />
-                      </a>
+                        <img src={img} alt={`Screenshot ${i + 1}`} className="h-full w-full object-cover ring-1 ring-white/10" />
+                      </motion.a>
                     ))}
                   </div>
                 </div>
               )}
 
               {/* Modpack Description (WS-28) */}
-              <div className="bg-[var(--surface-1)]/60 border border-[var(--line-subtle)] rounded-[var(--radius-lg)] p-5 space-y-3">
-                <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                  About Modpack
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
+                <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <FileText className="h-4 w-4 text-[var(--accent-from)]" />
+                  <span>About Modpack</span>
                 </h4>
                 {isLoadingDetails ? (
-                  <div className="flex items-center justify-center py-6 text-[var(--text-muted)] gap-2 text-xs">
-                    <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
+                  <div className="flex items-center justify-center gap-2 py-6 text-xs text-[var(--text-muted)]">
+                    <Loader2 className="h-4 w-4 animate-spin text-[var(--accent-from)]" />
                     <span>Loading details...</span>
                   </div>
                 ) : packDescription ? (
                   selectedPack.provider === 'curseforge' || packDescription.includes('<p>') || packDescription.includes('<div') ? (
                     <SafeHtml html={packDescription} />
                   ) : (
-                    <div className="prose prose-invert max-w-none text-xs text-[var(--text-secondary)] leading-relaxed">
+                    <div className="prose prose-invert max-w-none text-xs leading-relaxed text-[var(--text-secondary)] text-pretty">
                       <ReactMarkdown>{packDescription}</ReactMarkdown>
                     </div>
                   )
                 ) : (
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{selectedPack.summary}</p>
+                  <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{selectedPack.summary}</p>
                 )}
               </div>
 
               {/* Install Configuration & Version Selector */}
-              <div className="bg-[var(--surface-1)]/60 border border-[var(--line-subtle)] rounded-[var(--radius-lg)] p-5 space-y-4">
-                <h4 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider">
-                  Installation Settings
+              <div className="space-y-4 rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 p-4">
+                <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <SlidersHorizontal className="h-4 w-4 text-[var(--accent-from)]" />
+                  <span>Installation Settings</span>
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-xs text-[var(--text-secondary)]">Instance Name</label>
                     <input
                       type="text"
                       value={customInstanceName}
                       onChange={(e) => setCustomInstanceName(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-[var(--radius-md)] bg-[var(--surface-2)] border border-[var(--line-subtle)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)]"
+                      className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                     />
                   </div>
 
@@ -484,7 +500,7 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
                       <select
                         value={selectedVersionId || ''}
                         onChange={(e) => setSelectedVersionId(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-[var(--radius-md)] bg-[var(--surface-2)] border border-[var(--line-subtle)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)]"
+                        className="w-full cursor-pointer rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-3)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent-from)] focus:outline-none"
                       >
                         {packVersions.map((v) => (
                           <option key={v.id} value={v.id}>
@@ -496,23 +512,23 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--line-subtle)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line-subtle)] pt-4">
                   <span className="text-xs text-[var(--text-secondary)]">
                     Modpack will be downloaded and an independent instance created.
                   </span>
                   <button
                     onClick={handleInstall}
                     disabled={isInstalling || !customInstanceName.trim()}
-                    className="px-6 py-2.5 rounded-[var(--radius-md)] text-xs font-semibold bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] hover:from-[var(--accent-from)] hover:to-[var(--accent-to)] text-[var(--text-on-accent)] shadow-lg shadow-black/30 disabled:opacity-50 flex items-center gap-2 transition-all"
+                    className="flex items-center gap-2 rounded-[var(--radius-md)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-5 py-2 text-xs font-semibold text-[var(--text-on-accent)] transition-all hover:shadow-[var(--shadow-glow)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                   >
                     {isInstalling ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         <span>{t('modpack.installingModpack', 'Downloading & installing...')}</span>
                       </>
                     ) : (
                       <>
-                        <Download className="w-4 h-4" />
+                        <Download className="h-4 w-4" />
                         <span>{t('modpack.installButton', 'Install Modpack')}</span>
                       </>
                     )}
@@ -522,16 +538,17 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
 
               {/* Description View */}
               <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                  Description
+                <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <FileText className="h-4 w-4 text-[var(--accent-from)]" />
+                  <span>Description</span>
                 </h4>
                 {isLoadingDetails ? (
-                  <div className="py-12 flex items-center justify-center text-[var(--text-muted)] text-xs gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin text-[var(--accent)]" />
+                  <div className="flex items-center justify-center gap-2 py-12 text-xs text-[var(--text-muted)]">
+                    <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-from)]" />
                     <span>Loading modpack description...</span>
                   </div>
                 ) : packDescription ? (
-                  <div className="p-5 rounded-[var(--radius-lg)] bg-[var(--surface-1)]/40 border border-[var(--line-subtle)] text-xs text-[var(--text-secondary)] leading-relaxed max-w-none overflow-x-auto prose prose-invert">
+                  <div className="prose prose-invert max-w-none overflow-x-auto rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/60 p-4 text-xs leading-relaxed text-[var(--text-secondary)]">
                     {selectedPack.provider === 'curseforge' ? (
                       <SafeHtml html={packDescription} />
                     ) : (
@@ -539,56 +556,63 @@ export const ModpackBrowserModal: React.FC<ModpackBrowserModalProps> = ({
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-[var(--text-muted)] italic">No description provided for this modpack.</p>
+                  <p className="text-xs italic text-[var(--text-muted)]">No description provided for this modpack.</p>
                 )}
               </div>
             </div>
           ) : isLoading ? (
-            <div className="py-24 flex flex-col items-center justify-center text-[var(--text-muted)] text-xs gap-3">
-              <Loader2 className="w-7 h-7 animate-spin text-[var(--accent)]" />
+            <div className="flex flex-col items-center justify-center gap-3 py-24 text-xs text-[var(--text-muted)]">
+              <Loader2 className="h-7 w-7 animate-spin text-[var(--accent-from)]" />
               <span>Searching modpacks...</span>
             </div>
           ) : filteredResults.length === 0 ? (
-            <div className="py-24 text-center text-[var(--text-muted)] text-xs bg-[var(--surface-1)]/20 rounded-[var(--radius-lg)] border border-[var(--line-subtle)]">
-              <Package className="w-10 h-10 mx-auto text-[var(--text-muted)] mb-2" />
+            <div className="rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/40 py-24 text-center text-xs text-[var(--text-muted)]">
+              <Search className="mx-auto mb-2 h-8 w-8 text-[var(--text-muted)]" />
               <span>No modpacks found. Try searching for "Cobblemon", "Optimization", or "Origins".</span>
             </div>
           ) : (
             /* Results Grid */
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {filteredResults.map((pack) => (
-                <div
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+              {filteredResults.map((pack, index) => (
+                <motion.div
                   key={`${pack.provider}-${pack.project_id}`}
+                  data-motion-element
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.16, delay: Math.min(index * 0.03, 0.18), ease: 'easeOut' }}
                   onClick={() => handleSelectPack(pack)}
-                  className="p-4 rounded-[var(--radius-md)] bg-[var(--surface-1)]/50 border border-[var(--line-subtle)] hover:border-[var(--accent-line)] hover:bg-[var(--surface-2)]/80 transition-all cursor-pointer flex items-start gap-3.5 group"
+                  className="group flex cursor-pointer flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--line-subtle)] bg-[var(--surface-1)]/80 transition-all hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]"
                 >
-                  <div className="w-[120px] h-[68px] rounded-[var(--radius-sm)] bg-[var(--surface-3)] border border-[var(--line-subtle)] flex items-center justify-center overflow-hidden shrink-0 group-hover:border-[var(--accent-line)] transition-colors shadow-sm">
+                  <div className="aspect-video w-full overflow-hidden bg-[var(--surface-3)]">
                     {pack.icon_url ? (
-                      <img src={pack.icon_url} alt={pack.title} className="w-full h-full object-cover" />
+                      <img src={pack.icon_url} alt={pack.title} className="h-full w-full object-cover ring-1 ring-white/10" />
                     ) : (
-                      <Package className="w-6 h-6 text-[var(--text-muted)] group-hover:text-[var(--accent)]" />
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Package className="h-8 w-8 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-from)]" />
+                      </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <h4 className="text-xs font-bold text-[var(--text-primary)] truncate group-hover:text-[var(--accent)] transition-colors">
+                      <h4 className="truncate text-xs font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]" title={pack.title}>
                         {pack.title}
                       </h4>
-                      <ArrowRight className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--accent)] shrink-0 transition-colors" />
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-from)]" />
                     </div>
-                    <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">{pack.summary}</p>
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-[var(--text-muted)] font-mono">
-                      <span>{pack.downloads.toLocaleString()} DL</span>
-                      <span>•</span>
-                      <span>{pack.author}</span>
+                    <p className="line-clamp-2 text-[11px] text-pretty text-[var(--text-secondary)]">{pack.summary}</p>
+                    <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-[10px]">
+                      <span className="rounded bg-[var(--surface-3)] px-1.5 py-0.5 font-mono tabular-nums text-[var(--text-secondary)]">
+                        {pack.downloads.toLocaleString()} DL
+                      </span>
+                      <span className="truncate text-[var(--text-muted)]">{pack.author}</span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
