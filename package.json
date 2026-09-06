@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:installer": "vite build --config vite.installer.config.ts",
-    "lint": "oxlint",
+    "lint": "oxlint --ignore-pattern \".openclaw\" --ignore-pattern \".openclaw-attachments\" --ignore-pattern \".opencode\" --ignore-pattern \"config\"",
     "test": "vitest run",
     "test:e2e": "node e2e/smoke.test.js",
     "audit:licenses": "node tools/check_licenses.mjs",
