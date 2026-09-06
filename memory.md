@@ -2,7 +2,7 @@
 
 ## 1. Проект
 
-Aethel Launcher — десктопный Minecraft-лаунчер (Tauri 2 + React 19 + TypeScript + Tailwind CSS 4 + Zustand + framer-motion). Версия на момент записи: v1.0.0-rc.11. Окно 1200×780 (min 960×640). Дизайн-система: [docs/DESIGN_HANDOFF.md](docs/DESIGN_HANDOFF.md) — единственный источник правды по стилю.
+Aethel Launcher — десктопный Minecraft-лаунчер (Tauri 2 + React 19 + TypeScript + Tailwind CSS 4 + Zustand + framer-motion). Версия на момент записи: v1.0.0-rc.12. Окно 1200×780 (min 960×640). Дизайн-система: [docs/DESIGN_HANDOFF.md](docs/DESIGN_HANDOFF.md) — единственный источник правды по стилю.
 
 ## 2. Архитектура
 
