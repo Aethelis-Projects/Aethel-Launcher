@@ -79,50 +79,50 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-0)]/80 backdrop-blur-sm p-4">
       <div
         data-testid="modpack-export-modal"
-        className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl relative overflow-hidden"
+        className="w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--line-subtle)] bg-[var(--surface-2)] p-6 shadow-2xl relative overflow-hidden"
       >
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-800/80">
+        <div className="flex items-center justify-between pb-4 border-b border-[var(--line-subtle)]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-400">
+            <div className="p-2 rounded-[var(--radius-md)] bg-[var(--accent-soft)] border border-[var(--accent-line)] text-[var(--accent)]">
               <FileArchive className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-zinc-100">{t('modpack.export')}</h3>
-              <p className="text-xs text-zinc-400">{instance.name} ({instance.game_version})</p>
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('modpack.export')}</h3>
+              <p className="text-xs text-[var(--text-secondary)]">{instance.name} ({instance.game_version})</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition-colors"
+            className="rounded-[var(--radius-sm)] p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 p-3 bg-red-950/40 border border-red-800/80 rounded-lg flex items-start gap-2 text-xs text-red-200">
-            <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+          <div className="mt-4 p-3 bg-[var(--danger-soft)] border border-[var(--danger)]/40 rounded-[var(--radius-sm)] flex items-start gap-2 text-xs text-[var(--danger)]">
+            <AlertCircle className="w-4 h-4 text-[var(--danger)] mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {success ? (
           <div className="mt-4 space-y-4">
-            <div className="p-4 bg-emerald-950/40 border border-emerald-800/80 rounded-xl flex items-center gap-3 text-xs text-emerald-200">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="p-4 bg-[var(--success-soft)] border border-[var(--success)]/40 rounded-[var(--radius-md)] flex items-center gap-3 text-xs text-[var(--success)]">
+              <CheckCircle2 className="w-5 h-5 text-[var(--success)] shrink-0" />
               <div>
-                <div className="font-semibold text-emerald-100">{t('modpack.successExport')}</div>
-                <div className="text-emerald-300/80 mt-0.5 font-mono break-all">{outputPath}</div>
+                <div className="font-semibold text-[var(--success)]">{t('modpack.successExport')}</div>
+                <div className="text-[var(--success)]/80 mt-0.5 font-mono break-all">{outputPath}</div>
               </div>
             </div>
 
             <div className="flex justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                className="px-4 py-2 rounded-[var(--radius-sm)] text-xs font-medium bg-[var(--surface-3)] hover:bg-[var(--surface-2)] text-[var(--text-primary)] transition-colors"
               >
                 {t('mods.close')}
               </button>
@@ -132,7 +132,7 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
           <form onSubmit={handleExport} className="mt-4 space-y-4">
             {/* Format Selection */}
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
                 {t('modpack.format')}
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -140,28 +140,28 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
                   type="button"
                   data-testid="format-mrpack-btn"
                   onClick={() => handleFormatChange('mrpack')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3 rounded-[var(--radius-md)] border text-left transition-all ${
                     format === 'mrpack'
-                      ? 'bg-cyan-950/40 border-cyan-500/50 text-cyan-200'
-                      : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      ? 'bg-[var(--accent-soft)] border-[var(--accent-line)] text-[var(--accent)]'
+                      : 'bg-[var(--surface-1)]/60 border-[var(--line-subtle)] text-[var(--text-secondary)] hover:border-[var(--line-strong)]'
                   }`}
                 >
                   <div className="text-xs font-semibold">{t('modpack.mrpack')}</div>
-                  <div className="text-[11px] text-zinc-500 mt-0.5">Modrinth format (.mrpack)</div>
+                  <div className="text-[11px] text-[var(--text-muted)] mt-0.5">Modrinth format (.mrpack)</div>
                 </button>
 
                 <button
                   type="button"
                   data-testid="format-zip-btn"
                   onClick={() => handleFormatChange('zip')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3 rounded-[var(--radius-md)] border text-left transition-all ${
                     format === 'zip'
-                      ? 'bg-cyan-950/40 border-cyan-500/50 text-cyan-200'
-                      : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      ? 'bg-[var(--accent-soft)] border-[var(--accent-line)] text-[var(--accent)]'
+                      : 'bg-[var(--surface-1)]/60 border-[var(--line-subtle)] text-[var(--text-secondary)] hover:border-[var(--line-strong)]'
                   }`}
                 >
                   <div className="text-xs font-semibold">{t('modpack.zip')}</div>
-                  <div className="text-[11px] text-zinc-500 mt-0.5">Full instance backup (.zip)</div>
+                  <div className="text-[11px] text-[var(--text-muted)] mt-0.5">Full instance backup (.zip)</div>
                 </button>
               </div>
             </div>
@@ -171,7 +171,7 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
                       {t('modpack.name')}
                     </label>
                     <input
@@ -179,12 +179,12 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       disabled={isExporting}
-                      className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-[var(--surface-1)]/90 border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)]"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
                       {t('modpack.version')}
                     </label>
                     <input
@@ -192,14 +192,14 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
                       value={version}
                       onChange={(e) => setVersion(e.target.value)}
                       disabled={isExporting}
-                      className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 font-mono"
+                      className="w-full bg-[var(--surface-1)]/90 border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)] font-mono"
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
                     {t('modpack.summary')}
                   </label>
                   <input
@@ -208,22 +208,22 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
                     onChange={(e) => setSummary(e.target.value)}
                     placeholder="Short description of this modpack"
                     disabled={isExporting}
-                    className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-[var(--surface-1)]/90 border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)]"
                   />
                 </div>
               </>
             ) : (
-              <div className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-zinc-300">
+              <div className="p-3 bg-[var(--surface-1)]/60 border border-[var(--line-subtle)] rounded-[var(--radius-md)] space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
                   <input
                     type="checkbox"
                     checked={includeSaves}
                     onChange={(e) => setIncludeSaves(e.target.checked)}
-                    className="rounded border-zinc-700 bg-zinc-800 text-cyan-500 focus:ring-0"
+                    className="rounded border-[var(--line-subtle)] bg-[var(--surface-3)] text-[var(--accent)] focus:ring-0"
                   />
                   <span>{t('modpack.includeSaves')}</span>
                 </label>
-                <p className="text-[11px] text-zinc-500">
+                <p className="text-[11px] text-[var(--text-muted)]">
                   Excludes platform-specific binaries and cache (libraries/, natives/, logs/).
                 </p>
               </div>
@@ -231,7 +231,7 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
 
             {/* Output File Path */}
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
                 Output File Destination
               </label>
               <input
@@ -240,17 +240,17 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
                 value={outputPath}
                 onChange={(e) => setOutputPath(e.target.value)}
                 disabled={isExporting}
-                className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 font-mono"
+                className="w-full bg-[var(--surface-1)]/90 border border-[var(--line-subtle)] rounded-[var(--radius-sm)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-line)] font-mono"
                 required
               />
             </div>
 
-            <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-800/80">
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-[var(--line-subtle)]">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isExporting}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition-colors"
+                className="px-4 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)] transition-colors"
               >
                 {t('mods.close')}
               </button>
@@ -258,7 +258,7 @@ export const ModpackExportModal: React.FC<ModpackExportModalProps> = ({
                 type="submit"
                 data-testid="submit-export-btn"
                 disabled={isExporting || !outputPath.trim()}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-white bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 shadow-md shadow-cyan-950 transition-all disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 rounded-[var(--radius-sm)] text-xs font-medium text-[var(--text-on-accent)] bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] hover:from-[var(--accent-from)] hover:to-[var(--accent-to)] shadow-md shadow-black/30 transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {isExporting ? (
                   <>
